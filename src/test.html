@@ -1,0 +1,62 @@
+<style>
+    .home-img,
+    .home-h,
+    .home-p,
+    .home-b {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95); /* Slightly down, slightly smaller */
+        transition: opacity 0.5s ease-out, transform 0.5s ease-out; /* Controls exit speed */
+        will-change: opacity, transform; /* Optimization hint */
+    }
+    .home-img.is-visible,
+    .home-h.is-visible,
+    .home-p.is-visible,
+    .home-b.is-visible {
+        opacity: 1;
+        transform: translateY(0) scale(1); /* Full opacity, original size and position */
+        transition: opacity 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+            transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Controls entrance speed and easing */
+    }
+</style>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const classesToAnimate = ["home-img", "home-h", "home-p", "home-b"];
+
+        const elements = document.querySelectorAll(
+            classesToAnimate.map((cls) => `.${cls}`).join(", ")
+        );
+
+        const options = {
+            root: null,
+            threshold: 0.2,
+            rootMargin: "0px 0px -50px 0px",
+        };
+
+        const observerCallback = (entries, observer) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add("is-visible");
+                } else {
+                    entry.target.classList.remove("is-visible");
+                }
+            });
+        };
+        const observer = new IntersectionObserver(observerCallback, options);
+
+        elements.forEach((element) => {
+            observer.observe(element);
+        });
+        elements.forEach((el, index) => {
+            if (el.classList.contains("home-h")) {
+                el.style.transitionDelay = "0.1s";
+            } else if (el.classList.contains("home-p")) {
+                el.style.transitionDelay = "0.2s";
+            } else if (el.classList.contains("home-b")) {
+                el.style.transitionDelay = "0.3s";
+            }
+        });
+    });
+</script>
+
+

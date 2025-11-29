@@ -1,0 +1,142 @@
+.nav-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--color-primary);
+    padding: 0 32px;
+    height: 64px;
+    position: relative;
+    z-index: 1100;
+}
+
+.nav-logo {
+    height: 48px;
+    margin-right: 40px;
+}
+
+.nav-menu {
+    flex: 1;
+    justify-content: center;
+    background: transparent !important;
+    border-bottom: none !important;
+}
+
+.nav-menu .ant-menu-item {
+    margin: 0 16px;
+    background: transparent !important;
+    border-bottom: none !important;
+    transition: color 0.3s ease;
+}
+
+.nav-menu .ant-menu-item a,
+.nav-menu .ant-menu-item .anticon {
+    color: var(--color-text-inverse) !important;
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+.nav-menu .ant-menu-item:hover a,
+.nav-menu .ant-menu-item:hover .anticon {
+    color: var(--color-accent) !important;
+    left: 0 !important;
+    right: 0 !important;
+}
+
+.nav-menu .ant-menu-item-selected a,
+.nav-menu .ant-menu-item-selected .anticon {
+    color: var(--color-accent) !important;
+}
+
+.nav-menu .ant-menu-item-selected::after {
+    border-bottom: 3px solid var(--color-accent) !important;
+    left: 0 !important;
+    right: 0 !important;
+}
+
+.nav-menu .ant-menu-item:hover::after {
+    border-bottom: 3px solid var(--color-accent) !important;
+    left: 0 !important;
+    right: 0 !important;
+}
+
+.nav-logout {
+    margin-left: auto;
+}
+
+.nav-logout .ant-btn {
+    color: var(--color-text-inverse);
+    font-weight: bold;
+    transition: color 0.3s ease;
+    background: transparent;
+    border: none;
+}
+
+.nav-logout .ant-btn:hover {
+    color: var(--color-accent) !important;
+}
+
+.nav-desktop-menu {
+    display: contents;
+}
+
+.nav-mobile-bottom {
+    display: none;
+}
+
+.bottom-nav-item {
+    flex: 1;
+    text-align: center;
+    align-content: center;
+    padding: 10px 0;
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-size: 20px;
+    transition: color 0.3s ease;
+}
+
+.bottom-nav-item.active {
+    color: var(--color-accent);
+}
+
+.bottom-nav-item:hover {
+    color: var(--color-accent);
+}
+
+@media (max-width: 768px) {
+    .nav-desktop-menu {
+        display: none;
+    }
+
+    .nav-header {
+        padding: 0 16px;
+        height: 56px;
+    }
+
+    .nav-mobile-bottom {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 56px;
+        background: var(--color-primary);
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        z-index: 1000;
+        width: 100%;
+    }
+
+    main,
+    .ant-layout-content,
+    #root {
+        padding-bottom: 56px !important;
+        box-sizing: border-box;
+    }
+
+    .nav-logout {
+        display: block;
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+}

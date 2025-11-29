@@ -1,0 +1,22 @@
+.reports-chart-container {
+    display: flex;
+    justify-content: center;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1), 0 0 0 1px var(--color-border);
+}
+
+.reports-select,
+.select-timeframe,
+.pwet {
+    min-width: 120px;
+}
+
+.loading-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 500px;
+}

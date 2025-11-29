@@ -1,0 +1,63 @@
+:root {
+    /* Brand */
+    --color-primary: #0a3b82;
+    --color-primary-light: #3f6cb3;
+    --color-primary-dark: #062452;
+
+    --color-accent: #f8b701;
+    --color-accent-light: #ffd84a;
+    --color-accent-dark: #b48a00;
+
+    /* Neutral */
+    --color-black: #1a1a1a;
+    --color-gray-dark: #4a4a4a;
+    --color-gray: #8c8c8c;
+    --color-gray-light: #e0e0e0;
+    --color-white: #ffffff;
+
+    /* Feedback */
+    --color-success: #28a745;
+    --color-warning: #ffc107;
+    --color-error: #dc3545;
+    --color-info: #17a2b8;
+
+    /* UI Backgrounds */
+    --color-background: var(--color-white);
+    --color-background-alt: #f9f9f9;
+    --color-surface: #ffffff; /* cards, modals */
+    --color-surface-alt: #f4f6f9;
+
+    /* Text */
+    --color-text: var(--color-black);
+    --color-text-muted: var(--color-gray-dark);
+    --color-text-inverse: var(--color-white);
+
+    /* Borders / Lines */
+    --color-border: var(--color-gray-light);
+    --color-border-strong: var(--color-gray);
+
+    /* Interactive */
+    --color-link: var(--color-primary);
+    --color-link-hover: var(--color-primary-light);
+
+    --color-button-primary-bg: var(--color-primary);
+    --color-button-primary-text: var(--color-white);
+    --color-button-primary-hover: var(--color-primary-light);
+
+    --color-button-accent-bg: var(--color-accent);
+    --color-button-accent-text: var(--color-black);
+    --color-button-accent-hover: var(--color-accent-light);
+
+    /* States */
+    --color-success-bg: #e6f4ea;
+    --color-warning-bg: #fff8e1;
+    --color-error-bg: #fdecea;
+    --color-info-bg: #e8f4f8;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    /* outline: 1px solid rgba(0, 128, 255, 0.2); */
+}
