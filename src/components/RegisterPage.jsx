@@ -99,10 +99,10 @@ const RegisterPage = ({ onSuccess }) => {
     const [status, setStatus] = useState({ message: null, isError: false });
     const [loading, setLoading] = useState(false);
     // emailValid: true=available, false=taken/invalid, null=not yet checked/empty
-    const [emailValid, setEmailValid] = useState(null); 
+    const [emailValid, setEmailValid] = useState(null);
     const [contactValid, setContactValid] = useState(null);
     // State for '9' prefix validation error message
-    const [contactPrefixError, setContactPrefixError] = useState(null); 
+    const [contactPrefixError, setContactPrefixError] = useState(null);
     // State to distinguish between invalid format and taken email
     const [emailFormatInvalid, setEmailFormatInvalid] = useState(false);
 
@@ -153,9 +153,9 @@ const RegisterPage = ({ onSuccess }) => {
             setEmailValid(false); // Treat as invalid until format is fixed
             return;
         }
-        
+
         setEmailFormatInvalid(false); // Format is valid, proceed to check uniqueness
-        
+
         // 2. Check for uniqueness in DB
         const { data } = await supabase
             .from("contacts")
@@ -164,21 +164,21 @@ const RegisterPage = ({ onSuccess }) => {
             .maybeSingle();
 
         // If data exists, it's taken (false). If data is null, it's available (true).
-        setEmailValid(!data); 
+        setEmailValid(!data);
     }, []);
 
     const checkContact = useCallback(async (contact) => {
         const cleanedNumber = contact.replace(/\D/g, "");
-        setContactPrefixError(null); 
+        setContactPrefixError(null);
 
         // 1. Check for 10-digit length
         if (cleanedNumber.length !== 10) {
-            setContactPrefixError(null); 
+            setContactPrefixError(null);
             return setContactValid(null);
         }
 
         // 2. Check if the number starts with '9'
-        if (cleanedNumber.charAt(0) !== '9') {
+        if (cleanedNumber.charAt(0) !== "9") {
             setContactPrefixError("Ang contact number ay dapat magsimula sa 9");
             return setContactValid(false);
         }
@@ -191,7 +191,7 @@ const RegisterPage = ({ onSuccess }) => {
             .eq("contact_number", fullNumber)
             .maybeSingle();
 
-        setContactPrefixError(null); 
+        setContactPrefixError(null);
         setContactValid(!data);
     }, []);
     // --------------------------------------------------------------------------
@@ -205,9 +205,11 @@ const RegisterPage = ({ onSuccess }) => {
             // Restriction: First letter capital, rest lowercase
             if (value.length > 0) {
                 // Allows only alphabetical characters and spaces for names
-                const cleanedValue = value.replace(/[^a-zA-Z\s]/g, '');
+                const cleanedValue = value.replace(/[^a-zA-Z\s]/g, "");
                 // Apply Title Case formatting
-                value = cleanedValue.charAt(0).toUpperCase() + cleanedValue.slice(1).toLowerCase();
+                value =
+                    cleanedValue.charAt(0).toUpperCase() +
+                    cleanedValue.slice(1).toLowerCase();
             }
         } else if (name === "contactNumber") {
             // Restriction: Only digits (for number type)
@@ -244,11 +246,11 @@ const RegisterPage = ({ onSuccess }) => {
 
         // --- Pre-submission Validation Checks ---
         if (password.length < 8 || password.length > 32) {
-             setLoading(false);
-             return setStatus({
-                 message: "Password must be between 8 and 32 characters long.",
-                 isError: true,
-             });
+            setLoading(false);
+            return setStatus({
+                message: "Password must be between 8 and 32 characters long.",
+                isError: true,
+            });
         }
         if (!passwordsMatch) {
             setLoading(false);
@@ -257,16 +259,19 @@ const RegisterPage = ({ onSuccess }) => {
                 isError: true,
             });
         }
-        
+
         // CHECK EMAIL VALIDATION
-        if (emailFormatInvalid) { // Check for format error first
+        if (emailFormatInvalid) {
+            // Check for format error first
             setLoading(false);
             return setStatus({
-                message: "Please enter a valid email format (e.g., user@domain.com).",
+                message:
+                    "Please enter a valid email format (e.g., user@domain.com).",
                 isError: true,
             });
         }
-        if (emailValid === false || emailValid === null) { // Then check for uniqueness/missing
+        if (emailValid === false || emailValid === null) {
+            // Then check for uniqueness/missing
             setLoading(false);
             return setStatus({
                 message: "Please enter a valid and available email.",
@@ -278,13 +283,17 @@ const RegisterPage = ({ onSuccess }) => {
         // Use the cleaned number for validation/check
         const cleanedContact = contactNumber.replace(/\D/g, "");
 
-        if (cleanedContact.length !== 10 || cleanedContact.charAt(0) !== '9' || contactValid === false) {
-             setLoading(false);
-             return setStatus({
-                 message:
-                     "Please enter a valid, 10-digit contact number starting with '9'.",
-                 isError: true,
-             });
+        if (
+            cleanedContact.length !== 10 ||
+            cleanedContact.charAt(0) !== "9" ||
+            contactValid === false
+        ) {
+            setLoading(false);
+            return setStatus({
+                message:
+                    "Please enter a valid, 10-digit contact number starting with '9'.",
+                isError: true,
+            });
         }
         if (!place) {
             setLoading(false);
@@ -309,9 +318,11 @@ const RegisterPage = ({ onSuccess }) => {
         const placeIdToSave = place || null;
 
         // Ensure name format is enforced at the point of saving
-        const formattedFirstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
-        const formattedLastName = lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase();
-
+        const formattedFirstName =
+            firstName.charAt(0).toUpperCase() +
+            firstName.slice(1).toLowerCase();
+        const formattedLastName =
+            lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase();
 
         try {
             // 1. Register user with Supabase Auth
@@ -329,7 +340,7 @@ const RegisterPage = ({ onSuccess }) => {
                 {
                     user_id: authData.user.id,
                     first_name: formattedFirstName, // Use formatted name
-                    last_name: formattedLastName,  // Use formatted name
+                    last_name: formattedLastName, // Use formatted name
                     email,
                     contact_number: fullNumber,
                     place_id: placeIdToSave,
@@ -366,11 +377,11 @@ const RegisterPage = ({ onSuccess }) => {
         formData.password &&
         formData.confirmPassword &&
         cleanedContactNumber.length === 10 &&
-        cleanedContactNumber.charAt(0) === '9' && 
+        cleanedContactNumber.charAt(0) === "9" &&
         formData.place &&
         passwordsMatch &&
-        formData.password.length >= 8 && 
-        formData.password.length <= 32 && 
+        formData.password.length >= 8 &&
+        formData.password.length <= 32 &&
         emailValid === true && // Must be valid and available
         contactValid === true &&
         agreedToTerms; // Must be true
@@ -380,20 +391,23 @@ const RegisterPage = ({ onSuccess }) => {
         if (password.length === 0) return { status: "", help: null };
 
         if (password.length < 8) {
-            return { 
-                status: "error", 
-                help: "Password must be at least 8 characters long.(Ang password ay dapat hindi bababa sa 8 karakter)" 
+            return {
+                status: "error",
+                help: "Password must be at least 8 characters long.(Ang password ay dapat hindi bababa sa 8 karakter)",
             };
         }
         if (password.length > 32) {
-            return { 
-                status: "error", 
-                help: "Password cannot be more than 32 characters long." 
+            return {
+                status: "error",
+                help: "Password cannot be more than 32 characters long.",
             };
         }
 
         // If password meets length requirements, check against confirm password for immediate warning
-        if (formData.confirmPassword.length > 0 && password !== formData.confirmPassword) {
+        if (
+            formData.confirmPassword.length > 0 &&
+            password !== formData.confirmPassword
+        ) {
             return { status: "warning", help: "Passwords do not match." };
         }
 
@@ -402,12 +416,12 @@ const RegisterPage = ({ onSuccess }) => {
 
     const getConfirmPasswordStatus = (password, confirmPassword) => {
         if (confirmPassword.length === 0) return { status: "", help: null };
-        
+
         // Check minimum length (8)
         if (confirmPassword.length < 8) {
-            return { 
-                status: "error", 
-                help: "Password must be at least 8 characters long.(Ang password ay dapat hindi bababa sa 8 karakter)" 
+            return {
+                status: "error",
+                help: "Password must be at least 8 characters long.(Ang password ay dapat hindi bababa sa 8 karakter)",
             };
         }
         // Check match
@@ -419,9 +433,11 @@ const RegisterPage = ({ onSuccess }) => {
     };
 
     const passwordStatus = getPasswordStatus(formData.password);
-    const confirmPasswordStatus = getConfirmPasswordStatus(formData.password, formData.confirmPassword);
+    const confirmPasswordStatus = getConfirmPasswordStatus(
+        formData.password,
+        formData.confirmPassword
+    );
     // ----------------------------------------------
-
 
     return (
         <div
@@ -436,7 +452,7 @@ const RegisterPage = ({ onSuccess }) => {
         >
             <Card
                 style={{
-                    maxWidth: 450, 
+                    maxWidth: 450,
                     width: "100%",
                     boxShadow: THEME.CARD_SHADOW,
                     borderRadius: 12,
@@ -512,7 +528,7 @@ const RegisterPage = ({ onSuccess }) => {
                         validateStatus={
                             formData.email.length === 0
                                 ? ""
-                                : emailFormatInvalid 
+                                : emailFormatInvalid
                                 ? "error" // Show error if format is invalid
                                 : emailValid === true
                                 ? "success"
@@ -522,13 +538,13 @@ const RegisterPage = ({ onSuccess }) => {
                         }
                         help={
                             formData.email.length > 0
-                                ? emailFormatInvalid 
+                                ? emailFormatInvalid
                                     ? "Invalid email format (must include '@')"
                                     : emailValid === true
-                                        ? "Available"
-                                        : emailValid === false 
-                                            ? "Taken or invalid format (Nagamit na o di-wastong pormat"
-                                            : null
+                                    ? "Available"
+                                    : emailValid === false
+                                    ? "Taken or invalid format (Nagamit na o di-wastong pormat"
+                                    : null
                                 : null
                         }
                     >
@@ -565,14 +581,15 @@ const RegisterPage = ({ onSuccess }) => {
                                 help={
                                     contactPrefixError || // Display prefix error first
                                     (cleanedContactNumber.length > 0 &&
-                                    cleanedContactNumber.charAt(0) === '9' && 
+                                    cleanedContactNumber.charAt(0) === "9" &&
                                     contactValid !== null
                                         ? contactValid
                                             ? "Available"
                                             : "Taken or invalid format"
-                                        : cleanedContactNumber.length > 0 && cleanedContactNumber.length !== 10
-                                            ? ""
-                                            : null)
+                                        : cleanedContactNumber.length > 0 &&
+                                          cleanedContactNumber.length !== 10
+                                        ? ""
+                                        : null)
                                 }
                             >
                                 <Input
@@ -605,7 +622,7 @@ const RegisterPage = ({ onSuccess }) => {
                         </Col>
                         <Col span={12}>
                             <Form.Item
-                                label={<Text strong>Place of Residence</Text>}
+                                label={<Text strong>Area</Text>}
                                 required
                             >
                                 <Select
@@ -684,10 +701,7 @@ const RegisterPage = ({ onSuccess }) => {
                     </Row>
 
                     {/* --- CHECKBOX AND LINK TO MODAL --- */}
-                    <Form.Item
-                        name="agreement"
-                        valuePropName="checked"
-                    >
+                    <Form.Item name="agreement" valuePropName="checked">
                         <Checkbox
                             checked={agreedToTerms}
                             onChange={handleTermsChange}
@@ -782,8 +796,22 @@ const RegisterPage = ({ onSuccess }) => {
                 ]}
                 width={700}
             >
-                <div style={{ maxHeight: "60vh", overflowY: "auto", padding: 10, border: `1px solid ${THEME.BACKGROUND_LIGHT}`, borderRadius: 5 }}>
-                    <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "0.9em" }}>
+                <div
+                    style={{
+                        maxHeight: "60vh",
+                        overflowY: "auto",
+                        padding: 10,
+                        border: `1px solid ${THEME.BACKGROUND_LIGHT}`,
+                        borderRadius: 5,
+                    }}
+                >
+                    <pre
+                        style={{
+                            whiteSpace: "pre-wrap",
+                            fontFamily: "inherit",
+                            fontSize: "0.9em",
+                        }}
+                    >
                         {TERMS_AND_CONDITIONS_TEXT}
                     </pre>
                 </div>
