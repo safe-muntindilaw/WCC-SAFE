@@ -131,12 +131,12 @@ const ReportPage = () => {
     // ADDED L1, L2, L3 THRESHOLDS
     const THRESHOLDS = useMemo(
         () => ({
-            SAFE_LEVEL: 6,
+            SAFE_LEVEL: 4, // Above this is considered SAFE
             RISK_LEVEL: 1,
 
-            L1_LEVEL: 5.9, // L1 (Closest to Safe - Low Caution)
-            L2_LEVEL: 3, // L2 (Middle - Moderate Caution)
-            L3_LEVEL: 1.1, // L3 (Closest to Risk - High Caution)
+            L1_LEVEL: 4, // L1 (Closest to Safe - Low Caution)
+            L2_LEVEL: 2.5, // L2 (Middle - Moderate Caution)
+            L3_LEVEL: 1, // L3 (Closest to Risk - High Caution)
         }),
         []
     );
@@ -431,12 +431,8 @@ const ReportPage = () => {
                     boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
                 }}
             >
-                {/* // --- RESPONSIBLE CONTROLS SECTION --- 
-                // All controls are now managed by Ant Design's Flex with wrap="wrap" 
-                */}
-                
                 {/* -- HEADER/TITLE ROW -- */}
-                <Flex 
+                <Flex
                     justify="space-between"
                     align="center"
                     wrap="wrap" // 👈 CRITICAL: Wraps on smaller screens
@@ -450,7 +446,7 @@ const ReportPage = () => {
                         style={{
                             margin: 0,
                             color: GOVERNMENT_THEME.PRIMARY_BLUE,
-                            flexGrow: 1, 
+                            flexGrow: 1,
                             minWidth: "50%", // Ensures title has enough space
                         }}
                     >
@@ -469,7 +465,7 @@ const ReportPage = () => {
                         style={{
                             backgroundColor: GOVERNMENT_THEME.PRIMARY_BLUE,
                             borderColor: GOVERNMENT_THEME.PRIMARY_BLUE,
-                            flexShrink: 0, 
+                            flexShrink: 0,
                         }}
                     >
                         Refresh Data
@@ -483,13 +479,13 @@ const ReportPage = () => {
                     }}
                 >
                     {/* -- MAIN CONTROL ROW -- */}
-                    <Flex 
+                    <Flex
                         justify="flex-start"
                         align="center"
                         wrap="wrap" // 👈 CRITICAL FOR RESPONSIVENESS: Wraps controls onto new lines
                         gap={16} // Space between items
                         style={{
-                            padding: "12px 0",
+                            padding: "1px 0",
                         }}
                     >
                         {/* Report Type Radio Group */}
@@ -523,7 +519,7 @@ const ReportPage = () => {
                         {/* DYNAMIC FILTERS */}
                         {(reportType === "monthly" ||
                             reportType === "annually") && (
-                            <Flex 
+                            <Flex
                                 size="middle"
                                 align="center"
                                 wrap="wrap" // CRITICAL: Wraps date/select controls
@@ -532,7 +528,7 @@ const ReportPage = () => {
                                     padding: 12,
                                     borderRadius: 4,
                                     // Use a dashed left border to separate from radio buttons when stacked
-                                    borderLeft: `1px dashed ${GOVERNMENT_THEME.GRID_STROKE}`, 
+                                    borderLeft: `1px dashed ${GOVERNMENT_THEME.GRID_STROKE}`,
                                     paddingLeft: 16,
                                     marginLeft: 16,
                                 }}
@@ -545,7 +541,7 @@ const ReportPage = () => {
                                             value={selectedMonth}
                                             onChange={setSelectedMonth}
                                             allowClear={false}
-                                            style={{ minWidth: 120 }} 
+                                            style={{ minWidth: 120 }}
                                         />
                                         <Text strong>Group By:</Text>
                                         <Select
@@ -570,18 +566,24 @@ const ReportPage = () => {
                                             value={selectedYears}
                                             onChange={setSelectedYears}
                                             placeholder="Select years to compare"
-                                            style={{ minWidth: 180 }} 
+                                            style={{ minWidth: 180 }}
                                         >
-                                            {Array.from({ length: 10 }, (_, i) => {
-                                                const year = (
-                                                    dayjs().year() - i
-                                                ).toString();
-                                                return (
-                                                    <Option key={year} value={year}>
-                                                        {year}
-                                                    </Option>
-                                                );
-                                            })}
+                                            {Array.from(
+                                                { length: 10 },
+                                                (_, i) => {
+                                                    const year = (
+                                                        dayjs().year() - i
+                                                    ).toString();
+                                                    return (
+                                                        <Option
+                                                            key={year}
+                                                            value={year}
+                                                        >
+                                                            {year}
+                                                        </Option>
+                                                    );
+                                                }
+                                            )}
                                         </Select>
                                         <Button onClick={resetAnnual}>
                                             Reset Years
@@ -635,7 +637,8 @@ const ReportPage = () => {
                                     color: GOVERNMENT_THEME.TEXT_COLOR,
                                 }}
                             >
-                                No sensor readings found for the selected period.
+                                No sensor readings found for the selected
+                                period.
                             </p>
                         </div>
                     ) : (
@@ -757,9 +760,11 @@ const ReportPage = () => {
                                             : 30
                                     } // Increase height for rotation
                                     stroke={GOVERNMENT_THEME.TEXT_COLOR}
-                                    tickLine={{ stroke: GOVERNMENT_THEME.TEXT_COLOR }}
+                                    tickLine={{
+                                        stroke: GOVERNMENT_THEME.TEXT_COLOR,
+                                    }}
                                     // IMPROVEMENT: Preserve start and end ticks for better context on mobile
-                                    interval="preserveStartEnd" 
+                                    interval="preserveStartEnd"
                                 />
                                 <YAxis
                                     domain={getYAxisDomain}
@@ -773,7 +778,9 @@ const ReportPage = () => {
                                     }}
                                     tick={{ fill: GOVERNMENT_THEME.TEXT_COLOR }}
                                     stroke={GOVERNMENT_THEME.TEXT_COLOR}
-                                    tickLine={{ stroke: GOVERNMENT_THEME.TEXT_COLOR }}
+                                    tickLine={{
+                                        stroke: GOVERNMENT_THEME.TEXT_COLOR,
+                                    }}
                                 />
                                 <Tooltip
                                     contentStyle={{

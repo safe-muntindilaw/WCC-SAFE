@@ -27,3 +27,4 @@ export { default as supabase } from "@/services/supabaseClient";
 
 // Utils
 export { default as ThresholdTable } from "@/utils/ThresholdTable";
+// export { default as UserManagementJS } from "@/utils/UserManagementJS";

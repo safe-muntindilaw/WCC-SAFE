@@ -35,9 +35,10 @@ const UNIT = "m";
 
 const BARANGAY_THEME = {
     BLUE_AUTHORITY: "#0A3D62",
+    GREEN_SAFE: "#52C41A",
+    YELLOW_NORMAL: "#FAAD14",
+    ORANGE_ALERT: "#FFA500",
     RED_CRITICAL: "#CF1322",
-    YELLOW_ALERT: "#FAAD14",
-    GREEN_NORMAL: "#52C41A",
     CARD_SHADOW: "0 4px 12px rgba(0, 0, 0, 0.12)",
     PRIMARY_COLOR: "#0A3D62",
 };
@@ -51,30 +52,54 @@ const cardStyle = {
     cursor: "default",
 };
 
+// Role configuration for cleaner permission checks
+const ROLE_CONFIG = {
+    Admin: {
+        canEditThresholds: true,
+        canViewRoleCounts: true,
+        canViewReadings: false,
+        showThresholds: true,
+        dashboardTitle: "Barangay Admin Control Panel",
+        sectionTitle: "Key User Statistics",
+    },
+    Official: {
+        canEditThresholds: false,
+        canViewRoleCounts: true,
+        canViewReadings: true,
+        showThresholds: true,
+        dashboardTitle: "Barangay Official's Overview",
+        sectionTitle: "Live Data Overview",
+    },
+    Resident: {
+        canEditThresholds: false,
+        canViewRoleCounts: false,
+        canViewReadings: true,
+        showThresholds: false,
+        dashboardTitle: "Barangay Resident Water Monitor",
+        sectionTitle: "Live Data Overview",
+    },
+};
+
 const getStatusColor = (statusName) => {
-    switch (statusName) {
-        case "L1":
-            return BARANGAY_THEME.GREEN_NORMAL;
-        case "L2":
-            return BARANGAY_THEME.YELLOW_ALERT;
-        case "L3":
-            return BARANGAY_THEME.RED_CRITICAL;
-        default:
-            return BARANGAY_THEME.BLUE_AUTHORITY;
-    }
+    const colors = {
+        L0: BARANGAY_THEME.GREEN_SAFE,
+        L1: BARANGAY_THEME.YELLOW_NORMAL,
+        L2: BARANGAY_THEME.ORANGE_ALERT,
+        L3: BARANGAY_THEME.RED_CRITICAL,
+    };
+    return colors[statusName] || BARANGAY_THEME.BLUE_AUTHORITY;
 };
 
 const getStatusDescription = (statusName) => {
-    switch (statusName) {
-        case "L1":
-            return "Normal (Lowest Risk, Safe Water Level - Pinakamababa ang peligro, ligtas na antas ng tubig)";
-        case "L2":
-            return "Alert (Moderate Risk, Requires Monitoring - Katamtamang peligro, kailangang bantayan)";
-        case "L3":
-            return "Critical (Highest Risk, Approaching Overflow - Pinakamataas na peligro, malapit na umapaw)";
-        default:
-            return "Unknown Status (Hindi Tiyak na Katayuan)";
-    }
+    const descriptions = {
+        L0: "Normal (Safe Water Level - Ligtas at normal ang antas ng tubig)",
+        L1: "Alert (Minor Risk, Prepare for Monitoring - May kaunting peligro, maghanda sa pagbabantay)",
+        L2: "Warning (Moderate Risk, Evacuation Preparation - Katamtamang peligro, maghanda para sa paglikas)",
+        L3: "Critical (Highest Risk, Immediate Evacuation Required - Pinakamataas na peligro, kailangan na ang agarang paglikas)",
+    };
+    return (
+        descriptions[statusName] || "Unknown Status (Hindi Tiyak na Katayuan)"
+    );
 };
 
 const getTodayStartISO = () => {
@@ -255,22 +280,28 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                 );
 
                 return (
-                    <Col xs={24} md={8} key={threshold.id}>
+                    <Col xs={24} sm={12} lg={6} key={threshold.id}>
                         <Card
                             style={{
                                 ...cardStyle,
                                 borderTop: `4px solid ${statusColor}`,
-                                minHeight: 200,
+                                minHeight: 240,
+                                display: "flex",
+                                flexDirection: "column",
                             }}
-                            bodyStyle={{ padding: "24px" }}
+                            bodyStyle={{
+                                padding: "24px",
+                                display: "flex",
+                                flexDirection: "column",
+                                flexGrow: 1,
+                            }}
                             hoverable
                         >
                             <Space
                                 direction="vertical"
-                                style={{ width: "100%" }}
+                                style={{ width: "100%", flexGrow: 1 }}
                                 size="middle"
                             >
-                                {/* Level and Status Title */}
                                 <div>
                                     <Text
                                         strong
@@ -285,7 +316,6 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                                     </Text>
                                 </div>
 
-                                {/* Full Description */}
                                 <Text
                                     type="secondary"
                                     style={{
@@ -297,7 +327,6 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                                     {statusDescriptionFull}
                                 </Text>
 
-                                {/* Min and Max Levels in single line */}
                                 <div
                                     style={{
                                         display: "flex",
@@ -305,11 +334,7 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                                         alignItems: "center",
                                     }}
                                 >
-                                    <Text
-                                        style={{
-                                            fontSize: "15px",
-                                        }}
-                                    >
+                                    <Text style={{ fontSize: "15px" }}>
                                         <strong>Min Level:</strong>{" "}
                                         {threshold.min_level} {UNIT}
                                     </Text>
@@ -322,18 +347,15 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                                     >
                                         |
                                     </Text>
-                                    <Text
-                                        style={{
-                                            fontSize: "15px",
-                                        }}
-                                    >
+                                    <Text style={{ fontSize: "15px" }}>
                                         <strong>Max Level:</strong>{" "}
                                         {threshold.max_level} {UNIT}
                                     </Text>
                                 </div>
+                            </Space>
 
-                                {/* Edit Button */}
-                                {isUserAdmin && (
+                            {isUserAdmin && (
+                                <div style={{ marginTop: "auto" }}>
                                     <Button
                                         icon={<EditOutlined />}
                                         onClick={() => onEdit(threshold)}
@@ -348,13 +370,280 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                                     >
                                         Edit Threshold
                                     </Button>
-                                )}
-                            </Space>
+                                </div>
+                            )}
                         </Card>
                     </Col>
                 );
             })}
         </Row>
+    );
+};
+
+const CardContainer = ({
+    title,
+    value,
+    prefix,
+    color = BARANGAY_THEME.BLUE_AUTHORITY,
+    subText,
+}) => (
+    <Card
+        style={{
+            ...cardStyle,
+            borderTop: `4px solid ${color}`,
+            height: "100%",
+            minHeight: 130,
+        }}
+        bodyStyle={{ padding: "24px" }}
+        hoverable
+    >
+        <Statistic
+            title={title}
+            value={value ?? "Loading... (Naglo-load...)"}
+            prefix={prefix}
+            valueStyle={{ color, fontWeight: "bold" }}
+        />
+        {subText && (
+            <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
+                {subText}
+            </Text>
+        )}
+    </Card>
+);
+
+const RefreshButton = ({ refreshing, onRefresh }) => (
+    <Button
+        type="primary"
+        icon={<ReloadOutlined spin={refreshing} />}
+        onClick={onRefresh}
+        loading={refreshing}
+        style={{
+            backgroundColor: BARANGAY_THEME.BLUE_AUTHORITY,
+            borderColor: BARANGAY_THEME.BLUE_AUTHORITY,
+            fontWeight: "bold",
+        }}
+    />
+);
+
+// Admin-specific dashboard view
+const AdminDashboard = ({
+    roleCount,
+    // thresholds,
+    // onEditThreshold,
+    // refreshButton,
+}) => {
+    const totalUsers = roleCount
+        ? roleCount.Admin + roleCount.Official + roleCount.Resident
+        : null;
+
+    return (
+        <Row gutter={[24, 24]}>
+            <Col xs={24} sm={12} md={6}>
+                <CardContainer
+                    title="Total Users in System (Kabuuang Gumagamit)"
+                    value={totalUsers}
+                    prefix={<TeamOutlined />}
+                    color={BARANGAY_THEME.BLUE_AUTHORITY}
+                />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+                <CardContainer
+                    title="Admins (Mga Admin)"
+                    value={roleCount?.Admin}
+                    prefix={<SettingOutlined />}
+                    color={BARANGAY_THEME.BLUE_AUTHORITY}
+                />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+                <CardContainer
+                    title="Officials (Mga Opisyal)"
+                    value={roleCount?.Official}
+                    prefix={<BankOutlined />}
+                    color={BARANGAY_THEME.BLUE_AUTHORITY}
+                />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+                <CardContainer
+                    title="Residents (Mga Residente)"
+                    value={roleCount?.Resident}
+                    prefix={<HomeOutlined />}
+                    color={BARANGAY_THEME.BLUE_AUTHORITY}
+                />
+            </Col>
+        </Row>
+    );
+};
+
+// Official/Resident dashboard view
+const WaterLevelDashboard = ({
+    userRole,
+    roleCount,
+    currentStatus,
+    currentStatusColor,
+    lastReadingValue,
+    lastReadingTime,
+    averageReading,
+    peakReading,
+}) => {
+    const isOfficial = userRole === "Official";
+    const noReadingsText = "No readings yet (Wala pang naitala)";
+    const currentDescription = currentStatus
+        ? getStatusDescription(currentStatus)
+        : noReadingsText;
+
+    const officialAndResidentCount = roleCount
+        ? roleCount.Official + roleCount.Resident
+        : null;
+
+    return (
+        <>
+            <Row gutter={[24, 24]}>
+                {isOfficial && (
+                    <Col xs={24} md={12}>
+                        <Card
+                            title="Total Barangay Users (Opisyal + Residente)"
+                            style={{
+                                ...cardStyle,
+                                height: "100%",
+                                minHeight: 180,
+                                borderTop: `4px solid ${BARANGAY_THEME.BLUE_AUTHORITY}`,
+                            }}
+                            bodyStyle={{ padding: "30px 24px" }}
+                            hoverable
+                        >
+                            <Text
+                                strong
+                                style={{
+                                    fontSize: "36px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    color: BARANGAY_THEME.BLUE_AUTHORITY,
+                                }}
+                            >
+                                <TeamOutlined style={{ marginRight: 15 }} />
+                                {officialAndResidentCount ??
+                                    "Loading... (Naglo-load...)"}
+                            </Text>
+                            <Text
+                                type="secondary"
+                                style={{
+                                    display: "block",
+                                    marginTop: 8,
+                                }}
+                            >
+                                Includes all verified officials and residents in
+                                the system.
+                            </Text>
+                        </Card>
+                    </Col>
+                )}
+
+                <Col xs={24} md={isOfficial ? 12 : 24}>
+                    <Card
+                        title="Current Water Level Status (Kasalukuyang Antas ng Tubig)"
+                        style={{
+                            ...cardStyle,
+                            height: "100%",
+                            minHeight: isOfficial ? 180 : 200,
+                            borderTop: `4px solid ${currentStatusColor}`,
+                        }}
+                        bodyStyle={{
+                            padding: isOfficial ? "24px" : "30px 24px",
+                        }}
+                        hoverable
+                    >
+                        <Text
+                            strong
+                            style={{
+                                color: currentStatusColor,
+                                fontSize: isOfficial ? "36px" : "48px",
+                                display: "flex",
+                                alignItems: "center",
+                                marginBottom: 8,
+                            }}
+                        >
+                            <AlertOutlined style={{ marginRight: 15 }} />
+                            {currentStatus ?? noReadingsText}
+                        </Text>
+                        <Text
+                            type="secondary"
+                            style={{
+                                display: "block",
+                                fontSize: isOfficial ? "14px" : "18px",
+                            }}
+                        >
+                            **{currentDescription}**
+                        </Text>
+                        <Text
+                            type="secondary"
+                            style={{
+                                display: "block",
+                                marginTop: 4,
+                            }}
+                        >
+                            Huling Pagbasa: **{lastReadingValue ?? "N/A"}** @{" "}
+                            {lastReadingTime ?? "N/A"}
+                        </Text>
+                    </Card>
+                </Col>
+            </Row>
+
+            <Divider />
+
+            <Title
+                level={4}
+                style={{
+                    marginTop: 10,
+                    marginBottom: 20,
+                    color: BARANGAY_THEME.BLUE_AUTHORITY,
+                }}
+            >
+                Water Level Statistics Today
+            </Title>
+
+            <Row gutter={[24, 24]}>
+                <Col xs={24} md={8}>
+                    <CardContainer
+                        title="Average Level Today (Karaniwang Antas Ngayon)"
+                        value={
+                            averageReading
+                                ? `${averageReading}${UNIT}`
+                                : noReadingsText
+                        }
+                        prefix={<RiseOutlined />}
+                    />
+                </Col>
+                <Col xs={24} md={8}>
+                    <CardContainer
+                        title={`Lowest Level Today (Pinakamababang Antas - Highest Flood Risk)`}
+                        value={
+                            peakReading
+                                ? `${peakReading}${UNIT}`
+                                : noReadingsText
+                        }
+                        prefix={<RiseOutlined />}
+                        color={
+                            currentStatus === "L3" || currentStatus === "L2"
+                                ? currentStatusColor
+                                : BARANGAY_THEME.BLUE_AUTHORITY
+                        }
+                        subText={`Lowest reading = Closest to flooding (0${UNIT} = flood level)`}
+                    />
+                </Col>
+                <Col xs={24} md={8}>
+                    <CardContainer
+                        title="Last Sensor Reading Time (Oras ng Huling Pagbasa)"
+                        value={lastReadingTime ?? "N/A"}
+                        prefix={<ReloadOutlined />}
+                        subText={
+                            lastReadingValue
+                                ? `Value: ${lastReadingValue}`
+                                : null
+                        }
+                    />
+                </Col>
+            </Row>
+        </>
     );
 };
 
@@ -369,6 +658,8 @@ const DashboardPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRecord, setEditingRecord] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
+
+    const roleConfig = userRole ? ROLE_CONFIG[userRole] : null;
 
     const fetchRoleCounts = async () => {
         try {
@@ -483,7 +774,7 @@ const DashboardPage = () => {
 
     const refreshDashboard = useCallback(
         async (isInitial = false) => {
-            if (!userRole) return;
+            if (!userRole || !roleConfig) return;
 
             if (isInitial) setLoading(true);
             else setRefreshing(true);
@@ -491,9 +782,9 @@ const DashboardPage = () => {
             try {
                 const promises = [fetchThresholds()];
 
-                if (["Admin", "Official"].includes(userRole))
+                if (roleConfig.canViewRoleCounts)
                     promises.push(fetchRoleCounts());
-                if (["Official", "Resident"].includes(userRole))
+                if (roleConfig.canViewReadings)
                     promises.push(fetchTodayReadings());
 
                 await Promise.all(promises);
@@ -504,7 +795,7 @@ const DashboardPage = () => {
                 else setRefreshing(false);
             }
         },
-        [userRole]
+        [userRole, roleConfig]
     );
 
     useEffect(() => {
@@ -520,14 +811,7 @@ const DashboardPage = () => {
         }
     }, [isAuthLoading, refreshDashboard, userRole]);
 
-    const {
-        averageReading,
-        peakReading,
-        lastReadingValue,
-        lastReadingTime,
-        currentStatus,
-        currentStatusColor,
-    } = useMemo(() => {
+    const waterLevelStats = useMemo(() => {
         if (!todayReadings.length || !thresholds.length) {
             return {
                 averageReading: null,
@@ -561,7 +845,7 @@ const DashboardPage = () => {
             )?.name ?? "N/A";
 
         const color = getStatusColor(status);
-
+``
         return {
             averageReading: avg,
             peakReading: peak,
@@ -572,68 +856,50 @@ const DashboardPage = () => {
         };
     }, [todayReadings, thresholds]);
 
-    const loadingText = "Loading... (Naglo-load...)";
-    const noReadingsText = "No readings yet (Wala pang naitala)";
+    if (isAuthLoading || loading) {
+        return (
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    minHeight: "calc(100vh - 60px)",
+                    width: "100%",
+                }}
+            >
+                <Spin size="large" tip="Loading Barangay dashboard..." />
+            </div>
+        );
+    }
 
-    const RefreshButton = () => (
-        <Button
-            type="primary"
-            icon={<ReloadOutlined spin={refreshing} />}
-            onClick={() => refreshDashboard(false)}
-            loading={refreshing}
-            style={{
-                backgroundColor: BARANGAY_THEME.BLUE_AUTHORITY,
-                borderColor: BARANGAY_THEME.BLUE_AUTHORITY,
-                fontWeight: "bold",
-            }}
+    if (!userRole || !roleConfig) {
+        return (
+            <div style={{ padding: 24 }}>
+                <Title level={2}>Access Denied (Hindi Pinahihintulutan)</Title>
+                <Text type="secondary">
+                    Your role ({userRole || "Unknown"}) does not have a defined
+                    dashboard view or permission to view the data.
+                </Text>
+            </div>
+        );
+    }
+
+    const refreshButton = (
+        <RefreshButton
+            refreshing={refreshing}
+            onRefresh={() => refreshDashboard(false)}
         />
     );
 
-    const CardContainer = ({
-        title,
-        value,
-        prefix,
-        color = BARANGAY_THEME.BLUE_AUTHORITY,
-        subText,
-    }) => (
-        <Card
-            style={{
-                ...cardStyle,
-                borderTop: `4px solid ${color}`,
-                height: "100%",
-                minHeight: 130,
+    return (
+        <ConfigProvider
+            theme={{
+                token: {
+                    colorPrimary: BARANGAY_THEME.PRIMARY_COLOR,
+                    borderRadius: 8,
+                },
             }}
-            bodyStyle={{ padding: "24px" }}
-            hoverable
         >
-            <Statistic
-                title={title}
-                value={value ?? loadingText}
-                prefix={prefix}
-                valueStyle={{ color, fontWeight: "bold" }}
-            />
-            {subText && (
-                <Text
-                    type="secondary"
-                    style={{ display: "block", marginTop: 8 }}
-                >
-                    {subText}
-                </Text>
-            )}
-        </Card>
-    );
-
-    const CommonDashboardLayout = ({
-        title,
-        children,
-        showThresholds = true,
-    }) => {
-        const isUserAdmin = userRole === "Admin";
-        const sectionTitle = isUserAdmin
-            ? "Key User Statistics"
-            : "Live Data Overview";
-
-        return (
             <Space
                 direction="vertical"
                 style={{ width: "100%", paddingInline: 32, marginBottom: 32 }}
@@ -647,7 +913,7 @@ const DashboardPage = () => {
                         color: BARANGAY_THEME.BLUE_AUTHORITY,
                     }}
                 >
-                    {title}
+                    {roleConfig.dashboardTitle}
                 </Title>
                 <Divider style={{ margin: "10px 0 20px 0" }} />
 
@@ -663,14 +929,29 @@ const DashboardPage = () => {
                             color: BARANGAY_THEME.BLUE_AUTHORITY,
                         }}
                     >
-                        {sectionTitle}
+                        {roleConfig.sectionTitle}
                     </Title>
-                    <RefreshButton />
+                    {refreshButton}
                 </Row>
 
-                {children}
+                {userRole === "Admin" && (
+                    <AdminDashboard
+                        roleCount={roleCount}
+                        thresholds={thresholds}
+                        onEditThreshold={handleEditThreshold}
+                        refreshButton={refreshButton}
+                    />
+                )}
 
-                {showThresholds && userRole !== "Resident" && (
+                {(userRole === "Official" || userRole === "Resident") && (
+                    <WaterLevelDashboard
+                        userRole={userRole}
+                        roleCount={roleCount}
+                        {...waterLevelStats}
+                    />
+                )}
+
+                {roleConfig.showThresholds && (
                     <>
                         <Divider />
                         <Row
@@ -694,275 +975,21 @@ const DashboardPage = () => {
                         </Row>
                         <ThresholdCards
                             thresholds={thresholds}
-                            isUserAdmin={isUserAdmin}
+                            isUserAdmin={roleConfig.canEditThresholds}
                             onEdit={handleEditThreshold}
                         />
                     </>
                 )}
             </Space>
-        );
-    };
 
-    if (isAuthLoading || loading) {
-        return (
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    minHeight: "calc(100vh - 60px)",
-                    width: "100%",
-                }}
-            >
-                <Spin size="large" tip="Loading Barangay dashboard..." />
-            </div>
-        );
-    }
-
-    if (userRole === "Admin") {
-        const totalUsers = roleCount
-            ? roleCount.Admin + roleCount.Official + roleCount.Resident
-            : null;
-        return (
-            <>
-                <CommonDashboardLayout
-                    title="Barangay Admin Control Panel"
-                    showThresholds={true}
-                >
-                    <Row gutter={[24, 24]}>
-                        <Col xs={24} sm={12} md={6}>
-                            <CardContainer
-                                title="Total Users in System (Kabuuang Gumagamit)"
-                                value={totalUsers}
-                                prefix={<TeamOutlined />}
-                                color={BARANGAY_THEME.BLUE_AUTHORITY}
-                            />
-                        </Col>
-                        <Col xs={24} sm={12} md={6}>
-                            <CardContainer
-                                title="Admins (Mga Admin)"
-                                value={roleCount?.Admin}
-                                prefix={<SettingOutlined />}
-                                color={BARANGAY_THEME.BLUE_AUTHORITY}
-                            />
-                        </Col>
-                        <Col xs={24} sm={12} md={6}>
-                            <CardContainer
-                                title="Officials (Mga Opisyal)"
-                                value={roleCount?.Official}
-                                prefix={<BankOutlined />}
-                                color={BARANGAY_THEME.BLUE_AUTHORITY}
-                            />
-                        </Col>
-                        <Col xs={24} sm={12} md={6}>
-                            <CardContainer
-                                title="Residents (Mga Residente)"
-                                value={roleCount?.Resident}
-                                prefix={<HomeOutlined />}
-                                color={BARANGAY_THEME.BLUE_AUTHORITY}
-                            />
-                        </Col>
-                    </Row>
-                </CommonDashboardLayout>
-                <ThresholdEditModal
-                    isOpen={isModalOpen}
-                    record={editingRecord}
-                    onClose={handleCloseModal}
-                    onSave={handleSaveThreshold}
-                    isSaving={isSaving}
-                />
-            </>
-        );
-    }
-
-    const isOfficial = userRole === "Official";
-    const titleText = isOfficial
-        ? "Barangay Official's Overview"
-        : "Barangay Resident Water Monitor";
-    const currentDescription = currentStatus
-        ? getStatusDescription(currentStatus)
-        : noReadingsText;
-
-    if (isOfficial || userRole === "Resident") {
-        const officialAndResidentCount = roleCount
-            ? roleCount.Official + roleCount.Resident
-            : null;
-
-        return (
-            <ConfigProvider
-                theme={{
-                    token: {
-                        colorPrimary: BARANGAY_THEME.PRIMARY_COLOR,
-                        borderRadius: 8,
-                    },
-                }}
-            >
-                <CommonDashboardLayout title={titleText}>
-                    <Row gutter={[24, 24]}>
-                        {isOfficial && (
-                            <Col xs={24} md={12}>
-                                <Card
-                                    title="Total Barangay Users (Opisyal + Residente)"
-                                    style={{
-                                        ...cardStyle,
-                                        height: "100%",
-                                        minHeight: 180,
-                                        borderTop: `4px solid ${BARANGAY_THEME.BLUE_AUTHORITY}`,
-                                    }}
-                                    bodyStyle={{ padding: "30px 24px" }}
-                                    hoverable
-                                >
-                                    <Text
-                                        strong
-                                        style={{
-                                            fontSize: "36px",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            color: BARANGAY_THEME.BLUE_AUTHORITY,
-                                        }}
-                                    >
-                                        <TeamOutlined
-                                            style={{ marginRight: 15 }}
-                                        />
-                                        {officialAndResidentCount ??
-                                            loadingText}
-                                    </Text>
-                                    <Text
-                                        type="secondary"
-                                        style={{
-                                            display: "block",
-                                            marginTop: 8,
-                                        }}
-                                    >
-                                        Includes all verified officials and
-                                        residents in the system.
-                                    </Text>
-                                </Card>
-                            </Col>
-                        )}
-
-                        <Col xs={24} md={isOfficial ? 12 : 24}>
-                            <Card
-                                title="Current Water Level Status (Kasalukuyang Antas ng Tubig)"
-                                style={{
-                                    ...cardStyle,
-                                    height: "100%",
-                                    minHeight: isOfficial ? 180 : 200,
-                                    borderTop: `4px solid ${currentStatusColor}`,
-                                }}
-                                bodyStyle={{
-                                    padding: isOfficial ? "24px" : "30px 24px",
-                                }}
-                                hoverable
-                            >
-                                <Text
-                                    strong
-                                    style={{
-                                        color: currentStatusColor,
-                                        fontSize: isOfficial ? "36px" : "48px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        marginBottom: 8,
-                                    }}
-                                >
-                                    <AlertOutlined
-                                        style={{ marginRight: 15 }}
-                                    />
-                                    {currentStatus ?? noReadingsText}
-                                </Text>
-                                <Text
-                                    type="secondary"
-                                    style={{
-                                        display: "block",
-                                        fontSize: isOfficial ? "14px" : "18px",
-                                    }}
-                                >
-                                    **{currentDescription}**
-                                </Text>
-                                <Text
-                                    type="secondary"
-                                    style={{
-                                        display: "block",
-                                        marginTop: 4,
-                                    }}
-                                >
-                                    Huling Pagbasa: **
-                                    {lastReadingValue ?? "N/A"}** @{" "}
-                                    {lastReadingTime ?? "N/A"}
-                                </Text>
-                            </Card>
-                        </Col>
-                    </Row>
-
-                    <Divider />
-
-                    <Title
-                        level={4}
-                        style={{
-                            marginTop: 10,
-                            marginBottom: 20,
-                            color: BARANGAY_THEME.BLUE_AUTHORITY,
-                        }}
-                    >
-                        Water Level Statistics Today
-                    </Title>
-
-                    <Row gutter={[24, 24]}>
-                        <Col xs={24} md={8}>
-                            <CardContainer
-                                title="Average Level Today (Karaniwang Antas Ngayon)"
-                                value={
-                                    averageReading
-                                        ? `${averageReading}${UNIT}`
-                                        : noReadingsText
-                                }
-                                prefix={<RiseOutlined />}
-                            />
-                        </Col>
-                        <Col xs={24} md={8}>
-                            <CardContainer
-                                title={`Peak Level Today (Pinakamataas na Antas - Lowest Reading in ${UNIT})`}
-                                value={
-                                    peakReading
-                                        ? `${peakReading}${UNIT}`
-                                        : noReadingsText
-                                }
-                                prefix={<RiseOutlined />}
-                                color={
-                                    currentStatus === "L3" ||
-                                    currentStatus === "L2"
-                                        ? currentStatusColor
-                                        : BARANGAY_THEME.BLUE_AUTHORITY
-                                }
-                                subText={`Lowest distance from sensor = Highest water level (measured in ${UNIT}).`}
-                            />
-                        </Col>
-                        <Col xs={24} md={8}>
-                            <CardContainer
-                                title="Last Sensor Reading Time (Oras ng Huling Pagbasa)"
-                                value={lastReadingTime ?? "N/A"}
-                                prefix={<ReloadOutlined />}
-                                subText={
-                                    lastReadingValue
-                                        ? `Value: ${lastReadingValue}`
-                                        : null
-                                }
-                            />
-                        </Col>
-                    </Row>
-                </CommonDashboardLayout>
-            </ConfigProvider>
-        );
-    }
-
-    return (
-        <div style={{ padding: 24 }}>
-            <Title level={2}>Access Denied (Hindi Pinahihintulutan)</Title>
-            <Text type="secondary">
-                Your role ({userRole}) does not have a defined dashboard view or
-                permission to view the data.
-            </Text>
-        </div>
+            <ThresholdEditModal
+                isOpen={isModalOpen}
+                record={editingRecord}
+                onClose={handleCloseModal}
+                onSave={handleSaveThreshold}
+                isSaving={isSaving}
+            />
+        </ConfigProvider>
     );
 };
 
