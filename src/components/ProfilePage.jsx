@@ -117,6 +117,30 @@ const ProfilePage = () => {
         fetchData();
     }, [user, formDetails]);
 
+    // --- New Code: Add this useEffect Block ---
+    useEffect(() => {
+        // 1. Listen for auth state changes globally
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+            (event, session) => {
+                // 2. Check for the specific PASSWORD_RECOVERY event
+                if (event === "PASSWORD_RECOVERY") {
+                    // 3. Trigger the password change UI
+                    setIsChangingPassword(true);
+                    setStatusMessage(
+                        "🔑 Password Reset Mode Activated. Please set a new password below. (I-set ang bagong password.)"
+                    );
+                    // Clear the password form in case it had previous values
+                    formPassword.resetFields();
+                }
+            }
+        );
+
+        // Clean up the listener when the component unmounts
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
+    }, [formPassword]); // Dependency on formPassword to ensure resetFields works
+
     // ** Function for Subscription Toggle (Updated to use native Supabase update) **
     const handleToggleSubscription = async () => {
         if (!user) return;
