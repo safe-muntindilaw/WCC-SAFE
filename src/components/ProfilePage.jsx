@@ -61,6 +61,32 @@ const ProfilePage = () => {
     const [isChangingPassword, setIsChangingPassword] = useState(false);
     const [isSubscribed, setIsSubscribed] = useState(false);
 
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get("token");
+        const type = urlParams.get("type");
+
+        if (code && type === "recovery") {
+            // 1. Manually exchange the recovery token for a temporary session
+            supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+                if (error) {
+                    message.error(
+                        "The recovery link has expired or is invalid."
+                    );
+                } else {
+                    // 2. Successful exchange! This will now trigger the 'PASSWORD_RECOVERY' event.
+                    setIsChangingPassword(true);
+                    message.success("Please set your new password below.");
+                }
+            });
+
+            // 3. Clean up the URL parameters
+            history.replaceState(null, "", window.location.pathname);
+        }
+
+        // ... (Keep your onAuthStateChange listener here) ...
+    }, [supabase]);
+
     // --- Data Fetching Effect (Optimized with single request and error handling) ---
     useEffect(() => {
         if (!user) return;
