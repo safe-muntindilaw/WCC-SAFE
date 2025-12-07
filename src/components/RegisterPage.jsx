@@ -109,7 +109,9 @@ const RegisterPage = ({ onSuccess }) => {
             uppercase: /[A-Z]/.test(password),
             lowercase: /[a-z]/.test(password),
             number: /[0-9]/.test(password),
-            alphanumeric: /^[a-zA-Z0-9]+$/.test(password),
+            hasLetter: /[a-zA-Z]/.test(password),
+            hasNumber: /[0-9]/.test(password),
+            specialCharacters: /[^a-zA-Z0-9]/.test(password),
         };
     };
 
@@ -221,16 +223,13 @@ const RegisterPage = ({ onSuccess }) => {
         setStatus({ message: null, isError: false });
 
         if (name === "firstName" || name === "lastName") {
-            const cleanedValue = value.replace(/[^a-zA-Z\s]/g, "");
-            const capitalized = cleanedValue
-                .split(" ")
-                .map(
-                    (word) =>
-                        word.charAt(0).toUpperCase() +
-                        word.slice(1).toLowerCase()
-                )
-                .join(" ");
-            value = capitalized;
+            // Remove only unwanted characters if necessary, but preserve parentheses
+            // For now, just capitalize properly without stripping characters
+            const words = value.split(" ").map((word) => {
+                if (word.length === 0) return word;
+                return word.charAt(0).toUpperCase() + word.slice(1);
+            });
+            value = words.join(" ");
         } else if (name === "contactNumber") {
             const numericValue = value.replace(/\D/g, "");
             value = numericValue;
@@ -265,7 +264,7 @@ const RegisterPage = ({ onSuccess }) => {
             setLoading(false);
             return setStatus({
                 message:
-                    "Password must meet all security requirements (8-32 characters, uppercase, lowercase, number, alphanumeric only).",
+                    "Password must meet all security requirements (8-32 characters, uppercase, lowercase, number, alphanumeric with special character).",
                 isError: true,
             });
         }
@@ -823,17 +822,35 @@ const RegisterPage = ({ onSuccess }) => {
                                 <Text
                                     style={{
                                         fontSize: 11,
-                                        color: passwordChecks.alphanumeric
-                                            ? "#52c41a"
-                                            : "#8c8c8c",
+                                        color:
+                                            passwordChecks.hasLetter &&
+                                            passwordChecks.hasNumber
+                                                ? "#52c41a"
+                                                : "#8c8c8c",
                                     }}
                                 >
-                                    {passwordChecks.alphanumeric ? (
+                                    {passwordChecks.hasLetter &&
+                                    passwordChecks.hasNumber ? (
                                         <CheckCircleOutlined />
                                     ) : (
                                         <CloseCircleOutlined />
                                     )}{" "}
-                                    Alphanumeric only (no special characters)
+                                    Alphanumeric
+                                </Text>
+                                <Text
+                                    style={{
+                                        fontSize: 11,
+                                        color: passwordChecks.specialCharacters
+                                            ? "#52c41a"
+                                            : "#8c8c8c",
+                                    }}
+                                >
+                                    {passwordChecks.specialCharacters ? (
+                                        <CheckCircleOutlined />
+                                    ) : (
+                                        <CloseCircleOutlined />
+                                    )}{" "}
+                                    Special character
                                 </Text>
                             </Space>
                         </div>

@@ -14,6 +14,8 @@ import {
     Typography,
     Modal,
     Spin,
+    Row,
+    Col,
 } from "antd";
 import {
     SwapOutlined,
@@ -384,7 +386,7 @@ const UserManagement = () => {
                 });
             }
 
-            resetForm();
+            // resetForm();
             await fetchData();
             setIsUserModalVisible(false);
         } catch (err) {
@@ -734,8 +736,12 @@ const UserManagement = () => {
     }
 
     return (
-        <div style={{ padding: 24 }}>
-            <Title level={2}>Contact Management</Title>
+        <div
+            style={{ padding: window.innerWidth < 768 ? "0 12px 0 12px" : 24 }}
+        >
+            <Title level={window.innerWidth < 768 ? 3 : 2}>
+                Contact Management
+            </Title>
 
             {message.content && message.type !== "error-validation" && (
                 <Alert
@@ -743,7 +749,10 @@ const UserManagement = () => {
                     type={message.type}
                     showIcon
                     closable
-                    style={{ marginBottom: 16, whiteSpace: "pre-line" }}
+                    style={{
+                        marginBottom: 16,
+                        whiteSpace: "pre-line",
+                    }}
                 />
             )}
 
@@ -755,17 +764,17 @@ const UserManagement = () => {
                     setIsUserModalVisible(false);
                 }}
                 footer={null}
-                width="50%"
-                maxWidth={600}
+                width={window.innerWidth < 768 ? "95%" : "50%"}
+                style={{ maxWidth: window.innerWidth < 768 ? "100%" : 600 }}
                 centered
-                destroyOnClose
+                destroyOnHidden
             >
                 <Form
                     layout="vertical"
                     onFinish={handleSubmit}
                     style={{
                         background: "#fff",
-                        padding: 20,
+                        padding: window.innerWidth < 768 ? 12 : 20,
                         borderRadius: 8,
                         boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     }}
@@ -794,28 +803,39 @@ const UserManagement = () => {
                         />
                     )}
 
-                    <Form.Item label="First Name" required>
-                        <Input
-                            value={formData.first_name}
-                            onChange={(e) =>
-                                setFormData((prev) => ({
-                                    ...prev,
-                                    first_name: capitalizeWords(e.target.value),
-                                }))
-                            }
-                        />
-                    </Form.Item>
-                    <Form.Item label="Last Name" required>
-                        <Input
-                            value={formData.last_name}
-                            onChange={(e) =>
-                                setFormData((prev) => ({
-                                    ...prev,
-                                    last_name: capitalizeWords(e.target.value),
-                                }))
-                            }
-                        />
-                    </Form.Item>
+                    {/* Place First Name and Last Name side by side on desktop, stacked on mobile */}
+                    <Row gutter={[16, 0]}>
+                        <Col xs={24} sm={12}>
+                            <Form.Item label="First Name" required>
+                                <Input
+                                    value={formData.first_name}
+                                    onChange={(e) =>
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            first_name: capitalizeWords(
+                                                e.target.value
+                                            ),
+                                        }))
+                                    }
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12}>
+                            <Form.Item label="Last Name" required>
+                                <Input
+                                    value={formData.last_name}
+                                    onChange={(e) =>
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            last_name: capitalizeWords(
+                                                e.target.value
+                                            ),
+                                        }))
+                                    }
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
                     <Form.Item label="Email (Gmail only)" required>
                         <Input
                             type="email"
@@ -856,6 +876,12 @@ const UserManagement = () => {
                                     role: e.target.value,
                                 }))
                             }
+                            style={{
+                                display: "flex",
+                                flexDirection:
+                                    window.innerWidth < 768 ? "column" : "row",
+                                gap: window.innerWidth < 768 ? 8 : 0,
+                            }}
                         >
                             {availableRoles.map((role) => (
                                 <Radio key={role} value={role}>
@@ -882,7 +908,7 @@ const UserManagement = () => {
                         />
                     </Form.Item>
                     <Form.Item>
-                        <Space>
+                        <Space wrap>
                             <Button
                                 type="primary"
                                 htmlType="submit"
@@ -921,17 +947,17 @@ const UserManagement = () => {
                     setIsBatchModalVisible(false);
                 }}
                 footer={null}
-                width="50%"
-                maxWidth={600}
+                width={window.innerWidth < 768 ? "95%" : "50%"}
+                style={{ maxWidth: window.innerWidth < 768 ? "100%" : 600 }}
                 centered
-                destroyOnClose
+                destroyOnHidden
             >
                 <Form
                     layout="vertical"
                     onFinish={handleFileUpload}
                     style={{
                         background: "#fff",
-                        padding: 20,
+                        padding: window.innerWidth < 768 ? 12 : 20,
                         borderRadius: 8,
                         boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     }}
@@ -961,7 +987,7 @@ const UserManagement = () => {
                         )}
                     </Form.Item>
                     <Form.Item>
-                        <Space>
+                        <Space wrap>
                             <Button
                                 type="primary"
                                 htmlType="submit"
@@ -970,7 +996,7 @@ const UserManagement = () => {
                             >
                                 {batchStatus.loading
                                     ? "Processing..."
-                                    : "Upload & Process Batch"}
+                                    : "Upload & Process"}
                             </Button>
                             <Button
                                 onClick={() => {
@@ -989,24 +1015,37 @@ const UserManagement = () => {
             </Modal>
 
             {/* Contacts List */}
-            <div>
+            <div style={{ paddingBottom: 0 }}>
                 <Title level={3}>Contacts ({sortedUsers.length})</Title>
 
                 <>
-                    <Space
+                    <div
                         style={{
-                            marginBottom: 20,
-                            flexWrap: "wrap",
-                            justifyContent: "space-between",
-                            width: "100%",
+                            position: "sticky",
+                            top: 10,
+                            zIndex: 10,
+                            backgroundColor: "white",
+                            paddingBottom: 16,
+                            borderBottom: "1px solid #f0f0f0",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
                         }}
                     >
-                        <div>
+                        {/* Desktop: Single Row, Mobile: Three Rows */}
+                        <div
+                            style={{
+                                display: "flex",
+                                gap: 12,
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                            }}
+                        >
+                            {/* Group 1: Delete + Search */}
                             <Button
                                 danger
                                 disabled={selectedUsers.length === 0 || loading}
                                 onClick={handleBatchDelete}
-                                style={{ width: 50, gap: 0 }}
                             >
                                 <DeleteOutlined /> ({selectedUsers.length})
                             </Button>
@@ -1015,15 +1054,19 @@ const UserManagement = () => {
                                 placeholder="Search name"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                style={{ width: 300 }}
+                                style={{
+                                    flex: "1 1 200px",
+                                    maxWidth: 400,
+                                    minWidth: 150,
+                                }}
+                                allowClear
                             />
-                        </div>
 
-                        <div style={{ display: "flex", gap: 20 }}>
+                            {/* Group 2: Role + Place Filters */}
                             <Select
                                 value={selectedRole}
                                 onChange={(value) => setSelectedRole(value)}
-                                style={{ width: 200 }}
+                                style={{ flex: "1 1 120px", minWidth: 120 }}
                                 allowClear
                                 placeholder="Filter by role"
                             >
@@ -1034,10 +1077,11 @@ const UserManagement = () => {
                                     </Option>
                                 ))}
                             </Select>
+
                             <Select
                                 value={placeFilter}
                                 onChange={(value) => setPlaceFilter(value)}
-                                style={{ width: 200 }}
+                                style={{ flex: "1 1 120px", minWidth: 120 }}
                                 allowClear
                                 placeholder="Filter by place"
                             >
@@ -1048,23 +1092,58 @@ const UserManagement = () => {
                                     </Option>
                                 ))}
                             </Select>
-                        </div>
 
-                        <div>
+                            {/* Group 3: Action Buttons + Pagination */}
                             <Button
                                 type="primary"
                                 onClick={() => setIsUserModalVisible(true)}
                             >
                                 New Contact
                             </Button>
+
                             <Button
-                                style={{ marginLeft: 8 }}
                                 onClick={() => setIsBatchModalVisible(true)}
                             >
                                 Batch Upload
                             </Button>
+
+                            {/* Pagination Controls */}
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 5,
+                                    marginLeft: "auto",
+                                }}
+                            >
+                                <Button
+                                    size={"small"}
+                                    disabled={currentPage === 1}
+                                    onClick={() =>
+                                        setCurrentPage((p) =>
+                                            Math.max(1, p - 1)
+                                        )
+                                    }
+                                >
+                                    {"<"}
+                                </Button>
+                                <span style={{ whiteSpace: "nowrap" }}>
+                                    {currentPage} | {totalPages}
+                                </span>
+                                <Button
+                                    size={"small"}
+                                    disabled={currentPage === totalPages}
+                                    onClick={() =>
+                                        setCurrentPage((p) =>
+                                            Math.min(totalPages, p + 1)
+                                        )
+                                    }
+                                >
+                                    {">"}
+                                </Button>
+                            </div>
                         </div>
-                    </Space>
+                    </div>
                 </>
 
                 {!loading && sortedUsers.length === 0 && (
@@ -1073,6 +1152,7 @@ const UserManagement = () => {
                             display: "flex",
                             justifyContent: "center",
                             alignItems: "center",
+                            padding: "40px 0",
                         }}
                     >
                         <p>No contact found.</p>
@@ -1080,215 +1160,210 @@ const UserManagement = () => {
                 )}
 
                 {paginatedUsers.length > 0 && (
-                    <Table
-                        rowKey="user_id"
-                        dataSource={paginatedUsers}
-                        pagination={false}
-                        bordered
-                        minHeight={400}
-                    >
-                        {/* Checkbox select all */}
-                        <Table.Column
-                            width={50}
-                            align="center"
-                            title={
-                                <Checkbox
-                                    onChange={toggleSelectAll}
-                                    checked={
-                                        paginatedUsers.length > 0 &&
-                                        paginatedUsers.every((u) =>
-                                            selectedUsers.includes(u.user_id)
-                                        )
-                                    }
-                                />
-                            }
-                            render={(text, record) => (
-                                <Checkbox
-                                    checked={selectedUsers.includes(
-                                        record.user_id
-                                    )}
-                                    onChange={() =>
-                                        toggleUserSelect(record.user_id)
-                                    }
-                                />
-                            )}
-                        />
-
-                        {/* Name column with sort */}
-                        <Table.Column
-                            title={
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                    }}
-                                >
-                                    <span>Name</span>
-                                    <Button
-                                        size="small"
-                                        onClick={() => handleSort("name")}
-                                        style={{ marginLeft: 4 }}
-                                        icon={
-                                            sortConfig.key === "name" &&
-                                            sortConfig.direction === "asc" ? (
-                                                <SortAscendingOutlined />
-                                            ) : sortConfig.key === "name" &&
-                                              sortConfig.direction ===
-                                                  "desc" ? (
-                                                <SortDescendingOutlined />
-                                            ) : (
-                                                <SwapOutlined />
+                    <div style={{ overflowX: "auto" }}>
+                        <Table
+                            rowKey="user_id"
+                            dataSource={paginatedUsers}
+                            pagination={false}
+                            bordered
+                            scroll={{
+                                x: window.innerWidth < 768 ? 800 : undefined,
+                                y: "calc(100vh - 400px)",
+                            }}
+                            size={window.innerWidth < 768 ? "small" : "middle"}
+                            sticky
+                        >
+                            {/* Checkbox select all */}
+                            <Table.Column
+                                width={40}
+                                align="center"
+                                fixed={window.innerWidth < 768 ? "left" : false}
+                                title={
+                                    <Checkbox
+                                        onChange={toggleSelectAll}
+                                        checked={
+                                            paginatedUsers.length > 0 &&
+                                            paginatedUsers.every((u) =>
+                                                selectedUsers.includes(
+                                                    u.user_id
+                                                )
                                             )
                                         }
                                     />
-                                </div>
-                            }
-                            dataIndex={["first_name"]}
-                            key="name"
-                            render={(text, record) => (
-                                <span>
-                                    {record.first_name} {record.last_name}
-                                </span>
-                            )}
-                        />
-
-                        {/* Role column with sort */}
-                        <Table.Column
-                            title={
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                    }}
-                                >
-                                    <span>Role</span>
-                                    <Button
-                                        size="small"
-                                        onClick={() => handleSort("role")}
-                                        style={{ marginLeft: 4 }}
-                                        icon={
-                                            sortConfig.key === "role" &&
-                                            sortConfig.direction === "asc" ? (
-                                                <SortAscendingOutlined />
-                                            ) : sortConfig.key === "role" &&
-                                              sortConfig.direction ===
-                                                  "desc" ? (
-                                                <SortDescendingOutlined />
-                                            ) : (
-                                                <SwapOutlined />
-                                            )
+                                }
+                                render={(text, record) => (
+                                    <Checkbox
+                                        checked={selectedUsers.includes(
+                                            record.user_id
+                                        )}
+                                        onChange={() =>
+                                            toggleUserSelect(record.user_id)
                                         }
                                     />
-                                </div>
-                            }
-                            dataIndex="role"
-                            key="role"
-                        />
+                                )}
+                            />
 
-                        {/* Place column with sort */}
-                        <Table.Column
-                            title={
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                    }}
-                                >
-                                    <span>Place</span>
-                                    <Button
-                                        size="small"
-                                        onClick={() => handleSort("place")}
-                                        style={{ marginLeft: 4 }}
-                                        icon={
-                                            sortConfig.key === "place" &&
-                                            sortConfig.direction === "asc" ? (
-                                                <SortAscendingOutlined />
-                                            ) : sortConfig.key === "place" &&
-                                              sortConfig.direction ===
-                                                  "desc" ? (
-                                                <SortDescendingOutlined />
-                                            ) : (
-                                                <SwapOutlined />
-                                            )
-                                        }
-                                    />
-                                </div>
-                            }
-                            dataIndex={["places", "name"]}
-                            key="place"
-                            render={(text, record) =>
-                                record.places?.name || "—"
-                            }
-                        />
-
-                        {/* Contact Number */}
-                        <Table.Column
-                            title="Contact"
-                            dataIndex="contact_number"
-                            key="contact"
-                        />
-
-                        {/* Actions */}
-                        <Table.Column
-                            title="Actions"
-                            key="actions"
-                            render={(text, record) => (
-                                <Space>
-                                    <Button onClick={() => handleEdit(record)}>
-                                        Edit
-                                    </Button>
-                                    <Button
-                                        danger
-                                        onClick={() =>
-                                            handleDelete(record.user_id)
-                                        }
+                            {/* Name column with sort */}
+                            <Table.Column
+                                title={
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                        }}
                                     >
-                                        Delete
-                                    </Button>
-                                </Space>
-                            )}
-                        />
-                    </Table>
-                )}
+                                        <span>Name</span>
+                                        <Button
+                                            size="small"
+                                            onClick={() => handleSort("name")}
+                                            style={{ marginLeft: 4 }}
+                                            icon={
+                                                sortConfig.key === "name" &&
+                                                sortConfig.direction ===
+                                                    "asc" ? (
+                                                    <SortAscendingOutlined />
+                                                ) : sortConfig.key === "name" &&
+                                                  sortConfig.direction ===
+                                                      "desc" ? (
+                                                    <SortDescendingOutlined />
+                                                ) : (
+                                                    <SwapOutlined />
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                }
+                                dataIndex={["first_name"]}
+                                key="name"
+                                width={150}
+                                render={(text, record) => (
+                                    <span>
+                                        {record.first_name} {record.last_name}
+                                    </span>
+                                )}
+                            />
 
-                {/* Pagination */}
-                <div
-                    style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        background: "white",
-                        padding: "10px 0",
-                        boxShadow: "0 -2px 8px rgba(0,0,0,0.1)",
-                        zIndex: 10,
-                    }}
-                >
-                    <Button
-                        disabled={currentPage === 1}
-                        onClick={() =>
-                            setCurrentPage((p) => Math.max(1, p - 1))
-                        }
-                        style={{ marginRight: 8 }}
-                    >
-                        {"<"}
-                    </Button>
-                    <span style={{ margin: "0 15px" }}>
-                        Page {currentPage} of {totalPages}
-                    </span>
-                    <Button
-                        disabled={currentPage === totalPages}
-                        onClick={() =>
-                            setCurrentPage((p) => Math.min(totalPages, p + 1))
-                        }
-                        style={{ marginLeft: 8 }}
-                    >
-                        {">"}
-                    </Button>
-                </div>
+                            {/* Role column with sort */}
+                            <Table.Column
+                                title={
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                        }}
+                                    >
+                                        <span>Role</span>
+                                        <Button
+                                            size="small"
+                                            onClick={() => handleSort("role")}
+                                            style={{ marginLeft: 4 }}
+                                            icon={
+                                                sortConfig.key === "role" &&
+                                                sortConfig.direction ===
+                                                    "asc" ? (
+                                                    <SortAscendingOutlined />
+                                                ) : sortConfig.key === "role" &&
+                                                  sortConfig.direction ===
+                                                      "desc" ? (
+                                                    <SortDescendingOutlined />
+                                                ) : (
+                                                    <SwapOutlined />
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                }
+                                dataIndex="role"
+                                key="role"
+                                width={120}
+                            />
+
+                            {/* Place column with sort */}
+                            <Table.Column
+                                title={
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                        }}
+                                    >
+                                        <span>Place</span>
+                                        <Button
+                                            size="small"
+                                            onClick={() => handleSort("place")}
+                                            style={{ marginLeft: 4 }}
+                                            icon={
+                                                sortConfig.key === "place" &&
+                                                sortConfig.direction ===
+                                                    "asc" ? (
+                                                    <SortAscendingOutlined />
+                                                ) : sortConfig.key ===
+                                                      "place" &&
+                                                  sortConfig.direction ===
+                                                      "desc" ? (
+                                                    <SortDescendingOutlined />
+                                                ) : (
+                                                    <SwapOutlined />
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                }
+                                dataIndex={["places", "name"]}
+                                key="place"
+                                width={120}
+                                render={(text, record) =>
+                                    record.places?.name || "—"
+                                }
+                            />
+
+                            {/* Contact Number */}
+                            <Table.Column
+                                title="Contact"
+                                dataIndex="contact_number"
+                                key="contact"
+                                width={120}
+                            />
+
+                            {/* Actions */}
+                            <Table.Column
+                                title="Actions"
+                                key="actions"
+                                width={100}
+                                fixed={
+                                    window.innerWidth < 768 ? "right" : false
+                                }
+                                render={(text, record) => (
+                                    <Space size="small">
+                                        <Button
+                                            size={
+                                                window.innerWidth < 768
+                                                    ? "small"
+                                                    : "middle"
+                                            }
+                                            onClick={() => handleEdit(record)}
+                                        >
+                                            Edit
+                                        </Button>
+                                        <Button
+                                            size={
+                                                window.innerWidth < 768
+                                                    ? "small"
+                                                    : "middle"
+                                            }
+                                            danger
+                                            onClick={() =>
+                                                handleDelete(record.user_id)
+                                            }
+                                        >
+                                            Delete
+                                        </Button>
+                                    </Space>
+                                )}
+                            />
+                        </Table>
+                    </div>
+                )}
             </div>
         </div>
     );

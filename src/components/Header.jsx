@@ -68,13 +68,15 @@ const AppHeader = () => {
     return (
         <>
             {/* Header */}
-            <Header 
+            <Header
                 className="nav-header"
                 style={{
-                    position: 'sticky',
+                    position: "sticky",
                     top: 0,
+                    left: 0,
+                    right: 0,
                     zIndex: 1000,
-                    width: '100%'
+                    width: "100%",
                 }}
             >
                 {/* Logo */}
