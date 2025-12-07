@@ -15,6 +15,12 @@ import {
     Modal,
     Spin,
 } from "antd";
+import {
+    SwapOutlined,
+    SortAscendingOutlined,
+    SortDescendingOutlined,
+    DeleteOutlined,
+} from "@ant-design/icons";
 
 const { Option } = Select;
 const { Title } = Typography;
@@ -26,6 +32,43 @@ const cleanName = (name) => (name || "").trim().replace(/\s{2,}/g, " ");
 const formatPhoneNumber = (number) => {
     const digits = String(number || "").replace(/\D/g, "");
     return digits.length >= 10 ? digits.slice(-10) : digits;
+};
+
+// Detect suspicious patterns in contact numbers
+const detectSuspiciousPattern = (number) => {
+    // Check for 4 or more consecutive identical digits
+    const repeatingPattern = /(\d)\1{3,}/;
+    if (repeatingPattern.test(number)) {
+        return "Contact number contains too many repeated digits (max 3 in a row)";
+    }
+
+    // Check for sequential patterns (ascending or descending) - 4 or more
+    let sequentialCount = 1;
+    for (let i = 1; i < number.length; i++) {
+        const current = parseInt(number[i]);
+        const previous = parseInt(number[i - 1]);
+
+        if (current === previous + 1 || current === previous - 1) {
+            sequentialCount++;
+            if (sequentialCount >= 4) {
+                return "Contact number contains suspicious sequential pattern (max 3 in sequence)";
+            }
+        } else {
+            sequentialCount = 1;
+        }
+    }
+
+    return null;
+};
+
+const capitalizeWords = (str) => {
+    return (str || "")
+        .replace(/\s+/g, " ")
+        .split(" ")
+        .map(
+            (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        )
+        .join(" ");
 };
 
 const UserManagement = () => {
@@ -46,7 +89,6 @@ const UserManagement = () => {
     });
 
     const [loading, setLoading] = useState(false);
-    // Structured message state
     const [message, setMessage] = useState({ type: "", content: "" });
     const [selectedRole, setSelectedRole] = useState("");
     const [uploadFile, setUploadFile] = useState(null);
@@ -58,9 +100,19 @@ const UserManagement = () => {
     const itemsPerPage = 10;
     const [selectedUsers, setSelectedUsers] = useState([]);
 
+    // Real-time validation states
+    const [validationErrors, setValidationErrors] = useState([]);
+
     // Modal visibility states
     const [isUserModalVisible, setIsUserModalVisible] = useState(false);
     const [isBatchModalVisible, setIsBatchModalVisible] = useState(false);
+
+    const [searchQuery, setSearchQuery] = useState(""); // search query
+    const [placeFilter, setPlaceFilter] = useState(""); // place filter
+    const [sortConfig, setSortConfig] = useState({
+        key: null,
+        direction: "asc",
+    }); // sorting
 
     const isEditing = !!formData.user_id;
 
@@ -176,24 +228,80 @@ const UserManagement = () => {
             errors.push(
                 "Last name must contain only letters and spaces (min 2 characters)."
             );
-        if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email))
-            errors.push("Please enter a valid email address.");
+
+        // Enhanced email validation - only allow @gmail.com
+        if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(email))
+            errors.push(
+                "Please enter a valid Gmail address (e.g., user@gmail.com)."
+            );
+
         if (!availableRoles.includes(role))
             errors.push("Please select a valid role.");
-        if (!/^9\d{9}$/.test(String(contact_number)))
+
+        // Enhanced contact number validation with pattern detection
+        if (!/^9\d{9}$/.test(String(contact_number))) {
             errors.push("Contact number must be 10 digits starting with 9.");
+        } else {
+            // Check for suspicious patterns
+            const patternError = detectSuspiciousPattern(
+                String(contact_number)
+            );
+            if (patternError) {
+                errors.push(patternError);
+            }
+        }
 
         if (currentUserRole === "Official" && role === "Admin") {
             errors.push("You do not have permission to manage Admin users.");
         }
 
         if (errors.length > 0) {
-            if (!isBatch)
-                setMessage({ type: "error", content: errors.join("\n") });
+            if (!isBatch) {
+                setMessage({
+                    type: "error-validation",
+                    content: errors.join("\n"),
+                });
+                setValidationErrors(errors);
+            }
             return errors;
         }
+
+        if (!isBatch) setValidationErrors([]);
         return true;
     };
+
+    // Real-time validation on form data change
+    useEffect(() => {
+        if (isUserModalVisible) {
+            const result = validateForm(formData, false);
+            if (result !== true) {
+                setValidationErrors(result);
+            } else {
+                setValidationErrors([]);
+            }
+        }
+    }, [formData, isUserModalVisible, currentUserRole, availableRoles]);
+
+    // Check if form is valid for submission
+    const isFormValid = useMemo(() => {
+        const { first_name, last_name, email, role, contact_number, place_id } =
+            formData;
+
+        // All fields must be filled
+        if (
+            !first_name ||
+            !last_name ||
+            !email ||
+            !role ||
+            !contact_number ||
+            !place_id
+        ) {
+            return false;
+        }
+
+        // Must have no validation errors
+        return validationErrors.length === 0;
+    }, [formData, validationErrors]);
 
     const resetForm = () => {
         setFormData({
@@ -209,6 +317,7 @@ const UserManagement = () => {
         setBatchStatus({ loading: false, message: "" });
         setUploadFile(null);
         setSelectedUsers([]);
+        // setValidationErrors([]);
     };
 
     const callEdgeFunction = async (functionName, body) => {
@@ -224,7 +333,10 @@ const UserManagement = () => {
         e.preventDefault();
         setMessage({ type: "", content: "" });
         setBatchStatus({ loading: false, message: "" });
-        if (!validateForm()) return;
+
+        const validationResult = validateForm();
+        if (validationResult !== true) return;
+
         setLoading(true);
 
         try {
@@ -252,7 +364,6 @@ const UserManagement = () => {
                     .eq("user_id", formData.user_id);
 
                 if (error) throw error;
-                // Success message
                 setMessage({
                     type: "success",
                     content: "Contact updated successfully.",
@@ -267,7 +378,6 @@ const UserManagement = () => {
                     contact_number: formattedNumber,
                     place_id: formData.place_id,
                 });
-                // Success message
                 setMessage({
                     type: "success",
                     content: "Contact created successfully.",
@@ -276,12 +386,12 @@ const UserManagement = () => {
 
             resetForm();
             await fetchData();
+            setIsUserModalVisible(false);
         } catch (err) {
             setMessage({ type: "error", content: `Failed: ${err.message}` });
         } finally {
             setLoading(false);
         }
-        setIsUserModalVisible(false); // Close modal after submit
     };
 
     const handleEdit = (user) => {
@@ -400,7 +510,6 @@ const UserManagement = () => {
                 (r) => r.errors.length > 0
             );
 
-            // Handle invalid contacts
             if (invalidContacts.length > 0) {
                 const errorSummary = invalidContacts
                     .map(
@@ -430,7 +539,6 @@ const UserManagement = () => {
                 return;
             }
 
-            // Prepare payload
             const batchPayload = validContacts.map((c) => ({
                 email: c.data.email,
                 password: DEFAULT_PASSWORD,
@@ -441,7 +549,6 @@ const UserManagement = () => {
                 place_id: c.data.place_id,
             }));
 
-            // Call backend function
             await callEdgeFunction("register-batch-users", batchPayload);
 
             setBatchStatus({
@@ -465,32 +572,91 @@ const UserManagement = () => {
                 type: "error",
                 content: `Batch upload failed: ${err.message}`,
             });
+        } finally {
+            setIsBatchModalVisible(false);
         }
-
-        setIsBatchModalVisible(false);
     };
 
-    const filteredUsers = useMemo(
-        () =>
-            selectedRole ? users.filter((u) => u.role === selectedRole) : users,
-        [users, selectedRole]
-    );
+    // Filter users based on role, search, place, and sort
+    const filteredUsers = useMemo(() => {
+        let tempUsers = users;
+        if (selectedRole) {
+            tempUsers = users.filter((u) => u.role === selectedRole);
+        }
+        if (searchQuery) {
+            const lowerQuery = searchQuery.toLowerCase();
+            tempUsers = tempUsers.filter(
+                (u) =>
+                    u.first_name.toLowerCase().includes(lowerQuery) ||
+                    u.last_name.toLowerCase().includes(lowerQuery)
+            );
+        }
+        if (placeFilter) {
+            tempUsers = tempUsers.filter((u) => u.places?.name === placeFilter);
+        }
+        return tempUsers;
+    }, [users, selectedRole, searchQuery, placeFilter]);
+
+    // Sorting logic
+    const handleSort = (columnKey) => {
+        setSortConfig((prev) => {
+            if (prev.key === columnKey) {
+                // toggle direction
+                return {
+                    key: columnKey,
+                    direction: prev.direction === "asc" ? "desc" : "asc",
+                };
+            }
+            // set new column, default to ascending
+            return { key: columnKey, direction: "asc" };
+        });
+    };
+
+    const sortedUsers = useMemo(() => {
+        if (!sortConfig.key) return filteredUsers;
+
+        const sorted = [...filteredUsers].sort((a, b) => {
+            let aVal, bVal;
+            switch (sortConfig.key) {
+                case "name":
+                    aVal = a.first_name + a.last_name;
+                    bVal = b.first_name + b.last_name;
+                    break;
+                case "place":
+                    aVal = a.places?.name || "";
+                    bVal = b.places?.name || "";
+                    break;
+                case "role":
+                    aVal = a.role;
+                    bVal = b.role;
+                    break;
+                default:
+                    return 0;
+            }
+            if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+            if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+            return 0;
+        });
+        return sorted;
+    }, [filteredUsers, sortConfig]);
+
     const totalPages = Math.max(
         1,
-        Math.ceil(filteredUsers.length / itemsPerPage)
+        Math.ceil(sortedUsers.length / itemsPerPage)
     );
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [selectedRole]);
+    }, [selectedRole, searchQuery, placeFilter, sortConfig]);
+
     useEffect(() => {
         if (currentPage > totalPages) setCurrentPage(totalPages);
     }, [totalPages, currentPage]);
 
     const paginatedUsers = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
-        return filteredUsers.slice(start, start + itemsPerPage);
-    }, [filteredUsers, currentPage]);
+        return sortedUsers.slice(start, start + itemsPerPage);
+    }, [sortedUsers, currentPage]);
 
     const toggleUserSelect = (id) =>
         setSelectedUsers((prev) =>
@@ -571,35 +737,18 @@ const UserManagement = () => {
         <div style={{ padding: 24 }}>
             <Title level={2}>Contact Management</Title>
 
-            {/* Structured message display */}
-            {message.content && (
+            {message.content && message.type !== "error-validation" && (
                 <Alert
                     message={message.content}
-                    type={message.type} // success, error, info
+                    type={message.type}
                     showIcon
-                    style={{ marginBottom: 16 }}
+                    closable
+                    style={{ marginBottom: 16, whiteSpace: "pre-line" }}
                 />
             )}
 
-            {/* Buttons to trigger modals */}
-            <Space style={{ marginBottom: 20 }}>
-                <Button
-                    type="primary"
-                    onClick={() => setIsUserModalVisible(true)}
-                >
-                    Add New User
-                </Button>
-                <Button
-                    style={{ marginLeft: 8 }}
-                    onClick={() => setIsBatchModalVisible(true)}
-                >
-                    Batch Upload
-                </Button>
-            </Space>
-
             {/* User Modal */}
             <Modal
-                // title={isEditing ? "Edit Contact" : "Add New Contact"}
                 open={isUserModalVisible}
                 onCancel={() => {
                     resetForm();
@@ -609,7 +758,7 @@ const UserManagement = () => {
                 width="50%"
                 maxWidth={600}
                 centered
-                destroyOnHidden
+                destroyOnClose
             >
                 <Form
                     layout="vertical"
@@ -625,13 +774,33 @@ const UserManagement = () => {
                     <Title level={4}>
                         {isEditing ? "Edit Contact" : "Add New Contact"}
                     </Title>
+
+                    {/* Show validation errors */}
+                    {validationErrors.length > 0 && (
+                        <Alert
+                            message="Validation Errors"
+                            description={
+                                <ul
+                                    style={{ marginBottom: 0, paddingLeft: 20 }}
+                                >
+                                    {validationErrors.map((err, idx) => (
+                                        <li key={idx}>{err}</li>
+                                    ))}
+                                </ul>
+                            }
+                            type="error"
+                            showIcon
+                            style={{ marginBottom: 16 }}
+                        />
+                    )}
+
                     <Form.Item label="First Name" required>
                         <Input
                             value={formData.first_name}
                             onChange={(e) =>
                                 setFormData((prev) => ({
                                     ...prev,
-                                    first_name: e.target.value,
+                                    first_name: capitalizeWords(e.target.value),
                                 }))
                             }
                         />
@@ -642,14 +811,15 @@ const UserManagement = () => {
                             onChange={(e) =>
                                 setFormData((prev) => ({
                                     ...prev,
-                                    last_name: e.target.value,
+                                    last_name: capitalizeWords(e.target.value),
                                 }))
                             }
                         />
                     </Form.Item>
-                    <Form.Item label="Email" required>
+                    <Form.Item label="Email (Gmail only)" required>
                         <Input
                             type="email"
+                            placeholder="user@gmail.com"
                             value={formData.email}
                             onChange={(e) =>
                                 setFormData((prev) => ({
@@ -698,6 +868,7 @@ const UserManagement = () => {
                         <Input
                             addonBefore="+63"
                             maxLength={10}
+                            placeholder="9XXXXXXXXX"
                             value={formData.contact_number}
                             onChange={(e) =>
                                 setFormData((prev) => ({
@@ -715,7 +886,7 @@ const UserManagement = () => {
                             <Button
                                 type="primary"
                                 htmlType="submit"
-                                disabled={loading}
+                                disabled={loading || !isFormValid}
                                 onClick={handleSubmit}
                             >
                                 {loading
@@ -726,8 +897,12 @@ const UserManagement = () => {
                             </Button>
                             <Button
                                 onClick={() => {
-                                    resetForm();
-                                    setIsUserModalVisible(false);
+                                    if (isEditing) {
+                                        setIsUserModalVisible(false);
+                                        resetForm();
+                                    } else {
+                                        resetForm();
+                                    }
                                 }}
                                 disabled={loading}
                             >
@@ -749,9 +924,8 @@ const UserManagement = () => {
                 width="50%"
                 maxWidth={600}
                 centered
-                destroyOnHidden
+                destroyOnClose
             >
-                {/* Batch upload form (unchanged) */}
                 <Form
                     layout="vertical"
                     onFinish={handleFileUpload}
@@ -764,6 +938,13 @@ const UserManagement = () => {
                     disabled={loading || isEditing || batchStatus.loading}
                 >
                     <Title level={4}>Batch Upload Contacts</Title>
+                    <Alert
+                        message="Requirements"
+                        description="All emails must be Gmail addresses (@gmail.com). Contact numbers must start with 9 and cannot contain suspicious patterns (4+ repeated or sequential digits)."
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                    />
                     <Form.Item>
                         <Input
                             type="file"
@@ -773,7 +954,7 @@ const UserManagement = () => {
                         {uploadFile && (
                             <Button
                                 onClick={handleRemoveFile}
-                                style={{ marginLeft: 8 }}
+                                style={{ marginTop: 8 }}
                             >
                                 Remove
                             </Button>
@@ -809,33 +990,94 @@ const UserManagement = () => {
 
             {/* Contacts List */}
             <div>
-                <Title level={3}>Contacts ({filteredUsers.length})</Title>
-                <Space style={{ marginBottom: 16 }}>
-                    <Select
-                        value={selectedRole}
-                        onChange={(value) => setSelectedRole(value)}
-                        style={{ width: 200 }}
-                        allowClear
-                        placeholder="Filter by role"
+                <Title level={3}>Contacts ({sortedUsers.length})</Title>
+
+                <>
+                    <Space
+                        style={{
+                            marginBottom: 20,
+                            flexWrap: "wrap",
+                            justifyContent: "space-between",
+                            width: "100%",
+                        }}
                     >
-                        <Option value="">All Roles</Option>
-                        {availableRoles.map((r) => (
-                            <Option key={r} value={r}>
-                                {r}
-                            </Option>
-                        ))}
-                    </Select>
-                    <Button
-                        danger
-                        disabled={selectedUsers.length === 0 || loading}
-                        onClick={handleBatchDelete}
+                        <div>
+                            <Button
+                                danger
+                                disabled={selectedUsers.length === 0 || loading}
+                                onClick={handleBatchDelete}
+                                style={{ width: 50, gap: 0 }}
+                            >
+                                <DeleteOutlined /> ({selectedUsers.length})
+                            </Button>
+
+                            <Input
+                                placeholder="Search name"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                style={{ width: 300 }}
+                            />
+                        </div>
+
+                        <div style={{ display: "flex", gap: 20 }}>
+                            <Select
+                                value={selectedRole}
+                                onChange={(value) => setSelectedRole(value)}
+                                style={{ width: 200 }}
+                                allowClear
+                                placeholder="Filter by role"
+                            >
+                                <Option value="">All Roles</Option>
+                                {availableRoles.map((r) => (
+                                    <Option key={r} value={r}>
+                                        {r}
+                                    </Option>
+                                ))}
+                            </Select>
+                            <Select
+                                value={placeFilter}
+                                onChange={(value) => setPlaceFilter(value)}
+                                style={{ width: 200 }}
+                                allowClear
+                                placeholder="Filter by place"
+                            >
+                                <Option value="">All Places</Option>
+                                {places.map((p) => (
+                                    <Option key={p.id} value={p.name}>
+                                        {p.name}
+                                    </Option>
+                                ))}
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Button
+                                type="primary"
+                                onClick={() => setIsUserModalVisible(true)}
+                            >
+                                New Contact
+                            </Button>
+                            <Button
+                                style={{ marginLeft: 8 }}
+                                onClick={() => setIsBatchModalVisible(true)}
+                            >
+                                Batch Upload
+                            </Button>
+                        </div>
+                    </Space>
+                </>
+
+                {!loading && sortedUsers.length === 0 && (
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                        }}
                     >
-                        Delete Selected ({selectedUsers.length})
-                    </Button>
-                </Space>
-                {!loading && filteredUsers.length === 0 ? (
-                    <p>No contacts found.</p>
-                ) : null}
+                        <p>No contact found.</p>
+                    </div>
+                )}
 
                 {paginatedUsers.length > 0 && (
                     <Table
@@ -843,8 +1085,9 @@ const UserManagement = () => {
                         dataSource={paginatedUsers}
                         pagination={false}
                         bordered
+                        minHeight={400}
                     >
-                        {/* Checkbox toggle in the header of Name column */}
+                        {/* Checkbox select all */}
                         <Table.Column
                             width={50}
                             align="center"
@@ -871,8 +1114,35 @@ const UserManagement = () => {
                             )}
                         />
 
+                        {/* Name column with sort */}
                         <Table.Column
-                            title="Name"
+                            title={
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <span>Name</span>
+                                    <Button
+                                        size="small"
+                                        onClick={() => handleSort("name")}
+                                        style={{ marginLeft: 4 }}
+                                        icon={
+                                            sortConfig.key === "name" &&
+                                            sortConfig.direction === "asc" ? (
+                                                <SortAscendingOutlined />
+                                            ) : sortConfig.key === "name" &&
+                                              sortConfig.direction ===
+                                                  "desc" ? (
+                                                <SortDescendingOutlined />
+                                            ) : (
+                                                <SwapOutlined />
+                                            )
+                                        }
+                                    />
+                                </div>
+                            }
                             dataIndex={["first_name"]}
                             key="name"
                             render={(text, record) => (
@@ -881,24 +1151,84 @@ const UserManagement = () => {
                                 </span>
                             )}
                         />
+
+                        {/* Role column with sort */}
                         <Table.Column
-                            title="Role"
+                            title={
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <span>Role</span>
+                                    <Button
+                                        size="small"
+                                        onClick={() => handleSort("role")}
+                                        style={{ marginLeft: 4 }}
+                                        icon={
+                                            sortConfig.key === "role" &&
+                                            sortConfig.direction === "asc" ? (
+                                                <SortAscendingOutlined />
+                                            ) : sortConfig.key === "role" &&
+                                              sortConfig.direction ===
+                                                  "desc" ? (
+                                                <SortDescendingOutlined />
+                                            ) : (
+                                                <SwapOutlined />
+                                            )
+                                        }
+                                    />
+                                </div>
+                            }
                             dataIndex="role"
                             key="role"
                         />
+
+                        {/* Place column with sort */}
                         <Table.Column
-                            title="Place"
+                            title={
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <span>Place</span>
+                                    <Button
+                                        size="small"
+                                        onClick={() => handleSort("place")}
+                                        style={{ marginLeft: 4 }}
+                                        icon={
+                                            sortConfig.key === "place" &&
+                                            sortConfig.direction === "asc" ? (
+                                                <SortAscendingOutlined />
+                                            ) : sortConfig.key === "place" &&
+                                              sortConfig.direction ===
+                                                  "desc" ? (
+                                                <SortDescendingOutlined />
+                                            ) : (
+                                                <SwapOutlined />
+                                            )
+                                        }
+                                    />
+                                </div>
+                            }
                             dataIndex={["places", "name"]}
                             key="place"
                             render={(text, record) =>
                                 record.places?.name || "—"
                             }
                         />
+
+                        {/* Contact Number */}
                         <Table.Column
                             title="Contact"
                             dataIndex="contact_number"
                             key="contact"
                         />
+
+                        {/* Actions */}
                         <Table.Column
                             title="Actions"
                             key="actions"
@@ -922,14 +1252,29 @@ const UserManagement = () => {
                 )}
 
                 {/* Pagination */}
-                <div style={{ textAlign: "center", marginTop: 20 }}>
+                <div
+                    style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        background: "white",
+                        padding: "10px 0",
+                        boxShadow: "0 -2px 8px rgba(0,0,0,0.1)",
+                        zIndex: 10,
+                    }}
+                >
                     <Button
                         disabled={currentPage === 1}
                         onClick={() =>
                             setCurrentPage((p) => Math.max(1, p - 1))
                         }
+                        style={{ marginRight: 8 }}
                     >
-                        Previous
+                        {"<"}
                     </Button>
                     <span style={{ margin: "0 15px" }}>
                         Page {currentPage} of {totalPages}
@@ -939,8 +1284,9 @@ const UserManagement = () => {
                         onClick={() =>
                             setCurrentPage((p) => Math.min(totalPages, p + 1))
                         }
+                        style={{ marginLeft: 8 }}
                     >
-                        Next
+                        {">"}
                     </Button>
                 </div>
             </div>

@@ -1,4 +1,3 @@
-// RegisterPage.jsx (Themed for Government Look)
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/globals";
@@ -22,13 +21,13 @@ import {
     LockOutlined,
     PhoneOutlined,
     HomeOutlined,
+    CheckCircleOutlined,
+    CloseCircleOutlined,
 } from "@ant-design/icons";
 
-// Destructure AntD components
 const { Title, Text, Link } = Typography;
 const { Option } = Select;
 
-// --- 1. THEME COLORS ---
 const THEME = {
     BLUE_PRIMARY: "#0056a0",
     BACKGROUND_LIGHT: "#f0f2f5",
@@ -48,7 +47,6 @@ const initialFormData = {
     place: "",
 };
 
-// --- 2. PROFESSIONAL TERMS AND CONDITIONS TEXT (Full Text) ---
 const TERMS_AND_CONDITIONS_TEXT = `
 TERMS AND CONDITIONS FOR SAFE MUNTINDILAW RESIDENT PORTAL
 
@@ -90,7 +88,6 @@ The Service is provided "as is." The Barangay and its officials will not be liab
 9. Governing Law and Dispute Resolution
 These Terms shall be governed by and construed in accordance with the laws of the Republic of the Philippines. Any dispute arising from these Terms shall be exclusively submitted to the appropriate courts in Antipolo City.
 `;
-// -------------------------------------------------------------
 
 const RegisterPage = ({ onSuccess }) => {
     const navigate = useNavigate();
@@ -98,36 +95,61 @@ const RegisterPage = ({ onSuccess }) => {
     const [formData, setFormData] = useState(initialFormData);
     const [status, setStatus] = useState({ message: null, isError: false });
     const [loading, setLoading] = useState(false);
-    // emailValid: true=available, false=taken/invalid, null=not yet checked/empty
     const [emailValid, setEmailValid] = useState(null);
     const [contactValid, setContactValid] = useState(null);
-    // State for '9' prefix validation error message
     const [contactPrefixError, setContactPrefixError] = useState(null);
-    // State to distinguish between invalid format and taken email
     const [emailFormatInvalid, setEmailFormatInvalid] = useState(false);
-
-    // State for Terms and Conditions agreement and Modal visibility
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
 
-    // Derived state for password matching
+    // Alphanumeric Password Validation
+    const validatePassword = (password) => {
+        return {
+            length: password.length >= 8 && password.length <= 32,
+            uppercase: /[A-Z]/.test(password),
+            lowercase: /[a-z]/.test(password),
+            number: /[0-9]/.test(password),
+            alphanumeric: /^[a-zA-Z0-9]+$/.test(password),
+        };
+    };
+
+    // Detect suspicious patterns in contact numbers
+    const detectSuspiciousPattern = (number) => {
+        // Check for 4 or more consecutive identical digits
+        const repeatingPattern = /(\d)\1{3,}/;
+        if (repeatingPattern.test(number)) {
+            return "Contact number contains too many repeated digits (max 3 in a row)";
+        }
+
+        // Check for sequential patterns (ascending or descending) - 4 or more
+        let sequentialCount = 1;
+        for (let i = 1; i < number.length; i++) {
+            const current = parseInt(number[i]);
+            const previous = parseInt(number[i - 1]);
+
+            if (current === previous + 1 || current === previous - 1) {
+                sequentialCount++;
+                if (sequentialCount >= 4) {
+                    return "Contact number contains suspicious sequential pattern (max 3 in sequence)";
+                }
+            } else {
+                sequentialCount = 1;
+            }
+        }
+
+        return null;
+    };
+
+    const passwordChecks = validatePassword(formData.password);
+    const isPasswordValid = Object.values(passwordChecks).every(
+        (check) => check
+    );
     const passwordsMatch = formData.password === formData.confirmPassword;
 
-    // --- Modal Handlers ---
-    const showModal = () => {
-        setIsModalVisible(true);
-    };
+    const showModal = () => setIsModalVisible(true);
+    const handleOk = () => setIsModalVisible(false);
+    const handleCancel = () => setIsModalVisible(false);
 
-    const handleOk = () => {
-        setIsModalVisible(false);
-    };
-
-    const handleCancel = () => {
-        setIsModalVisible(false);
-    };
-    // ----------------------
-
-    // --- Effect: Load Places ---
     useEffect(() => {
         const fetchPlaces = async () => {
             const { data } = await supabase.from("places").select("id, name");
@@ -136,55 +158,54 @@ const RegisterPage = ({ onSuccess }) => {
         fetchPlaces();
     }, []);
 
-    // --- Validation Logic (UPDATED: Stricter email regex and feedback) ---
+    // Email Validation
     const checkEmail = useCallback(async (email) => {
-        // Standard email regex (more restrictive than the previous one)
-        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
 
         if (!email) {
-            setEmailValid(null); // Empty field
+            setEmailValid(null);
             setEmailFormatInvalid(false);
             return;
         }
 
-        // 1. Check for valid format
         if (!emailRegex.test(email)) {
             setEmailFormatInvalid(true);
-            setEmailValid(false); // Treat as invalid until format is fixed
+            setEmailValid(false);
             return;
         }
 
-        setEmailFormatInvalid(false); // Format is valid, proceed to check uniqueness
+        setEmailFormatInvalid(false);
 
-        // 2. Check for uniqueness in DB
         const { data } = await supabase
             .from("contacts")
             .select("email")
             .eq("email", email)
             .maybeSingle();
 
-        // If data exists, it's taken (false). If data is null, it's available (true).
         setEmailValid(!data);
     }, []);
 
+    // Phone Number Validation with Pattern Detection
     const checkContact = useCallback(async (contact) => {
         const cleanedNumber = contact.replace(/\D/g, "");
         setContactPrefixError(null);
 
-        // 1. Check for 10-digit length
-        if (cleanedNumber.length !== 10) {
+        if (cleanedNumber.length !== 9) {
             setContactPrefixError(null);
             return setContactValid(null);
         }
 
-        // 2. Check if the number starts with '9'
-        if (cleanedNumber.charAt(0) !== "9") {
-            setContactPrefixError("Ang contact number ay dapat magsimula sa 9");
+        // Prepend '9' to create full 10-digit number for pattern checking
+        const fullTenDigit = "9" + cleanedNumber;
+
+        // Check for suspicious patterns on the full number
+        const patternError = detectSuspiciousPattern(fullTenDigit);
+        if (patternError) {
+            setContactPrefixError(patternError);
             return setContactValid(false);
         }
 
-        // 3. Check for uniqueness in DB
-        const fullNumber = `+63${cleanedNumber}`;
+        const fullNumber = `+63${fullTenDigit}`;
         const { data } = await supabase
             .from("contacts")
             .select("contact_number")
@@ -194,25 +215,23 @@ const RegisterPage = ({ onSuccess }) => {
         setContactPrefixError(null);
         setContactValid(!data);
     }, []);
-    // --------------------------------------------------------------------------
 
-    // --- Handler: Form Input Change ---
     const handleChange = (e) => {
         let { name, value } = e.target;
         setStatus({ message: null, isError: false });
 
         if (name === "firstName" || name === "lastName") {
-            // Restriction: First letter capital, rest lowercase
-            if (value.length > 0) {
-                // Allows only alphabetical characters and spaces for names
-                const cleanedValue = value.replace(/[^a-zA-Z\s]/g, "");
-                // Apply Title Case formatting
-                value =
-                    cleanedValue.charAt(0).toUpperCase() +
-                    cleanedValue.slice(1).toLowerCase();
-            }
+            const cleanedValue = value.replace(/[^a-zA-Z\s]/g, "");
+            const capitalized = cleanedValue
+                .split(" ")
+                .map(
+                    (word) =>
+                        word.charAt(0).toUpperCase() +
+                        word.slice(1).toLowerCase()
+                )
+                .join(" ");
+            value = capitalized;
         } else if (name === "contactNumber") {
-            // Restriction: Only digits (for number type)
             const numericValue = value.replace(/\D/g, "");
             value = numericValue;
             checkContact(value);
@@ -223,35 +242,34 @@ const RegisterPage = ({ onSuccess }) => {
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    // --- Handler: Select Change (for place) (unchanged) ---
     const handleSelectChange = (value) => {
         setFormData((prev) => ({ ...prev, place: value }));
         setStatus({ message: null, isError: false });
     };
 
-    // --- Handler: Terms Checkbox Change ---
     const handleTermsChange = (e) => {
         setAgreedToTerms(e.target.checked);
         setStatus({ message: null, isError: false });
     };
-    // ------------------------------------
 
-    // --- Handler: Registration Submission ---
     const handleRegister = async () => {
         setLoading(true);
         setStatus({ message: null, isError: false });
 
         const { firstName, lastName, email, password, contactNumber, place } =
             formData;
+        const displayName = `${firstName} ${lastName}`;
 
-        // --- Pre-submission Validation Checks ---
-        if (password.length < 8 || password.length > 32) {
+        // Password Validation
+        if (!isPasswordValid) {
             setLoading(false);
             return setStatus({
-                message: "Password must be between 8 and 32 characters long.",
+                message:
+                    "Password must meet all security requirements (8-32 characters, uppercase, lowercase, number, alphanumeric only).",
                 isError: true,
             });
         }
+
         if (!passwordsMatch) {
             setLoading(false);
             return setStatus({
@@ -260,41 +278,53 @@ const RegisterPage = ({ onSuccess }) => {
             });
         }
 
-        // CHECK EMAIL VALIDATION
         if (emailFormatInvalid) {
-            // Check for format error first
             setLoading(false);
             return setStatus({
                 message:
-                    "Please enter a valid email format (e.g., user@domain.com).",
+                    "Please enter a valid email address (e.g., user@gmail.com).",
                 isError: true,
             });
         }
+
         if (emailValid === false || emailValid === null) {
-            // Then check for uniqueness/missing
             setLoading(false);
             return setStatus({
-                message: "Please enter a valid and available email.",
+                message: "Please enter a valid and available email address.",
                 isError: true,
             });
         }
-        // End Email Check
 
-        // Use the cleaned number for validation/check
         const cleanedContact = contactNumber.replace(/\D/g, "");
 
-        if (
-            cleanedContact.length !== 10 ||
-            cleanedContact.charAt(0) !== "9" ||
-            contactValid === false
-        ) {
+        // Enhanced contact validation with pattern check
+        if (cleanedContact.length !== 9) {
             setLoading(false);
             return setStatus({
-                message:
-                    "Please enter a valid, 10-digit contact number starting with '9'.",
+                message: "Please enter a valid, 9-digit contact number.",
                 isError: true,
             });
         }
+
+        // Prepend '9' to create full 10-digit number for pattern checking
+        const fullTenDigit = "9" + cleanedContact;
+        const patternError = detectSuspiciousPattern(fullTenDigit);
+        if (patternError) {
+            setLoading(false);
+            return setStatus({
+                message: patternError,
+                isError: true,
+            });
+        }
+
+        if (contactValid === false) {
+            setLoading(false);
+            return setStatus({
+                message: "This contact number is already taken or invalid.",
+                isError: true,
+            });
+        }
+
         if (!place) {
             setLoading(false);
             return setStatus({
@@ -302,7 +332,7 @@ const RegisterPage = ({ onSuccess }) => {
                 isError: true,
             });
         }
-        // Check for Terms and Conditions agreement
+
         if (!agreedToTerms) {
             setLoading(false);
             return setStatus({
@@ -311,13 +341,9 @@ const RegisterPage = ({ onSuccess }) => {
                 isError: true,
             });
         }
-        // --- End Validation Checks ---
 
-        // Clean the number one last time for storage
-        const fullNumber = `+63${cleanedContact}`;
+        const fullNumber = `+639${cleanedContact}`;
         const placeIdToSave = place || null;
-
-        // Ensure name format is enforced at the point of saving
         const formattedFirstName =
             firstName.charAt(0).toUpperCase() +
             firstName.slice(1).toLowerCase();
@@ -325,22 +351,23 @@ const RegisterPage = ({ onSuccess }) => {
             lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase();
 
         try {
-            // 1. Register user with Supabase Auth
             const { data: authData, error: authError } =
                 await supabase.auth.signUp({
                     email,
                     password,
-                    options: { data: { role: "Resident" } },
+                    options: {
+                        data: { role: "Resident", display_name: displayName },
+                    },
+                    display_name: displayName,
                 });
 
             if (authError) throw authError;
 
-            // 2. Save detailed contact info to 'contacts' table
             const { error: dbError } = await supabase.from("contacts").insert([
                 {
                     user_id: authData.user.id,
-                    first_name: formattedFirstName, // Use formatted name
-                    last_name: formattedLastName, // Use formatted name
+                    first_name: formattedFirstName,
+                    last_name: formattedLastName,
                     email,
                     contact_number: fullNumber,
                     place_id: placeIdToSave,
@@ -350,17 +377,15 @@ const RegisterPage = ({ onSuccess }) => {
 
             if (dbError) throw dbError;
 
-            // 3. Success
             setStatus({
                 message:
                     "Registration successful! Check your email for a confirmation link.",
                 isError: false,
             });
             onSuccess?.();
-            // setTimeout(() => navigate("/login"), 3000);
         } catch (err) {
             setStatus({
-                message: `❌ Registration failed: ${err.message}`,
+                message: `Registration failed: ${err.message}`,
                 isError: true,
             });
         } finally {
@@ -368,7 +393,6 @@ const RegisterPage = ({ onSuccess }) => {
         }
     };
 
-    // --- Component Rendering ---
     const cleanedContactNumber = formData.contactNumber.replace(/\D/g, "");
     const isFormValid =
         formData.firstName &&
@@ -376,37 +400,27 @@ const RegisterPage = ({ onSuccess }) => {
         formData.email &&
         formData.password &&
         formData.confirmPassword &&
-        cleanedContactNumber.length === 10 &&
-        cleanedContactNumber.charAt(0) === "9" &&
+        cleanedContactNumber.length === 9 &&
         formData.place &&
         passwordsMatch &&
-        formData.password.length >= 8 &&
-        formData.password.length <= 32 &&
-        emailValid === true && // Must be valid and available
+        isPasswordValid &&
+        emailValid === true &&
         contactValid === true &&
-        agreedToTerms; // Must be true
+        agreedToTerms;
 
-    // --- Password Validation Status/Help Logic ---
-    const getPasswordStatus = (password) => {
-        if (password.length === 0) return { status: "", help: null };
+    const getPasswordStatus = () => {
+        if (formData.password.length === 0) return { status: "", help: null };
 
-        if (password.length < 8) {
+        if (!isPasswordValid) {
             return {
                 status: "error",
-                help: "Password must be at least 8 characters long.(Ang password ay dapat hindi bababa sa 8 karakter)",
-            };
-        }
-        if (password.length > 32) {
-            return {
-                status: "error",
-                help: "Password cannot be more than 32 characters long.",
+                help: "Password must meet all requirements",
             };
         }
 
-        // If password meets length requirements, check against confirm password for immediate warning
         if (
             formData.confirmPassword.length > 0 &&
-            password !== formData.confirmPassword
+            formData.password !== formData.confirmPassword
         ) {
             return { status: "warning", help: "Passwords do not match." };
         }
@@ -414,30 +428,26 @@ const RegisterPage = ({ onSuccess }) => {
         return { status: "success", help: "" };
     };
 
-    const getConfirmPasswordStatus = (password, confirmPassword) => {
-        if (confirmPassword.length === 0) return { status: "", help: null };
+    const getConfirmPasswordStatus = () => {
+        if (formData.confirmPassword.length === 0)
+            return { status: "", help: null };
 
-        // Check minimum length (8)
-        if (confirmPassword.length < 8) {
+        if (!isPasswordValid) {
             return {
                 status: "error",
-                help: "Password must be at least 8 characters long.(Ang password ay dapat hindi bababa sa 8 karakter)",
+                help: "Password must meet requirements first",
             };
         }
-        // Check match
-        if (password === confirmPassword) {
+
+        if (formData.password === formData.confirmPassword) {
             return { status: "success", help: "Passwords match." };
         } else {
             return { status: "error", help: "Passwords do not match." };
         }
     };
 
-    const passwordStatus = getPasswordStatus(formData.password);
-    const confirmPasswordStatus = getConfirmPasswordStatus(
-        formData.password,
-        formData.confirmPassword
-    );
-    // ----------------------------------------------
+    const passwordStatus = getPasswordStatus();
+    const confirmPasswordStatus = getConfirmPasswordStatus();
 
     return (
         <div
@@ -445,22 +455,24 @@ const RegisterPage = ({ onSuccess }) => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                height: "100vh",
+                minHeight: "100vh",
                 backgroundColor: THEME.BACKGROUND_LIGHT,
                 padding: "1rem",
             }}
         >
             <Card
                 style={{
-                    maxWidth: 450,
+                    maxWidth: 500,
                     width: "100%",
                     boxShadow: THEME.CARD_SHADOW,
                     borderRadius: 12,
                     borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
                     paddingTop: 10,
+                    marginTop: 10,
+                    marginBottom: 10,
                 }}
             >
-                <div style={{ textAlign: "center", marginBottom: 24 }}>
+                <div style={{ textAlign: "center", marginBottom: 16 }}>
                     <Title
                         level={2}
                         style={{
@@ -473,27 +485,24 @@ const RegisterPage = ({ onSuccess }) => {
                     </Title>
                     <Text
                         type="secondary"
-                        style={{ color: THEME.BLUE_PRIMARY }}
+                        style={{ color: THEME.BLUE_PRIMARY, fontSize: "13px" }}
                     >
                         Resident Registration Portal
                     </Text>
                 </div>
 
-                {/* Status Message using AntD Alert */}
                 {status.message && (
                     <Alert
                         message={status.message}
                         type={status.isError ? "error" : "success"}
                         showIcon
-                        style={{ marginBottom: 20 }}
+                        style={{ marginBottom: 16 }}
                         closable
                     />
                 )}
 
                 <Form layout="vertical" onFinish={handleRegister}>
-                    {/* Input Fields */}
                     <Row gutter={16}>
-                        {/* First Name / Last Name */}
                         <Col span={12}>
                             <Form.Item
                                 label={<Text strong>First Name</Text>}
@@ -521,7 +530,7 @@ const RegisterPage = ({ onSuccess }) => {
                             </Form.Item>
                         </Col>
                     </Row>
-                    {/* Email */}
+
                     <Form.Item
                         label={<Text strong>Email Address</Text>}
                         required
@@ -529,7 +538,7 @@ const RegisterPage = ({ onSuccess }) => {
                             formData.email.length === 0
                                 ? ""
                                 : emailFormatInvalid
-                                ? "error" // Show error if format is invalid
+                                ? "error"
                                 : emailValid === true
                                 ? "success"
                                 : emailValid === false
@@ -539,17 +548,17 @@ const RegisterPage = ({ onSuccess }) => {
                         help={
                             formData.email.length > 0
                                 ? emailFormatInvalid
-                                    ? "Invalid email format (must include '@')"
+                                    ? "Email must be a valid email address (e.g., user@gmail.com)"
                                     : emailValid === true
                                     ? "Available"
                                     : emailValid === false
-                                    ? "Taken or invalid format (Nagamit na o di-wastong pormat"
+                                    ? "Taken or invalid format"
                                     : null
                                 : null
                         }
                     >
                         <Input
-                            placeholder="Enter your registered email"
+                            placeholder="example@gmail.com"
                             name="email"
                             type="email"
                             value={formData.email}
@@ -561,7 +570,7 @@ const RegisterPage = ({ onSuccess }) => {
                             }
                         />
                     </Form.Item>
-                    {/* Contact Number / Place */}
+
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
@@ -571,7 +580,7 @@ const RegisterPage = ({ onSuccess }) => {
                                     cleanedContactNumber.length === 0
                                         ? ""
                                         : contactPrefixError
-                                        ? "error" // Prefix error takes priority
+                                        ? "error"
                                         : contactValid === true
                                         ? "success"
                                         : contactValid === false
@@ -579,45 +588,75 @@ const RegisterPage = ({ onSuccess }) => {
                                         : "validating"
                                 }
                                 help={
-                                    contactPrefixError || // Display prefix error first
+                                    contactPrefixError ||
                                     (cleanedContactNumber.length > 0 &&
-                                    cleanedContactNumber.charAt(0) === "9" &&
                                     contactValid !== null
                                         ? contactValid
                                             ? "Available"
                                             : "Taken or invalid format"
-                                        : cleanedContactNumber.length > 0 &&
-                                          cleanedContactNumber.length !== 10
-                                        ? ""
                                         : null)
                                 }
                             >
-                                <Input
-                                    prefix={
-                                        <Text
-                                            strong
+                                <div style={{ position: "relative" }}>
+                                    <Input
+                                        prefix={
+                                            <Text
+                                                strong
+                                                style={{
+                                                    marginRight: 4,
+                                                    color: THEME.BLUE_PRIMARY,
+                                                }}
+                                            >
+                                                +63
+                                            </Text>
+                                        }
+                                        name="contactNumber"
+                                        value={
+                                            formData.contactNumber
+                                                ? "9" + formData.contactNumber
+                                                : "9"
+                                        }
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            // Remove the leading '9' if present
+                                            const withoutNine =
+                                                value.startsWith("9")
+                                                    ? value.slice(1)
+                                                    : value;
+                                            handleChange({
+                                                target: {
+                                                    name: "contactNumber",
+                                                    value: withoutNine,
+                                                },
+                                            });
+                                        }}
+                                        maxLength={10}
+                                        type="tel"
+                                        suffix={
+                                            <PhoneOutlined
+                                                style={{
+                                                    color: THEME.BLUE_PRIMARY,
+                                                }}
+                                            />
+                                        }
+                                        style={{ position: "relative" }}
+                                    />
+                                    {formData.contactNumber.length === 0 && (
+                                        <div
                                             style={{
-                                                marginRight: 4,
-                                                color: THEME.BLUE_PRIMARY,
+                                                position: "absolute",
+                                                left: "65px",
+                                                top: "50%",
+                                                transform: "translateY(-50%)",
+                                                color: "#bfbfbf",
+                                                pointerEvents: "none",
+                                                fontSize: "14px",
                                             }}
                                         >
-                                            +63
-                                        </Text>
-                                    }
-                                    placeholder="e.g., 9XXXXXXXXX"
-                                    name="contactNumber"
-                                    value={formData.contactNumber}
-                                    onChange={handleChange}
-                                    maxLength={10}
-                                    type="tel"
-                                    suffix={
-                                        <PhoneOutlined
-                                            style={{
-                                                color: THEME.BLUE_PRIMARY,
-                                            }}
-                                        />
-                                    }
-                                />
+                                            XXXXXXXXX
+                                        </div>
+                                    )}
+                                </div>
                             </Form.Item>
                         </Col>
                         <Col span={12}>
@@ -650,13 +689,12 @@ const RegisterPage = ({ onSuccess }) => {
                             </Form.Item>
                         </Col>
                     </Row>
-                    {/* Password / Confirm Password */}
+
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
                                 label={<Text strong>Password</Text>}
                                 required
-                                // PASSWORD LENGTH RULES (MIN 8, MAX 32)
                                 validateStatus={passwordStatus.status}
                                 help={passwordStatus.help}
                             >
@@ -679,7 +717,6 @@ const RegisterPage = ({ onSuccess }) => {
                             <Form.Item
                                 label={<Text strong>Confirm Password</Text>}
                                 required
-                                // CONFIRM PASSWORD MATCHING
                                 validateStatus={confirmPasswordStatus.status}
                                 help={confirmPasswordStatus.help}
                             >
@@ -700,7 +737,108 @@ const RegisterPage = ({ onSuccess }) => {
                         </Col>
                     </Row>
 
-                    {/* --- CHECKBOX AND LINK TO MODAL --- */}
+                    {/* Password Requirements Display */}
+                    {formData.password.length > 0 && (
+                        <div
+                            style={{
+                                marginBottom: 12,
+                                padding: 10,
+                                backgroundColor: "#f6f8fa",
+                                borderRadius: 6,
+                                border: "1px solid #e1e4e8",
+                            }}
+                        >
+                            <Text
+                                strong
+                                style={{
+                                    display: "block",
+                                    marginBottom: 6,
+                                    color: THEME.BLUE_PRIMARY,
+                                    fontSize: "12px",
+                                }}
+                            >
+                                Password Requirements:
+                            </Text>
+                            <Space direction="vertical" size={2}>
+                                <Text
+                                    style={{
+                                        fontSize: 11,
+                                        color: passwordChecks.length
+                                            ? "#52c41a"
+                                            : "#8c8c8c",
+                                    }}
+                                >
+                                    {passwordChecks.length ? (
+                                        <CheckCircleOutlined />
+                                    ) : (
+                                        <CloseCircleOutlined />
+                                    )}{" "}
+                                    8-32 characters
+                                </Text>
+                                <Text
+                                    style={{
+                                        fontSize: 11,
+                                        color: passwordChecks.uppercase
+                                            ? "#52c41a"
+                                            : "#8c8c8c",
+                                    }}
+                                >
+                                    {passwordChecks.uppercase ? (
+                                        <CheckCircleOutlined />
+                                    ) : (
+                                        <CloseCircleOutlined />
+                                    )}{" "}
+                                    One uppercase letter (A-Z)
+                                </Text>
+                                <Text
+                                    style={{
+                                        fontSize: 11,
+                                        color: passwordChecks.lowercase
+                                            ? "#52c41a"
+                                            : "#8c8c8c",
+                                    }}
+                                >
+                                    {passwordChecks.lowercase ? (
+                                        <CheckCircleOutlined />
+                                    ) : (
+                                        <CloseCircleOutlined />
+                                    )}{" "}
+                                    One lowercase letter (a-z)
+                                </Text>
+                                <Text
+                                    style={{
+                                        fontSize: 11,
+                                        color: passwordChecks.number
+                                            ? "#52c41a"
+                                            : "#8c8c8c",
+                                    }}
+                                >
+                                    {passwordChecks.number ? (
+                                        <CheckCircleOutlined />
+                                    ) : (
+                                        <CloseCircleOutlined />
+                                    )}{" "}
+                                    One number (0-9)
+                                </Text>
+                                <Text
+                                    style={{
+                                        fontSize: 11,
+                                        color: passwordChecks.alphanumeric
+                                            ? "#52c41a"
+                                            : "#8c8c8c",
+                                    }}
+                                >
+                                    {passwordChecks.alphanumeric ? (
+                                        <CheckCircleOutlined />
+                                    ) : (
+                                        <CloseCircleOutlined />
+                                    )}{" "}
+                                    Alphanumeric only (no special characters)
+                                </Text>
+                            </Space>
+                        </div>
+                    )}
+
                     <Form.Item name="agreement" valuePropName="checked">
                         <Checkbox
                             checked={agreedToTerms}
@@ -723,9 +861,7 @@ const RegisterPage = ({ onSuccess }) => {
                             </Link>
                         </Checkbox>
                     </Form.Item>
-                    {/* ---------------------------------- */}
 
-                    {/* Register Button */}
                     <Button
                         type="primary"
                         htmlType="submit"
@@ -750,10 +886,9 @@ const RegisterPage = ({ onSuccess }) => {
                                 THEME.BLUE_PRIMARY)
                         }
                     >
-                        Register Account
+                        Register
                     </Button>
 
-                    {/* Login Link */}
                     <div style={{ marginTop: 20, textAlign: "center" }}>
                         <Text>
                             Already have an account?{" "}
@@ -765,7 +900,6 @@ const RegisterPage = ({ onSuccess }) => {
                 </Form>
             </Card>
 
-            {/* Terms and Conditions Modal */}
             <Modal
                 title={
                     <Title level={4} style={{ color: THEME.BLUE_PRIMARY }}>
