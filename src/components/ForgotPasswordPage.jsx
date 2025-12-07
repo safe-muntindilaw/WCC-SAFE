@@ -15,34 +15,46 @@ import {
 
 import { SendOutlined, MailOutlined } from "@ant-design/icons";
 
+// Destructure AntD components
 const { Title, Text, Link } = Typography;
 
+// --- 1. THEME COLORS (Consistent Government Blue/Yellow) ---
 const THEME = {
     BLUE_PRIMARY: "#0056a0",
+
     BACKGROUND_LIGHT: "#f0f2f5",
     CARD_BG: "white",
     BUTTON_HOVER: "#004480",
     CARD_SHADOW: "0 8px 16px rgba(0, 86, 160, 0.2)",
 };
 
+// --- MAIN COMPONENT ---
 const ForgotPasswordPage = () => {
     const navigate = useNavigate();
     const [form] = Form.useForm();
+
     const [isLoading, setIsLoading] = useState(false);
     const [alertMessage, setAlertMessage] = useState(null);
 
+    /**
+     * Handles the password reset process on form submission.
+     * @param {object} values - Contains the 'email' from the Ant Design Form.
+     */
     const handleReset = async (values) => {
         const trimmedEmail = values.email.trim();
         setIsLoading(true);
-        setAlertMessage(null);
+        setAlertMessage(null); // Clear previous messages
 
         try {
+            // 1. CHECK DATABASE: Verify if the email exists in the 'contacts' table
             const { data: userData } = await supabase
                 .from("contacts")
                 .select("email")
                 .eq("email", trimmedEmail)
                 .maybeSingle();
 
+            // 2. Conditional Logic: If email is not in the DB, show a non-specific success message
+            // This is a security best practice to prevent email enumeration.
             if (!userData) {
                 setAlertMessage({
                     type: "success",
@@ -51,26 +63,33 @@ const ForgotPasswordPage = () => {
                 return;
             }
 
+            // 3. SEND RESET EMAIL: If found, proceed with Supabase Auth reset
             const { error: authError } =
                 await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+                    // Redirect to the /profile page to handle the token
                     redirectTo: `${window.location.origin}/profile`,
                 });
 
-            if (authError) throw authError;
+            if (authError) {
+                throw authError;
+            }
 
+            // 4. SUCCESS MESSAGE
             setAlertMessage({
                 type: "success",
                 text: "Password reset email sent, check your inbox to continue.",
             });
-            form.resetFields();
+            form.resetFields(); // Clear the form on successful submission
         } catch (error) {
             console.error("Reset Error:", error);
-            const messageText = error.message || "An unknown error occurred.";
+            const messageText =
+                error.message ||
+                "An unknown error occurred. Please try again later.";
             setAlertMessage({
                 type: "error",
                 text: `Failed to send reset link: ${messageText}`,
             });
-            message.error(messageText);
+            message.error(messageText); // Use AntD message for transient feedback
         } finally {
             setIsLoading(false);
         }
@@ -83,7 +102,7 @@ const ForgotPasswordPage = () => {
                 alignItems: "center",
                 justifyContent: "center",
                 minHeight: "100vh",
-                backgroundColor: THEME.BACKGROUND_LIGHT,
+                backgroundColor: THEME.BACKGROUND_LIGHT, // Government background
                 padding: "1rem",
             }}
         >
@@ -91,13 +110,14 @@ const ForgotPasswordPage = () => {
                 style={{
                     maxWidth: 450,
                     width: "100%",
-                    boxShadow: THEME.CARD_SHADOW,
-                    borderRadius: 12,
+                    boxShadow: THEME.CARD_SHADOW, // Government shadow
+                    borderRadius: 12, // Slightly less rounded for a formal look
                     backgroundColor: THEME.CARD_BG,
-                    borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
+                    borderTop: `5px solid ${THEME.BLUE_PRIMARY}`, // Blue accent border
                     paddingTop: 10,
                 }}
             >
+                {/* Header Section */}
                 <div style={{ textAlign: "center", marginBottom: 24 }}>
                     <Title
                         level={2}
@@ -117,6 +137,7 @@ const ForgotPasswordPage = () => {
                     </Text>
                 </div>
 
+                {/* Alert Message Section */}
                 {alertMessage && (
                     <Alert
                         message={alertMessage.text}
@@ -128,12 +149,14 @@ const ForgotPasswordPage = () => {
                     />
                 )}
 
+                {/* Reset Form */}
                 <Form
                     form={form}
                     name="forgot_password_form"
                     onFinish={handleReset}
                     layout="vertical"
                 >
+                    {/* Email Input */}
                     <Form.Item
                         label={<Text strong>Registered Email Address</Text>}
                         name="email"
@@ -147,6 +170,7 @@ const ForgotPasswordPage = () => {
                                 message: "Please enter a valid email address.",
                             },
                         ]}
+                        required
                         tooltip="Enter the email associated with your account."
                     >
                         <Input
@@ -159,6 +183,7 @@ const ForgotPasswordPage = () => {
                         />
                     </Form.Item>
 
+                    {/* Submit Button */}
                     <Button
                         type="primary"
                         htmlType="submit"
@@ -166,7 +191,7 @@ const ForgotPasswordPage = () => {
                         loading={isLoading}
                         icon={<SendOutlined />}
                         style={{
-                            backgroundColor: THEME.BLUE_PRIMARY,
+                            backgroundColor: THEME.BLUE_PRIMARY, // Government Blue
                             borderColor: THEME.BLUE_PRIMARY,
                             height: 44,
                             fontWeight: 600,
@@ -187,6 +212,7 @@ const ForgotPasswordPage = () => {
                             : "SEND PASSWORD RESET LINK"}
                     </Button>
 
+                    {/* Navigation Links */}
                     <Space
                         direction="vertical"
                         size="small"
