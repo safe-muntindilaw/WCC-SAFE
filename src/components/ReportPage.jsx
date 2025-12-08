@@ -24,7 +24,6 @@ import {
 } from "antd";
 import { supabase } from "@/globals";
 import dayjs from "dayjs";
-// import "../styles/ReportPage.css";
 
 import isoWeek from "dayjs/plugin/isoWeek";
 
@@ -64,11 +63,14 @@ const MONTH_ORDER = [
     "Dec",
 ];
 
-const averageBy = (readings, keyFn) => {
+const averageBy = (readings, keyFn, convertFn) => {
     const grouped = readings.reduce((acc, r) => {
         const key = keyFn(r);
         acc[key] ??= { sum: 0, count: 0 };
-        acc[key].sum += r.water_level;
+        const actualLevel = convertFn
+            ? convertFn(r.water_level)
+            : r.water_level;
+        acc[key].sum += actualLevel;
         acc[key].count++;
         return acc;
     }, {});
@@ -78,16 +80,17 @@ const averageBy = (readings, keyFn) => {
     }));
 };
 
-const averageByDay = (readings) =>
-    averageBy(readings, (r) => dayjs(r.created_at).format("ddd"));
+const averageByDay = (readings, convertFn) =>
+    averageBy(readings, (r) => dayjs(r.created_at).format("ddd"), convertFn);
 
-const averageByDayOfMonth = (readings) =>
-    averageBy(readings, (r) => dayjs(r.created_at).format("MMM DD"));
+const averageByDayOfMonth = (readings, convertFn) =>
+    averageBy(readings, (r) => dayjs(r.created_at).format("MMM DD"), convertFn);
 
-const averageByWeek = (readings) =>
+const averageByWeek = (readings, convertFn) =>
     averageBy(
         readings,
-        (r) => `Week ${Math.ceil(dayjs(r.created_at).date() / 7)}`
+        (r) => `Week ${Math.ceil(dayjs(r.created_at).date() / 7)}`,
+        convertFn
     );
 
 const ReportPage = () => {
@@ -101,17 +104,25 @@ const ReportPage = () => {
     const [loading, setLoading] = useState(false);
     const [lineKeys, setLineKeys] = useState([]);
 
-    // Reversed safety logic: Higher levels (6) are SAFE, lower levels (1) are RISK.
+    // Sensor 0m = water is at top (flood risk) - shows as 4.4m on chart (RED ZONE)
+    // Sensor 4.5m = water is at bottom (safe) - shows as 0m on chart (GREEN ZONE)
+    const SENSOR_MAX = 4.5;
     const THRESHOLDS = useMemo(
         () => ({
-            SAFE_LEVEL: 4,
-            RISK_LEVEL: 1,
+            SAFE_LEVEL: 1.0,
+            FLOOD_RISK_LEVEL: 3.5,
         }),
         []
     );
 
+    // Convert sensor reading to chart value (invert it)
+    // Lower sensor reading = higher water level = higher on chart
+    const convertToChartValue = (sensorReading) => {
+        return SENSOR_MAX - sensorReading;
+    };
+
     const getYAxisDomain = useMemo(() => {
-        const FIXED_MAX = THRESHOLDS.SAFE_LEVEL + 1;
+        const FIXED_MAX = SENSOR_MAX; // Max is 4.4m
         const MIN_DOMAIN = 0;
 
         if (!data.length) return [MIN_DOMAIN, FIXED_MAX];
@@ -122,7 +133,7 @@ const ReportPage = () => {
                 .map(([, v]) => v)
         );
 
-        const actualMin = Math.min(...values, THRESHOLDS.RISK_LEVEL, 0);
+        const actualMin = Math.min(...values, 0);
         const calculatedMinDomain = Math.max(
             MIN_DOMAIN,
             Math.floor(actualMin * 0.9)
@@ -162,7 +173,7 @@ const ReportPage = () => {
             .from("sensor_readings")
             .select("water_level, created_at")
             .gte("created_at", start.toISOString())
-            .lt("created_at", end.toISOString()) // ⬅️ MODIFIED to use LT
+            .lt("created_at", end.toISOString())
             .order("created_at", { ascending: true });
 
         if (error) {
@@ -184,16 +195,17 @@ const ReportPage = () => {
         try {
             switch (reportType) {
                 case "today": {
-                    // ⬅️ MODIFIED: Set end to start of tomorrow for robust boundary
                     const start = today.startOf("day");
                     const end = today.add(1, "day").startOf("day");
 
                     const readings = await fetchReadings(start, end);
 
-                    // Display ALL readings in 24-hour format
+                    // Display ALL readings in 24-hour format with converted values
                     chartData = readings.map((r) => ({
                         date: dayjs(r.created_at).format("HH:mm"),
-                        "Water Level": +r.water_level.toFixed(2),
+                        "Water Level": +convertToChartValue(
+                            r.water_level
+                        ).toFixed(2),
                     }));
                     keys = ["Water Level"];
                     break;
@@ -204,7 +216,7 @@ const ReportPage = () => {
                         today.startOf("isoWeek"),
                         today.endOf("isoWeek")
                     );
-                    chartData = averageByDay(readings);
+                    chartData = averageByDay(readings, convertToChartValue);
                     keys = ["Water Level"];
                     break;
                 }
@@ -216,9 +228,15 @@ const ReportPage = () => {
                     );
 
                     if (monthView === "week") {
-                        chartData = averageByWeek(readings);
+                        chartData = averageByWeek(
+                            readings,
+                            convertToChartValue
+                        );
                     } else {
-                        chartData = averageByDayOfMonth(readings);
+                        chartData = averageByDayOfMonth(
+                            readings,
+                            convertToChartValue
+                        );
                     }
                     keys = ["Water Level"];
                     break;
@@ -250,7 +268,11 @@ const ReportPage = () => {
                                 "MMM"
                             );
                             merged[i] ??= { date: month };
-                            merged[i][lineKey] = +row.avg_level.toFixed(2);
+                            // Convert sensor reading to chart value
+                            const chartValue = convertToChartValue(
+                                row.avg_level
+                            );
+                            merged[i][lineKey] = +chartValue.toFixed(2);
                         });
                     }
 
@@ -349,61 +371,98 @@ const ReportPage = () => {
     const showLegend = reportType === "annually" && data.length > 0;
 
     return (
-        <div style={{ padding: 16 }}>
+        <div style={{ padding: "8px" }}>
             <Space
-                direction="horizontal"
-                size="large"
-                wrap
+                direction="vertical"
+                size="middle"
                 style={{
                     marginBottom: 20,
                     width: "100%",
-                    justifyContent: "space-between",
-                    alignItems: "center",
                 }}
             >
-                <div>
+                <div
+                    style={{
+                        width: "100%",
+                        display: "flex",
+                        justifyContent: "center",
+                    }}
+                >
                     <Radio.Group
                         value={reportType}
                         onChange={(e) => setReportType(e.target.value)}
                         buttonStyle="solid"
+                        style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            justifyContent: "center",
+                            gap: "4px",
+                        }}
                     >
                         <Radio.Button value="today">Today</Radio.Button>
                         <Radio.Button value="weekly">Weekly</Radio.Button>
                         <Radio.Button value="monthly">Monthly</Radio.Button>
                         <Radio.Button value="annually">Annually</Radio.Button>
                     </Radio.Group>
+                </div>
 
-                    {reportType === "monthly" && (
-                        <Space style={{ marginLeft: 20 }}>
+                {reportType === "monthly" && (
+                    <Space
+                        direction="vertical"
+                        size="small"
+                        style={{
+                            width: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                    >
+                        <Space wrap style={{ justifyContent: "center" }}>
                             <span>Month:</span>
                             <DatePicker
                                 picker="month"
                                 value={selectedMonth}
                                 onChange={setSelectedMonth}
                                 allowClear={false}
+                                // ADDED CLASS NAME TO HOOK THE INLINE CSS
+                                dropdownClassName="centered-calendar-dropdown"
                             />
+                        </Space>
+                        <Space wrap style={{ justifyContent: "center" }}>
                             <span>By:</span>
                             <Select
                                 value={monthView}
                                 onChange={setMonthView}
                                 className="reports-select"
+                                style={{ minWidth: "100px" }}
                             >
                                 <Option value="day">Day</Option>
                                 <Option value="week">Week</Option>
                             </Select>
                             <Button onClick={resetMonthly}>Reset</Button>
                         </Space>
-                    )}
+                    </Space>
+                )}
 
-                    {reportType === "annually" && (
-                        <Space style={{ marginLeft: 20 }}>
-                            <span>Compare Years:</span>
+                {reportType === "annually" && (
+                    <Space
+                        direction="vertical"
+                        size="small"
+                        style={{
+                            width: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                    >
+                        <span>Compare Years:</span>
+                        <Space wrap style={{ justifyContent: "center" }}>
                             <Select
                                 mode="multiple"
                                 value={selectedYears}
                                 onChange={setSelectedYears}
-                                placeholder="Select years to compare"
+                                placeholder="Select years"
                                 className="reports-select"
+                                style={{ minWidth: "200px" }}
                             >
                                 {Array.from({ length: 10 }, (_, i) => {
                                     const year = (
@@ -418,14 +477,19 @@ const ReportPage = () => {
                             </Select>
                             <Button onClick={resetAnnual}>Reset</Button>
                         </Space>
-                    )}
-                </div>
+                    </Space>
+                )}
 
-                <Title>
-                    {/* Chart Title on the left */}
-                    <h2 style={{ marginRight: 20, padding: 0 }}>
-                        {chartTitle}
-                    </h2>
+                <Title
+                    level={2}
+                    style={{
+                        margin: "16px 0 0 0",
+                        textAlign: "center",
+                        fontSize: "clamp(14px, 4vw, 24px)",
+                        lineHeight: "1.3",
+                    }}
+                >
+                    {chartTitle}
                 </Title>
             </Space>
 
@@ -457,49 +521,51 @@ const ReportPage = () => {
                             data={data}
                             margin={{
                                 top: 80,
-                                right: 30,
-                                left: -10,
-                                bottom: 20,
+                                right: window.innerWidth < 768 ? 10 : 30,
+                                left: window.innerWidth < 768 ? -40 : -20,
+                                bottom: window.innerWidth < 768 ? 40 : 20,
                             }}
                         >
                             <CartesianGrid strokeDasharray="3 3" />
 
                             {/* Reference Areas for visual guidance */}
+                            {/* Green zone at bottom (low water = safe) */}
                             <ReferenceArea
                                 y1={0}
-                                y2={THRESHOLDS.RISK_LEVEL}
-                                fill="#ff3333"
-                                opacity={0.1}
-                                stroke="#ff3333"
-                                strokeDasharray="3 3"
-                            />
-                            <ReferenceArea
-                                y1={THRESHOLDS.SAFE_LEVEL}
-                                y2={getYAxisDomain[1]}
+                                y2={THRESHOLDS.SAFE_LEVEL}
                                 fill="#03852e"
                                 opacity={0.1}
                                 stroke="#03852e"
+                                strokeDasharray="3 3"
+                            />
+                            {/* Red zone at top (high water = flood risk) */}
+                            <ReferenceArea
+                                y1={THRESHOLDS.FLOOD_RISK_LEVEL}
+                                y2={getYAxisDomain[1]}
+                                fill="#ff3333"
+                                opacity={0.1}
+                                stroke="#ff3333"
                                 strokeDashArray="3 3"
                             />
 
-                            {/* High Safe Level (Green) */}
+                            {/* Safe Level Line (Low Water - Green) */}
                             <ReferenceLine
                                 y={THRESHOLDS.SAFE_LEVEL}
                                 stroke="#03852eff"
                                 strokeDasharray="5 5"
                                 label={{
-                                    value: "Safe Level (High)",
+                                    value: `Safe Level (${THRESHOLDS.SAFE_LEVEL}m)`,
                                     position: "insideTopLeft",
                                     fill: "#03852eff",
                                 }}
                             />
-                            {/* Low Risk Level (Red) */}
+                            {/* Flood Risk Level Line (High Water - Red) */}
                             <ReferenceLine
-                                y={THRESHOLDS.RISK_LEVEL}
+                                y={THRESHOLDS.FLOOD_RISK_LEVEL}
                                 stroke="#ff3333ff"
                                 strokeDasharray="5 5"
                                 label={{
-                                    value: "Risk Level (Low)",
+                                    value: `Flood Risk (${THRESHOLDS.FLOOD_RISK_LEVEL}m)`,
                                     position: "insideBottomLeft",
                                     fill: "#ff3333ff",
                                 }}

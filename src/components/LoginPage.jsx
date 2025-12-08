@@ -184,12 +184,12 @@ const LoginPage = () => {
                             marginTop: 16,
                         }}
                         onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                THEME.BUTTON_HOVER)
+                        (e.currentTarget.style.backgroundColor =
+                            THEME.BUTTON_HOVER)
                         }
                         onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                THEME.BLUE_PRIMARY)
+                        (e.currentTarget.style.backgroundColor =
+                            THEME.BLUE_PRIMARY)
                         }
                     >
                         {loading ? "AUTHENTICATING..." : "LOG IN"}
