@@ -24,9 +24,9 @@ import {
     LockOutlined,
     EnvironmentOutlined,
     BellOutlined,
-} from "@ant-design/icons"; // Using the recommended icon import for Antd v5+
+} from "@ant-design/icons";
 
-// --- 1. THEME AND CONSTANTS (Kept as provided) ---
+// --- 1. THEME AND CONSTANTS ---
 const { Title, Text } = Typography;
 const { Content } = Layout;
 const { Option } = Select;
@@ -45,7 +45,40 @@ const FORM_LAYOUT = {
     wrapperCol: { span: 24 },
 };
 
-// --- 2. MAIN COMPONENT ---
+// --- 2. PHONE NUMBER UTILITIES ---
+const formatPhoneNumber = (number) => {
+    const digits = String(number || "").replace(/\D/g, "");
+    return digits.length >= 10 ? digits.slice(-10) : digits;
+};
+
+// Detect suspicious patterns in contact numbers
+const detectSuspiciousPattern = (number) => {
+    // Check for 4 or more consecutive identical digits
+    const repeatingPattern = /(\d)\1{3,}/;
+    if (repeatingPattern.test(number)) {
+        return "Contact number contains too many repeated digits (max 3 in a row)";
+    }
+
+    // Check for sequential patterns (ascending or descending) - 4 or more
+    let sequentialCount = 1;
+    for (let i = 1; i < number.length; i++) {
+        const current = parseInt(number[i]);
+        const previous = parseInt(number[i - 1]);
+
+        if (current === previous + 1 || current === previous - 1) {
+            sequentialCount++;
+            if (sequentialCount >= 4) {
+                return "Contact number contains suspicious sequential pattern (max 3 in sequence)";
+            }
+        } else {
+            sequentialCount = 1;
+        }
+    }
+
+    return null;
+};
+
+// --- 3. MAIN COMPONENT ---
 
 const ProfilePage = () => {
     const { user } = useAuth();
@@ -84,7 +117,7 @@ const ProfilePage = () => {
         }
     }, []);
 
-    // --- Data Fetching Effect (Optimized with single request and error handling) ---
+    // --- Data Fetching Effect ---
     useEffect(() => {
         if (!user) return;
 
@@ -110,14 +143,16 @@ const ProfilePage = () => {
                 if (placesError) throw new Error("Failed to load barangays.");
 
                 if (contactData) {
+                    // Format the contact number for display
+                    const formattedNumber = formatPhoneNumber(
+                        contactData.contact_number?.replace("+63", "")
+                    );
+
                     const initialValues = {
                         firstName: contactData.first_name || "",
                         lastName: contactData.last_name || "",
-                        email: user.email || contactData.email || "", // Use user.email as source of truth for email
-                        // Clean contact number for display (remove +63)
-                        contactNumber:
-                            contactData.contact_number?.replace("+63", "") ||
-                            "",
+                        email: user.email || contactData.email || "",
+                        contactNumber: formattedNumber,
                         place: contactData.place_id || undefined,
                     };
                     formDetails.setFieldsValue(initialValues);
@@ -140,7 +175,7 @@ const ProfilePage = () => {
         fetchData();
     }, [user, formDetails]);
 
-    // ** Function for Subscription Toggle (Updated to use native Supabase update) **
+    // ** Function for Subscription Toggle **
     const handleToggleSubscription = async () => {
         if (!user) return;
         setSavingSubscription(true);
@@ -148,11 +183,10 @@ const ProfilePage = () => {
         const newStatus = !isSubscribed;
 
         try {
-            // Using a simple RLS-enabled update to change the subscription status in the 'contacts' table
             const { error } = await supabase
                 .from("contacts")
                 .update({ subscribed: newStatus })
-                .eq("user_id", user.id); // Ensure RLS is correctly set up for this
+                .eq("user_id", user.id);
 
             if (error) throw error;
 
@@ -173,19 +207,19 @@ const ProfilePage = () => {
         }
     };
 
-    // ** Function for Saving Personal Details (Updated to use native Supabase update) **
+    // ** Function for Saving Personal Details **
     const handleSaveDetails = async (values) => {
         if (!user) return;
         setSavingDetails(true);
         setStatusMessage(null);
 
         try {
-            // Prepend +63 if contact number is present
-            const contactNumberToSave = values.contactNumber
-                ? `+63${values.contactNumber}`
+            // Format and prepend +63 if contact number is present
+            const formattedNumber = formatPhoneNumber(values.contactNumber);
+            const contactNumberToSave = formattedNumber
+                ? `+63${formattedNumber}`
                 : null;
 
-            // Using a simple RLS-enabled update to change user details in the 'contacts' table
             const { error: contactError } = await supabase
                 .from("contacts")
                 .update({
@@ -194,7 +228,7 @@ const ProfilePage = () => {
                     contact_number: contactNumberToSave,
                     place_id: values.place || null,
                 })
-                .eq("user_id", user.id); // Ensure RLS is correctly set up for this
+                .eq("user_id", user.id);
 
             if (contactError) throw contactError;
 
@@ -207,7 +241,7 @@ const ProfilePage = () => {
 
             // Custom error message for unique constraint violation on contact_number
             if (
-                err.code === "23505" || // Postgres unique violation error code
+                err.code === "23505" ||
                 (err.message &&
                     err.message.includes("contacts_contact_number_key"))
             ) {
@@ -226,13 +260,12 @@ const ProfilePage = () => {
         }
     };
 
-    // ** Function for Saving Password (Uses Supabase v2 auth.updateUser) **
+    // ** Function for Saving Password **
     const handleSavePassword = async (values) => {
         setSavingPassword(true);
         setStatusMessage(null);
 
         try {
-            // Supabase auth.updateUser handles password changes
             const { error: pwError } = await supabase.auth.updateUser({
                 password: values.newPassword,
             });
@@ -259,13 +292,12 @@ const ProfilePage = () => {
         }
     };
 
-    // Use useMemo to check if the status message indicates an error
     const isError = useMemo(
         () => statusMessage && statusMessage.startsWith("❌"),
         [statusMessage]
     );
 
-    // --- 3. RENDER MAIN CONTENT (Barangay-Specific Styling) ---
+    // --- 4. RENDER MAIN CONTENT ---
     return (
         <Content
             style={{
@@ -283,7 +315,6 @@ const ProfilePage = () => {
             </Title>
             <Divider style={{ marginTop: 0, marginBottom: 30 }} />
 
-            {/* Status Message Display: Removed motion/animation prop for instant appearance */}
             {statusMessage && (
                 <Alert
                     message={
@@ -315,7 +346,7 @@ const ProfilePage = () => {
             )}
 
             <Row gutter={[30, 30]}>
-                {/* 1. Personal Details Form - Resident Record */}
+                {/* 1. Personal Details Form */}
                 <Col xs={24} lg={8}>
                     <Card
                         title={
@@ -339,7 +370,6 @@ const ProfilePage = () => {
                             borderTop: `5px solid ${THEME.BLUE_AUTHORITY}`,
                         }}
                     >
-                        {/* Spin animation is a necessity here for UX, but should be fast */}
                         {loading ? (
                             <Spin
                                 tip="Loading profile..."
@@ -423,21 +453,44 @@ const ProfilePage = () => {
                                             message:
                                                 "Contact number must contain only digits. (Contact number ay dapat na mga numero lamang.)",
                                         },
+                                        {
+                                            validator: (_, value) => {
+                                                if (!value)
+                                                    return Promise.resolve();
+                                                const suspiciousError =
+                                                    detectSuspiciousPattern(
+                                                        value
+                                                    );
+                                                if (suspiciousError) {
+                                                    return Promise.reject(
+                                                        new Error(
+                                                            `${suspiciousError} (Hindi pwedeng mahigit 3 magkaparehong o sunod-sunod na numero.)`
+                                                        )
+                                                    );
+                                                }
+                                                return Promise.resolve();
+                                            },
+                                        },
                                     ]}
-                                    help={
-                                        <Text type="secondary">
-                                            Input the 10 digits after +63 (e.g.
-                                            917xxxxxxx). (I-input ang 10 digit
-                                            pagkatapos ng +63.)
-                                        </Text>
-                                    }
                                 >
                                     <Input
                                         addonBefore="+63"
                                         maxLength={10}
                                         placeholder="e.g. 917xxxxxxx"
+                                        onChange={(e) => {
+                                            const formatted = formatPhoneNumber(
+                                                e.target.value
+                                            );
+                                            formDetails.setFieldValue(
+                                                "contactNumber",
+                                                formatted
+                                            );
+                                        }}
                                     />
                                 </Form.Item>
+                                <div
+                                    style={{ marginTop: -20, marginBottom: 24 }}
+                                ></div>
 
                                 <Form.Item
                                     label="Permanent Barangay Assignment"
@@ -489,7 +542,7 @@ const ProfilePage = () => {
                                     >
                                         {savingDetails
                                             ? "Processing Update..."
-                                            : "Submit Resident Record Update"}
+                                            : "Update Record"}
                                     </Button>
                                 </Form.Item>
                             </Form>
@@ -497,7 +550,7 @@ const ProfilePage = () => {
                     </Card>
                 </Col>
 
-                {/* 2. Password Change Section - Security */}
+                {/* 2. Password Change Section */}
                 <Col xs={24} lg={8}>
                     <Card
                         title={

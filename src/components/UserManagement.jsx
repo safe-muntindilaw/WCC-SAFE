@@ -1096,7 +1096,9 @@ const UserManagement = () => {
                             {/* Group 3: Action Buttons + Pagination */}
                             <Button
                                 type="primary"
-                                onClick={() => setIsUserModalVisible(true)}
+                                onClick={() => (
+                                    setIsUserModalVisible(true), resetForm()
+                                )}
                             >
                                 New Contact
                             </Button>

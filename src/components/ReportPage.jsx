@@ -13,6 +13,7 @@ import {
 } from "recharts";
 
 import {
+    Typography,
     Select,
     DatePicker,
     Space,
@@ -20,24 +21,22 @@ import {
     Spin,
     message,
     Radio,
-    Card,
-    Typography,
-    Flex,
-    Drawer,
-    Badge,
 } from "antd";
-import { FilterOutlined, ReloadOutlined } from "@ant-design/icons";
 import { supabase } from "@/globals";
 import dayjs from "dayjs";
+// import "../styles/ReportPage.css";
+
 import isoWeek from "dayjs/plugin/isoWeek";
+
 dayjs.extend(isoWeek);
 
-const { Option } = Select;
 const { Title, Text } = Typography;
+
+const { Option } = Select;
 
 const ACCENT_COLOR = "#f8b701";
 const PRIMARY_COLOR = "#0a3b82";
-const COMPARISON_LINE_COLORS = [
+const COLORS = [
     "#FF0000",
     "#0000FF",
     "#008000",
@@ -49,26 +48,7 @@ const COMPARISON_LINE_COLORS = [
     "#FF00FF",
     "#A52A2A",
 ];
-
-const GOVERNMENT_THEME = {
-    PRIMARY_BLUE: PRIMARY_COLOR,
-    ACCENT_RED: "#CC3333",
-    ACCENT_GREEN: "#33854d",
-    ACCENT_YELLOW: ACCENT_COLOR,
-    LIGHT_GRAY: "#f0f2f5",
-    TEXT_COLOR: "#333333",
-    GRID_STROKE: "#cccccc",
-    LEVEL_1_COLOR: "#33854d",
-    LEVEL_2_COLOR: "#ffa600ff",
-    LEVEL_3_COLOR: "#ff0000ff",
-};
-
-const COMPARISON_COLORS = [
-    GOVERNMENT_THEME.ACCENT_YELLOW,
-    GOVERNMENT_THEME.PRIMARY_BLUE,
-    ...COMPARISON_LINE_COLORS,
-];
-
+// Utility: Array of months for guaranteed sort order in annual view
 const MONTH_ORDER = [
     "Jan",
     "Feb",
@@ -120,32 +100,18 @@ const ReportPage = () => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [lineKeys, setLineKeys] = useState([]);
-    const [drawerVisible, setDrawerVisible] = useState(false);
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-    // Handle resize for responsiveness
-    useEffect(() => {
-        const handleResize = () => {
-            setIsMobile(window.innerWidth < 768);
-        };
-        window.addEventListener("resize", handleResize);
-        return () => window.removeEventListener("resize", handleResize);
-    }, []);
-
+    // Reversed safety logic: Higher levels (6) are SAFE, lower levels (1) are RISK.
     const THRESHOLDS = useMemo(
         () => ({
             SAFE_LEVEL: 4,
             RISK_LEVEL: 1,
-            L1_LEVEL: 4,
-            L2_LEVEL: 2.5,
-            L3_LEVEL: 1,
         }),
         []
     );
 
     const getYAxisDomain = useMemo(() => {
-        const maxThreshold = THRESHOLDS.SAFE_LEVEL;
-        const FIXED_MAX = maxThreshold + 1;
+        const FIXED_MAX = THRESHOLDS.SAFE_LEVEL + 1;
         const MIN_DOMAIN = 0;
 
         if (!data.length) return [MIN_DOMAIN, FIXED_MAX];
@@ -168,32 +134,35 @@ const ReportPage = () => {
     const chartTitle = useMemo(() => {
         switch (reportType) {
             case "today": {
-                return `Water Level - ${dayjs().format("MMMM DD, YYYY")}`;
+                return `Water Level Readings for ${dayjs().format(
+                    "MMM DD, YYYY"
+                )}`;
             }
             case "weekly": {
                 const start = dayjs().startOf("isoWeek").format("MMM DD");
                 const end = dayjs().endOf("isoWeek").format("MMM DD, YYYY");
-                return `Weekly Average: ${start} - ${end}`;
+                return `Average Water Levels: ${start} - ${end}`;
             }
             case "monthly": {
                 const month = selectedMonth.format("MMMM YYYY");
-                return `${month} - By ${monthView === "day" ? "Day" : "Week"}`;
+                // The 'monthView' state (day or week) is implicitly handled by the data
+                return `Average Water Levels for ${month}`;
             }
             case "annually": {
                 const years = selectedYears.sort((a, b) => b - a).join(", ");
-                return `Annual Comparison (${years})`;
+                return `Comparative Annual Water Level Averages (Years: ${years})`;
             }
             default:
                 return "Water Level Report";
         }
-    }, [reportType, selectedMonth, selectedYears, monthView]);
+    }, [reportType, selectedMonth, selectedYears]);
 
     const fetchReadings = useCallback(async (start, end) => {
         const { data: readings, error } = await supabase
             .from("sensor_readings")
             .select("water_level, created_at")
             .gte("created_at", start.toISOString())
-            .lt("created_at", end.toISOString())
+            .lt("created_at", end.toISOString()) // ⬅️ MODIFIED to use LT
             .order("created_at", { ascending: true });
 
         if (error) {
@@ -215,11 +184,15 @@ const ReportPage = () => {
         try {
             switch (reportType) {
                 case "today": {
+                    // ⬅️ MODIFIED: Set end to start of tomorrow for robust boundary
                     const start = today.startOf("day");
                     const end = today.add(1, "day").startOf("day");
+
                     const readings = await fetchReadings(start, end);
+
+                    // Display ALL readings in 24-hour format
                     chartData = readings.map((r) => ({
-                        date: dayjs(r.created_at).format("hh:mm A"),
+                        date: dayjs(r.created_at).format("HH:mm"),
                         "Water Level": +r.water_level.toFixed(2),
                     }));
                     keys = ["Water Level"];
@@ -229,7 +202,7 @@ const ReportPage = () => {
                 case "weekly": {
                     const readings = await fetchReadings(
                         today.startOf("isoWeek"),
-                        today.endOf("isoWeek").add(1, "day").startOf("day")
+                        today.endOf("isoWeek")
                     );
                     chartData = averageByDay(readings);
                     keys = ["Water Level"];
@@ -239,10 +212,7 @@ const ReportPage = () => {
                 case "monthly": {
                     const readings = await fetchReadings(
                         selectedMonth.startOf("month"),
-                        selectedMonth
-                            .endOf("month")
-                            .add(1, "day")
-                            .startOf("day")
+                        selectedMonth.endOf("month")
                     );
 
                     if (monthView === "week") {
@@ -271,42 +241,24 @@ const ReportPage = () => {
                         );
                         if (error) throw new Error(`RPC error for ${year}`);
 
-                        const lineKey = `Avg Level ${year}`;
+                        const lineKey = `Water Level ${year}`;
                         currentKeys.push(lineKey);
 
-                        (rpcData || []).forEach((row) => {
+                        (rpcData || []).forEach((row, i) => {
                             const [yr, mon] = row.month_label.split("-");
                             const month = dayjs(`${yr}-${mon}-01`).format(
                                 "MMM"
                             );
-                            let monthEntry = merged.find(
-                                (m) => m.date === month
-                            );
-                            if (!monthEntry) {
-                                monthEntry = { date: month };
-                                merged.push(monthEntry);
-                            }
-                            monthEntry[lineKey] = +row.avg_level.toFixed(2);
+                            merged[i] ??= { date: month };
+                            merged[i][lineKey] = +row.avg_level.toFixed(2);
                         });
                     }
 
-                    merged.sort(
+                    chartData = merged.sort(
                         (a, b) =>
                             MONTH_ORDER.indexOf(a.date) -
                             MONTH_ORDER.indexOf(b.date)
                     );
-
-                    const finalChartData = MONTH_ORDER.map((month) => {
-                        const existing = merged.find(
-                            (m) => m.date === month
-                        ) || { date: month };
-                        currentKeys.forEach((key) => {
-                            existing[key] = existing[key] ?? null;
-                        });
-                        return existing;
-                    });
-
-                    chartData = finalChartData;
                     keys = currentKeys;
                     break;
                 }
@@ -352,13 +304,14 @@ const ReportPage = () => {
     const resetMonthly = useCallback(() => {
         setMonthView("day");
         setSelectedMonth(dayjs());
-    }, []);
+        fetchSensorData();
+    }, [fetchSensorData]);
 
     const resetAnnual = () => setSelectedYears([dayjs().year().toString()]);
 
     const renderChartLines = () => {
         const isAnnual = reportType === "annually";
-        const currentYearLineKey = `Avg Level ${dayjs().year()}`;
+        const currentYear = dayjs().year().toString();
 
         let colorIndex = 0;
 
@@ -368,19 +321,15 @@ const ReportPage = () => {
                 : Object.keys(data[0] || {}).filter((k) => k !== "date");
 
         return keysToRender.map((key) => {
-            let color = GOVERNMENT_THEME.PRIMARY_BLUE;
+            const yearMatch = key.match(/Water Level (\d{4})/);
 
+            let color = ACCENT_COLOR;
             if (isAnnual) {
-                if (key === currentYearLineKey) {
-                    color = GOVERNMENT_THEME.PRIMARY_BLUE;
+                if (yearMatch && yearMatch[1] === currentYear) {
+                    color = ACCENT_COLOR; // Current year line
                 } else {
-                    color =
-                        COMPARISON_COLORS[
-                            colorIndex++ % COMPARISON_COLORS.length
-                        ];
+                    color = COLORS[colorIndex++ % COLORS.length]; // Comparison year line
                 }
-            } else if (reportType === "today") {
-                color = GOVERNMENT_THEME.ACCENT_YELLOW;
             }
 
             return (
@@ -392,7 +341,6 @@ const ReportPage = () => {
                     strokeWidth={isAnnual ? 3 : 2}
                     dot={{ r: isAnnual ? 4 : reportType === "today" ? 0 : 3 }}
                     activeDot={{ r: 8 }}
-                    connectNulls={isAnnual}
                 />
             );
         });
@@ -400,458 +348,193 @@ const ReportPage = () => {
 
     const showLegend = reportType === "annually" && data.length > 0;
 
-    const filterControls = (
-        <Space
-            direction="vertical"
-            size="large"
-            style={{ width: "100%", padding: 12 }}
-        >
-            {reportType === "monthly" && (
-                <>
-                    <div>
-                        <Text
-                            strong
-                            style={{ display: "block", marginBottom: 8 }}
-                        >
-                            Select Month:
-                        </Text>
-                        <DatePicker
-                            picker="month"
-                            value={selectedMonth}
-                            onChange={setSelectedMonth}
-                            allowClear={false}
-                            style={{ width: "100%" }}
-                            size={isMobile ? "middle" : "large"}
-                        />
-                    </div>
-                    <div>
-                        <Text
-                            strong
-                            style={{ display: "block", marginBottom: 8 }}
-                        >
-                            Group By:
-                        </Text>
-                        <Select
-                            value={monthView}
-                            onChange={setMonthView}
-                            style={{ width: "100%" }}
-                            size={isMobile ? "middle" : "large"}
-                        >
-                            <Option value="day">Day</Option>
-                            <Option value="week">Week</Option>
-                        </Select>
-                    </div>
-                    <Button
-                        onClick={resetMonthly}
-                        block
-                        size={isMobile ? "middle" : "large"}
-                    >
-                        Reset to Current Month
-                    </Button>
-                </>
-            )}
-
-            {reportType === "annually" && (
-                <>
-                    <div>
-                        <Text
-                            strong
-                            style={{ display: "block", marginBottom: 8 }}
-                        >
-                            Compare Years:
-                        </Text>
-                        <Select
-                            mode="multiple"
-                            value={selectedYears}
-                            onChange={setSelectedYears}
-                            placeholder="Select years"
-                            style={{ width: "100%" }}
-                            size={isMobile ? "middle" : "large"}
-                        >
-                            {Array.from({ length: 10 }, (_, i) => {
-                                const year = (dayjs().year() - i).toString();
-                                return (
-                                    <Option key={year} value={year}>
-                                        {year}
-                                    </Option>
-                                );
-                            })}
-                        </Select>
-                    </div>
-                    <Button
-                        onClick={resetAnnual}
-                        block
-                        size={isMobile ? "middle" : "large"}
-                    >
-                        Reset to Current Year
-                    </Button>
-                </>
-            )}
-        </Space>
-    );
-
-    const hasFilters = reportType === "monthly" || reportType === "annually";
-    const filterCount = reportType === "annually" ? selectedYears.length : 0;
-
     return (
-        <div
-            style={{
-                padding: isMobile ? 12 : 24,
-                backgroundColor: GOVERNMENT_THEME.LIGHT_GRAY,
-                minHeight: "100vh",
-                display: "flex",
-                flexDirection: "column",
-            }}
-        >
-            <Card
+        <div style={{ padding: 16 }}>
+            <Space
+                direction="horizontal"
+                size="large"
+                wrap
                 style={{
-                    borderRadius: 8,
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
                     marginBottom: 20,
+                    width: "100%",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                 }}
             >
-                {/* Header */}
-                <Flex
-                    justify="space-between"
-                    align="center"
-                    wrap="wrap"
-                    gap={12}
-                    style={{ marginBottom: 20 }}
-                >
-                    <Title
-                        level={isMobile ? 4 : 3}
-                        style={{
-                            margin: 0,
-                            color: GOVERNMENT_THEME.PRIMARY_BLUE,
-                            flex: 1,
-                            minWidth: "60%",
-                        }}
-                    >
-                        {chartTitle}
-                    </Title>
-                    <Flex
-                        gap={8}
-                        style={{
-                            width: "100%",
-                            display: "flex",
-                            justifyContent: "space-between",
-                        }}
-                    >
-                        {hasFilters && isMobile && (
-                            <Badge count={filterCount} offset={[-5, 5]}>
-                                <Button
-                                    icon={<FilterOutlined />}
-                                    onClick={() => setDrawerVisible(true)}
-                                    size="large"
-                                >
-                                    Filters
-                                </Button>
-                            </Badge>
-                        )}
-                        <Button
-                            type="primary"
-                            icon={<ReloadOutlined />}
-                            onClick={fetchSensorData}
-                            loading={loading}
-                            size={isMobile ? "large" : "middle"}
-                            style={{
-                                backgroundColor: GOVERNMENT_THEME.PRIMARY_BLUE,
-                                borderColor: GOVERNMENT_THEME.PRIMARY_BLUE,
-                            }}
-                        >
-                            {isMobile ? "" : "Refresh"}
-                        </Button>
-                    </Flex>
-                </Flex>
-
-                {/* Report Type Selection */}
-                <div style={{ marginBottom: 20 }}>
-                    <Text strong style={{ display: "block", marginBottom: 8 }}>
-                        Report View:
-                    </Text>
+                <div>
                     <Radio.Group
                         value={reportType}
                         onChange={(e) => setReportType(e.target.value)}
                         buttonStyle="solid"
-                        style={{ width: "100%" }}
-                        size={isMobile ? "middle" : "large"}
                     >
-                        <Flex wrap="wrap" gap={8}>
-                            <Radio.Button
-                                value="today"
-                                style={{ flex: isMobile ? "1 1 45%" : "none" }}
-                            >
-                                {isMobile ? "Today" : "Today's Readings"}
-                            </Radio.Button>
-                            <Radio.Button
-                                value="weekly"
-                                style={{ flex: isMobile ? "1 1 45%" : "none" }}
-                            >
-                                {isMobile ? "Weekly" : "Weekly Average"}
-                            </Radio.Button>
-                            <Radio.Button
-                                value="monthly"
-                                style={{ flex: isMobile ? "1 1 45%" : "none" }}
-                            >
-                                {isMobile ? "Monthly" : "Monthly Average"}
-                            </Radio.Button>
-                            <Radio.Button
-                                value="annually"
-                                style={{ flex: isMobile ? "1 1 45%" : "none" }}
-                            >
-                                {isMobile ? "Annual" : "Annual Comparison"}
-                            </Radio.Button>
-                        </Flex>
+                        <Radio.Button value="today">Today</Radio.Button>
+                        <Radio.Button value="weekly">Weekly</Radio.Button>
+                        <Radio.Button value="monthly">Monthly</Radio.Button>
+                        <Radio.Button value="annually">Annually</Radio.Button>
                     </Radio.Group>
-                </div>
 
-                {/* Desktop Filters */}
-                {hasFilters && !isMobile && (
-                    <Card
-                        size="small"
-                        style={{
-                            marginBottom: 20,
-                            backgroundColor: "#fafafa",
-                        }}
-                    >
-                        {filterControls}
-                    </Card>
-                )}
-
-                {/* Mobile Filter Drawer */}
-                <Drawer
-                    title="Filter Options"
-                    placement="bottom"
-                    onClose={() => setDrawerVisible(false)}
-                    open={drawerVisible}
-                    height="auto"
-                    bodyStyle={{ padding: 12 }}
-                >
-                    {filterControls}
-                </Drawer>
-
-                {/* Chart container with padding */}
-                <div style={{ padding: isMobile ? "10px 0" : "20px" }}>
-                    {loading ? (
-                        <div
-                            style={{
-                                minHeight: isMobile ? 400 : 600,
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "center",
-                                backgroundColor: "#fff",
-                                borderRadius: 8,
-                            }}
-                        >
-                            <Spin size="large" tip="Loading report data..." />
-                        </div>
-                    ) : data.length === 0 ? (
-                        <div
-                            style={{
-                                minHeight: isMobile ? 300 : 400,
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "center",
-                                border: "1px dashed #ccc",
-                                backgroundColor: "#fff",
-                                borderRadius: 8,
-                                padding: 20,
-                            }}
-                        >
-                            <Text
-                                style={{
-                                    fontSize: isMobile ? "1em" : "1.2em",
-                                    textAlign: "center",
-                                }}
+                    {reportType === "monthly" && (
+                        <Space style={{ marginLeft: 20 }}>
+                            <span>Month:</span>
+                            <DatePicker
+                                picker="month"
+                                value={selectedMonth}
+                                onChange={setSelectedMonth}
+                                allowClear={false}
+                            />
+                            <span>By:</span>
+                            <Select
+                                value={monthView}
+                                onChange={setMonthView}
+                                className="reports-select"
                             >
-                                No sensor readings found for the selected
-                                period.
-                            </Text>
-                        </div>
-                    ) : (
-                        <ResponsiveContainer
-                            width="100%"
-                            height={isMobile ? 400 : 600}
-                        >
-                            <LineChart
-                                data={data}
-                                margin={{
-                                    top: isMobile ? 40 : 60,
-                                    right: 20,
-                                    left: 20,
-                                    bottom: 20,
-                                }}
+                                <Option value="day">Day</Option>
+                                <Option value="week">Week</Option>
+                            </Select>
+                            <Button onClick={resetMonthly}>Reset</Button>
+                        </Space>
+                    )}
+
+                    {reportType === "annually" && (
+                        <Space style={{ marginLeft: 20 }}>
+                            <span>Compare Years:</span>
+                            <Select
+                                mode="multiple"
+                                value={selectedYears}
+                                onChange={setSelectedYears}
+                                placeholder="Select years to compare"
+                                className="reports-select"
                             >
-                                {/* Grid and reference lines */}
-                                <CartesianGrid
-                                    strokeDasharray="3 3"
-                                    stroke={GOVERNMENT_THEME.GRID_STROKE}
-                                />
-
-                                <ReferenceArea
-                                    y1={getYAxisDomain[0]}
-                                    y2={THRESHOLDS.RISK_LEVEL}
-                                    fill={GOVERNMENT_THEME.ACCENT_RED}
-                                    opacity={0.15}
-                                    label={
-                                        isMobile
-                                            ? undefined
-                                            : {
-                                                  value: "ALERT: Low Water Risk Zone",
-                                                  position: "top",
-                                                  fill: GOVERNMENT_THEME.ACCENT_RED,
-                                                  fontWeight: "bold",
-                                                  fontSize: 14,
-                                                  dy: 33,
-                                              }
-                                    }
-                                />
-
-                                <ReferenceArea
-                                    y1={THRESHOLDS.SAFE_LEVEL}
-                                    y2={getYAxisDomain[1]}
-                                    fill={GOVERNMENT_THEME.ACCENT_GREEN}
-                                    opacity={0.15}
-                                    label={
-                                        isMobile
-                                            ? undefined
-                                            : {
-                                                  value: "Normal/Safe Zone",
-                                                  position: "bottom",
-                                                  fill: GOVERNMENT_THEME.ACCENT_GREEN,
-                                                  fontWeight: "bold",
-                                                  fontSize: 14,
-                                                  dy: -40,
-                                              }
-                                    }
-                                />
-
-                                {/* Threshold lines */}
-                                <ReferenceLine
-                                    y={THRESHOLDS.L1_LEVEL}
-                                    stroke={GOVERNMENT_THEME.LEVEL_1_COLOR}
-                                    strokeWidth={2}
-                                    strokeDashArray="4 4"
-                                    label={
-                                        isMobile
-                                            ? undefined
-                                            : {
-                                                  value: `L1: ${THRESHOLDS.L1_LEVEL}m`,
-                                                  position: "top",
-                                                  fill: GOVERNMENT_THEME.LEVEL_1_COLOR,
-                                                  fontSize: 11,
-                                                  fontWeight: "bold",
-                                                  dy: 20,
-                                              }
-                                    }
-                                />
-
-                                <ReferenceLine
-                                    y={THRESHOLDS.L2_LEVEL}
-                                    stroke={GOVERNMENT_THEME.LEVEL_2_COLOR}
-                                    strokeWidth={2}
-                                    strokeDashArray="4 4"
-                                    label={
-                                        isMobile
-                                            ? undefined
-                                            : {
-                                                  value: `L2: ${THRESHOLDS.L2_LEVEL}m`,
-                                                  position: "top",
-                                                  fill: GOVERNMENT_THEME.LEVEL_2_COLOR,
-                                                  fontSize: 11,
-                                                  fontWeight: "bold",
-                                                  dy: 0,
-                                              }
-                                    }
-                                />
-
-                                <ReferenceLine
-                                    y={THRESHOLDS.L3_LEVEL}
-                                    stroke={GOVERNMENT_THEME.LEVEL_3_COLOR}
-                                    strokeWidth={2}
-                                    strokeDashArray="4 4"
-                                    label={
-                                        isMobile
-                                            ? undefined
-                                            : {
-                                                  value: `L3: ${THRESHOLDS.L3_LEVEL}m`,
-                                                  position: "top",
-                                                  fill: GOVERNMENT_THEME.LEVEL_3_COLOR,
-                                                  fontSize: 11,
-                                                  fontWeight: "bold",
-                                                  dy: 1,
-                                              }
-                                    }
-                                />
-
-                                {/* X and Y axes with adaptive labels */}
-                                <XAxis
-                                    dataKey="date"
-                                    angle={isMobile ? -45 : 0}
-                                    textAnchor={isMobile ? "end" : "middle"}
-                                    height={isMobile ? 60 : 30}
-                                    stroke={GOVERNMENT_THEME.TEXT_COLOR}
-                                    tickLine={{
-                                        stroke: GOVERNMENT_THEME.TEXT_COLOR,
-                                    }}
-                                    interval="preserveStartEnd"
-                                    tick={{ fontSize: isMobile ? 10 : 12 }}
-                                />
-                                <YAxis
-                                    domain={getYAxisDomain}
-                                    label={
-                                        !isMobile && {
-                                            value: "Water Level (meters)",
-                                            angle: -90,
-                                            position: "left",
-                                            fill: GOVERNMENT_THEME.PRIMARY_BLUE,
-                                            fontWeight: "bold",
-                                            dx: -10,
-                                        }
-                                    }
-                                    tick={{
-                                        fill: GOVERNMENT_THEME.TEXT_COLOR,
-                                        fontSize: isMobile ? 10 : 12,
-                                    }}
-                                    stroke={GOVERNMENT_THEME.TEXT_COLOR}
-                                    tickLine={{
-                                        stroke: GOVERNMENT_THEME.TEXT_COLOR,
-                                    }}
-                                />
-
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: "#fff",
-                                        border: `1px solid ${GOVERNMENT_THEME.GRID_STROKE}`,
-                                        borderRadius: 4,
-                                        fontSize: isMobile ? 12 : 14,
-                                    }}
-                                    labelStyle={{
-                                        color: GOVERNMENT_THEME.PRIMARY_BLUE,
-                                        fontWeight: "bold",
-                                    }}
-                                />
-                                {showLegend && (
-                                    <Legend
-                                        verticalAlign={
-                                            isMobile ? "bottom" : "top"
-                                        }
-                                        align={isMobile ? "center" : "right"}
-                                        wrapperStyle={{
-                                            bottom: isMobile ? -10 : 0,
-                                            top: isMobile ? undefined : 0,
-                                            right: isMobile ? undefined : 0,
-                                            fontSize: 11,
-                                        }}
-                                        iconSize={isMobile ? 10 : 14}
-                                    />
-                                )}
-                                {renderChartLines()}
-                            </LineChart>
-                        </ResponsiveContainer>
+                                {Array.from({ length: 10 }, (_, i) => {
+                                    const year = (
+                                        dayjs().year() - i
+                                    ).toString();
+                                    return (
+                                        <Option key={year} value={year}>
+                                            {year}
+                                        </Option>
+                                    );
+                                })}
+                            </Select>
+                            <Button onClick={resetAnnual}>Reset</Button>
+                        </Space>
                     )}
                 </div>
-            </Card>
+
+                <Title>
+                    {/* Chart Title on the left */}
+                    <h2 style={{ marginRight: 20, padding: 0 }}>
+                        {chartTitle}
+                    </h2>
+                </Title>
+            </Space>
+
+            <div className="reports-chart-container">
+                {loading ? (
+                    <div
+                        className="loading-placeholder "
+                        style={{
+                            height: 600,
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                        }}
+                    >
+                        <Spin size="large" tip="Loading report..." />
+                    </div>
+                ) : data.length === 0 ? (
+                    <div
+                        className="loading-placeholder"
+                        style={{ height: 600 }}
+                    >
+                        <p style={{ fontSize: "1.2em", color: "#888" }}>
+                            No sensor readings found for the selected period.
+                        </p>
+                    </div>
+                ) : (
+                    <ResponsiveContainer width="100%" height={600}>
+                        <LineChart
+                            data={data}
+                            margin={{
+                                top: 80,
+                                right: 30,
+                                left: -10,
+                                bottom: 20,
+                            }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" />
+
+                            {/* Reference Areas for visual guidance */}
+                            <ReferenceArea
+                                y1={0}
+                                y2={THRESHOLDS.RISK_LEVEL}
+                                fill="#ff3333"
+                                opacity={0.1}
+                                stroke="#ff3333"
+                                strokeDasharray="3 3"
+                            />
+                            <ReferenceArea
+                                y1={THRESHOLDS.SAFE_LEVEL}
+                                y2={getYAxisDomain[1]}
+                                fill="#03852e"
+                                opacity={0.1}
+                                stroke="#03852e"
+                                strokeDashArray="3 3"
+                            />
+
+                            {/* High Safe Level (Green) */}
+                            <ReferenceLine
+                                y={THRESHOLDS.SAFE_LEVEL}
+                                stroke="#03852eff"
+                                strokeDasharray="5 5"
+                                label={{
+                                    value: "Safe Level (High)",
+                                    position: "insideTopLeft",
+                                    fill: "#03852eff",
+                                }}
+                            />
+                            {/* Low Risk Level (Red) */}
+                            <ReferenceLine
+                                y={THRESHOLDS.RISK_LEVEL}
+                                stroke="#ff3333ff"
+                                strokeDasharray="5 5"
+                                label={{
+                                    value: "Risk Level (Low)",
+                                    position: "insideBottomLeft",
+                                    fill: "#ff3333ff",
+                                }}
+                            />
+
+                            <XAxis
+                                dataKey="date"
+                                angle={-45}
+                                textAnchor="end"
+                                height={70}
+                                interval="equidistant"
+                            />
+                            <YAxis
+                                domain={getYAxisDomain}
+                                label={{
+                                    value: "Water Level (m)",
+                                    angle: -90,
+                                    position: "insideLeft",
+                                    style: { textAnchor: "middle" },
+                                }}
+                            />
+                            <Tooltip
+                                wrapperStyle={{
+                                    zIndex: 1000,
+                                    overflow: "hidden",
+                                }}
+                            />
+                            {showLegend && (
+                                <Legend verticalAlign="top" height={60} />
+                            )}
+                            {renderChartLines()}
+                        </LineChart>
+                    </ResponsiveContainer>
+                )}
+            </div>
         </div>
     );
 };
