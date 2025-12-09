@@ -571,7 +571,7 @@ const RegisterPage = ({ onSuccess }) => {
                     </Form.Item>
 
                     <Row gutter={16}>
-                        <Col span={12}>
+                        <Col xs={24} sm={12}>
                             <Form.Item
                                 label={<Text strong>Contact Number</Text>}
                                 required
@@ -658,7 +658,7 @@ const RegisterPage = ({ onSuccess }) => {
                                 </div>
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col xs={24} sm={12}>
                             <Form.Item
                                 label={<Text strong>Area</Text>}
                                 required
@@ -690,7 +690,7 @@ const RegisterPage = ({ onSuccess }) => {
                     </Row>
 
                     <Row gutter={16}>
-                        <Col span={12}>
+                        <Col xs={24} sm={12}>
                             <Form.Item
                                 label={<Text strong>Password</Text>}
                                 required
@@ -712,7 +712,7 @@ const RegisterPage = ({ onSuccess }) => {
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col xs={24} sm={12}>
                             <Form.Item
                                 label={<Text strong>Confirm Password</Text>}
                                 required

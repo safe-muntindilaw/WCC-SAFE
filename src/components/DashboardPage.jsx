@@ -36,7 +36,7 @@ const UNIT = "m";
 const BARANGAY_THEME = {
     BLUE_AUTHORITY: "#0A3D62",
     GREEN_SAFE: "#52C41A",
-    YELLOW_NORMAL: "#FAAD14",
+    YELLOW_NORMAL: "#fde321",
     ORANGE_ALERT: "#FFA500",
     RED_CRITICAL: "#CF1322",
     CARD_SHADOW: "0 4px 12px rgba(0, 0, 0, 0.12)",
@@ -845,7 +845,7 @@ const DashboardPage = () => {
             )?.name ?? "N/A";
 
         const color = getStatusColor(status);
-``
+        ``;
         return {
             averageReading: avg,
             peakReading: peak,
@@ -905,16 +905,20 @@ const DashboardPage = () => {
                 style={{ width: "100%", paddingInline: 32, marginBottom: 32 }}
                 size="middle"
             >
-                <Title
-                    level={2}
-                    style={{
-                        marginBottom: 0,
-                        marginTop: 24,
-                        color: BARANGAY_THEME.BLUE_AUTHORITY,
-                    }}
-                >
-                    {roleConfig.dashboardTitle}
-                </Title>
+                <Col xs={24} sm={24} md={24} style={{ textAlign: "center" }}>
+                    <Title
+                        level={3}
+                        style={{
+                            fontSize: "clamp(18px, 4vw, 32px)",
+                            marginBottom: 0,
+                            marginTop: 24,
+                            textAlign: "left",
+                            color: BARANGAY_THEME.BLUE_AUTHORITY,
+                        }}
+                    >
+                        {roleConfig?.dashboardTitle}
+                    </Title>
+                </Col>
                 <Divider style={{ margin: "10px 0 20px 0" }} />
 
                 <Row
