@@ -1,3 +1,4 @@
+// RegisterPage.jsx
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/globals";
@@ -457,8 +458,7 @@ const RegisterPage = ({ onSuccess }) => {
                 minHeight: "100vh",
                 backgroundColor: THEME.BACKGROUND_LIGHT,
                 padding: "1rem",
-            }}
-        >
+            }}>
             <Card
                 style={{
                     maxWidth: 500,
@@ -469,23 +469,21 @@ const RegisterPage = ({ onSuccess }) => {
                     paddingTop: 10,
                     marginTop: 10,
                     marginBottom: 10,
-                }}
-            >
-                <div style={{ textAlign: "center", marginBottom: 16 }}>
+                }}>
+                <div style={{ textAlign: "center", marginBottom: 24 }}>
                     <Title
                         level={2}
                         style={{
                             color: THEME.BLUE_PRIMARY,
                             marginBottom: 4,
                             fontWeight: "800",
-                        }}
-                    >
+                            fontSize: "clamp(24px, 5vw, 32px)",
+                        }}>
                         SAFE MUNTINDILAW
                     </Title>
                     <Text
                         type="secondary"
-                        style={{ color: THEME.BLUE_PRIMARY, fontSize: "13px" }}
-                    >
+                        style={{ color: THEME.BLUE_PRIMARY, fontSize: "13px" }}>
                         Resident Registration Portal
                     </Text>
                 </div>
@@ -505,8 +503,7 @@ const RegisterPage = ({ onSuccess }) => {
                         <Col span={12}>
                             <Form.Item
                                 label={<Text strong>First Name</Text>}
-                                required
-                            >
+                                required>
                                 <Input
                                     placeholder="Enter first name"
                                     name="firstName"
@@ -518,8 +515,7 @@ const RegisterPage = ({ onSuccess }) => {
                         <Col span={12}>
                             <Form.Item
                                 label={<Text strong>Last Name</Text>}
-                                required
-                            >
+                                required>
                                 <Input
                                     placeholder="Enter last name"
                                     name="lastName"
@@ -554,8 +550,7 @@ const RegisterPage = ({ onSuccess }) => {
                                     ? "Taken or invalid format"
                                     : null
                                 : null
-                        }
-                    >
+                        }>
                         <Input
                             placeholder="example@gmail.com"
                             name="email"
@@ -594,8 +589,7 @@ const RegisterPage = ({ onSuccess }) => {
                                             ? "Available"
                                             : "Taken or invalid format"
                                         : null)
-                                }
-                            >
+                                }>
                                 <div style={{ position: "relative" }}>
                                     <Input
                                         prefix={
@@ -604,8 +598,7 @@ const RegisterPage = ({ onSuccess }) => {
                                                 style={{
                                                     marginRight: 4,
                                                     color: THEME.BLUE_PRIMARY,
-                                                }}
-                                            >
+                                                }}>
                                                 +63
                                             </Text>
                                         }
@@ -650,8 +643,7 @@ const RegisterPage = ({ onSuccess }) => {
                                                 color: "#bfbfbf",
                                                 pointerEvents: "none",
                                                 fontSize: "14px",
-                                            }}
-                                        >
+                                            }}>
                                             XXXXXXXXX
                                         </div>
                                     )}
@@ -661,8 +653,7 @@ const RegisterPage = ({ onSuccess }) => {
                         <Col xs={24} sm={12}>
                             <Form.Item
                                 label={<Text strong>Area</Text>}
-                                required
-                            >
+                                required>
                                 <Select
                                     placeholder="Select your Place"
                                     name="place"
@@ -674,8 +665,7 @@ const RegisterPage = ({ onSuccess }) => {
                                                 color: THEME.BLUE_PRIMARY,
                                             }}
                                         />
-                                    }
-                                >
+                                    }>
                                     <Option value="" disabled>
                                         Select Place
                                     </Option>
@@ -695,8 +685,7 @@ const RegisterPage = ({ onSuccess }) => {
                                 label={<Text strong>Password</Text>}
                                 required
                                 validateStatus={passwordStatus.status}
-                                help={passwordStatus.help}
-                            >
+                                help={passwordStatus.help}>
                                 <Input.Password
                                     placeholder="Enter password"
                                     name="password"
@@ -717,8 +706,7 @@ const RegisterPage = ({ onSuccess }) => {
                                 label={<Text strong>Confirm Password</Text>}
                                 required
                                 validateStatus={confirmPasswordStatus.status}
-                                help={confirmPasswordStatus.help}
-                            >
+                                help={confirmPasswordStatus.help}>
                                 <Input.Password
                                     placeholder="Confirm your password"
                                     name="confirmPassword"
@@ -745,8 +733,7 @@ const RegisterPage = ({ onSuccess }) => {
                                 backgroundColor: "#f6f8fa",
                                 borderRadius: 6,
                                 border: "1px solid #e1e4e8",
-                            }}
-                        >
+                            }}>
                             <Text
                                 strong
                                 style={{
@@ -754,8 +741,7 @@ const RegisterPage = ({ onSuccess }) => {
                                     marginBottom: 6,
                                     color: THEME.BLUE_PRIMARY,
                                     fontSize: "12px",
-                                }}
-                            >
+                                }}>
                                 Password Requirements:
                             </Text>
                             <Space direction="vertical" size={2}>
@@ -765,8 +751,7 @@ const RegisterPage = ({ onSuccess }) => {
                                         color: passwordChecks.length
                                             ? "#52c41a"
                                             : "#8c8c8c",
-                                    }}
-                                >
+                                    }}>
                                     {passwordChecks.length ? (
                                         <CheckCircleOutlined />
                                     ) : (
@@ -780,8 +765,7 @@ const RegisterPage = ({ onSuccess }) => {
                                         color: passwordChecks.uppercase
                                             ? "#52c41a"
                                             : "#8c8c8c",
-                                    }}
-                                >
+                                    }}>
                                     {passwordChecks.uppercase ? (
                                         <CheckCircleOutlined />
                                     ) : (
@@ -795,8 +779,7 @@ const RegisterPage = ({ onSuccess }) => {
                                         color: passwordChecks.lowercase
                                             ? "#52c41a"
                                             : "#8c8c8c",
-                                    }}
-                                >
+                                    }}>
                                     {passwordChecks.lowercase ? (
                                         <CheckCircleOutlined />
                                     ) : (
@@ -810,8 +793,7 @@ const RegisterPage = ({ onSuccess }) => {
                                         color: passwordChecks.number
                                             ? "#52c41a"
                                             : "#8c8c8c",
-                                    }}
-                                >
+                                    }}>
                                     {passwordChecks.number ? (
                                         <CheckCircleOutlined />
                                     ) : (
@@ -827,8 +809,7 @@ const RegisterPage = ({ onSuccess }) => {
                                             passwordChecks.hasNumber
                                                 ? "#52c41a"
                                                 : "#8c8c8c",
-                                    }}
-                                >
+                                    }}>
                                     {passwordChecks.hasLetter &&
                                     passwordChecks.hasNumber ? (
                                         <CheckCircleOutlined />
@@ -843,8 +824,7 @@ const RegisterPage = ({ onSuccess }) => {
                                         color: passwordChecks.specialCharacters
                                             ? "#52c41a"
                                             : "#8c8c8c",
-                                    }}
-                                >
+                                    }}>
                                     {passwordChecks.specialCharacters ? (
                                         <CheckCircleOutlined />
                                     ) : (
@@ -863,8 +843,7 @@ const RegisterPage = ({ onSuccess }) => {
                             style={{
                                 color: THEME.BLUE_PRIMARY,
                                 fontWeight: "500",
-                            }}
-                        >
+                            }}>
                             I have read and agree to the
                             <Link
                                 onClick={showModal}
@@ -872,8 +851,7 @@ const RegisterPage = ({ onSuccess }) => {
                                     color: THEME.BLUE_PRIMARY,
                                     fontWeight: "700",
                                     marginLeft: 4,
-                                }}
-                            >
+                                }}>
                                 Terms and Conditions
                             </Link>
                         </Checkbox>
@@ -901,8 +879,7 @@ const RegisterPage = ({ onSuccess }) => {
                         onMouseLeave={(e) =>
                             (e.currentTarget.style.backgroundColor =
                                 THEME.BLUE_PRIMARY)
-                        }
-                    >
+                        }>
                         Register
                     </Button>
 
@@ -940,13 +917,11 @@ const RegisterPage = ({ onSuccess }) => {
                         style={{
                             backgroundColor: THEME.BLUE_PRIMARY,
                             borderColor: THEME.BLUE_PRIMARY,
-                        }}
-                    >
+                        }}>
                         I Agree & Close
                     </Button>,
                 ]}
-                width={700}
-            >
+                width={700}>
                 <div
                     style={{
                         maxHeight: "60vh",
@@ -954,15 +929,13 @@ const RegisterPage = ({ onSuccess }) => {
                         padding: 10,
                         border: `1px solid ${THEME.BACKGROUND_LIGHT}`,
                         borderRadius: 5,
-                    }}
-                >
+                    }}>
                     <pre
                         style={{
                             whiteSpace: "pre-wrap",
                             fontFamily: "inherit",
                             fontSize: "0.9em",
-                        }}
-                    >
+                        }}>
                         {TERMS_AND_CONDITIONS_TEXT}
                     </pre>
                 </div>

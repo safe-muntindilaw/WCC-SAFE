@@ -1,5 +1,5 @@
+// ProfilePage.jsx
 import { useState, useEffect, useMemo } from "react";
-// Ensure the import path for your configured supabase client is correct
 import { supabase } from "@/globals";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -304,12 +304,10 @@ const ProfilePage = () => {
                 padding: "40px 20px",
                 maxWidth: THEME.MAX_WIDTH,
                 margin: "0 auto",
-            }}
-        >
+            }}>
             <Title
                 level={1}
-                style={{ marginBottom: "15px", color: THEME.BLUE_AUTHORITY }}
-            >
+                style={{ marginBottom: "15px", color: THEME.BLUE_AUTHORITY }}>
                 <UserOutlined style={{ marginRight: 10 }} />
                 Barangay Resident Account Management
             </Title>
@@ -322,8 +320,7 @@ const ProfilePage = () => {
                             strong
                             style={{
                                 color: isError ? THEME.RED_ERROR : undefined,
-                            }}
-                        >
+                            }}>
                             {isError
                                 ? "Operation Failed"
                                 : "Operation Successful"}
@@ -355,8 +352,7 @@ const ProfilePage = () => {
                                 style={{
                                     margin: 0,
                                     color: THEME.BLUE_AUTHORITY,
-                                }}
-                            >
+                                }}>
                                 <EnvironmentOutlined
                                     style={{ marginRight: 8 }}
                                 />
@@ -368,8 +364,7 @@ const ProfilePage = () => {
                             height: "100%",
                             boxShadow: THEME.CARD_SHADOW,
                             borderTop: `5px solid ${THEME.BLUE_AUTHORITY}`,
-                        }}
-                    >
+                        }}>
                         {loading ? (
                             <Spin
                                 tip="Loading profile..."
@@ -383,8 +378,7 @@ const ProfilePage = () => {
                                 {...FORM_LAYOUT}
                                 form={formDetails}
                                 onFinish={handleSaveDetails}
-                                layout="vertical"
-                            >
+                                layout="vertical">
                                 <Row gutter={24}>
                                     <Col span={12}>
                                         <Form.Item
@@ -396,8 +390,7 @@ const ProfilePage = () => {
                                                     message:
                                                         "First Name is required for the record! (Pangalan ay kinakailangan sa rekord!)",
                                                 },
-                                            ]}
-                                        >
+                                            ]}>
                                             <Input placeholder="e.g. Juan (Hal. Juan)" />
                                         </Form.Item>
                                     </Col>
@@ -411,8 +404,7 @@ const ProfilePage = () => {
                                                     message:
                                                         "Last Name is required for the record! (Apelyido ay kinakailangan sa rekord!)",
                                                 },
-                                            ]}
-                                        >
+                                            ]}>
                                             <Input placeholder="e.g. Dela Cruz (Hal. Dela Cruz)" />
                                         </Form.Item>
                                     </Col>
@@ -421,8 +413,7 @@ const ProfilePage = () => {
                                 <Form.Item
                                     label="Primary Email Address (System Login ID)"
                                     name="email"
-                                    tooltip="This is your permanent system login ID. It cannot be changed here. (Ito ang iyong permanenteng system login ID. Hindi ito mababago dito.)"
-                                >
+                                    tooltip="This is your permanent system login ID. It cannot be changed here. (Ito ang iyong permanenteng system login ID. Hindi ito mababago dito.)">
                                     <Input
                                         disabled
                                         style={{
@@ -471,8 +462,7 @@ const ProfilePage = () => {
                                                 return Promise.resolve();
                                             },
                                         },
-                                    ]}
-                                >
+                                    ]}>
                                     <Input
                                         addonBefore="+63"
                                         maxLength={10}
@@ -489,8 +479,10 @@ const ProfilePage = () => {
                                     />
                                 </Form.Item>
                                 <div
-                                    style={{ marginTop: -20, marginBottom: 24 }}
-                                ></div>
+                                    style={{
+                                        marginTop: -20,
+                                        marginBottom: 24,
+                                    }}></div>
 
                                 <Form.Item
                                     label="Permanent Barangay Assignment"
@@ -501,8 +493,7 @@ const ProfilePage = () => {
                                             message:
                                                 "Please select your official Barangay. (Pumili ng inyong opisyal na Barangay.)",
                                         },
-                                    ]}
-                                >
+                                    ]}>
                                     <Select
                                         placeholder="Select Barangay (Pumili ng Barangay)"
                                         allowClear
@@ -512,8 +503,7 @@ const ProfilePage = () => {
                                                 .toLowerCase()
                                                 .indexOf(input.toLowerCase()) >=
                                             0
-                                        }
-                                    >
+                                        }>
                                         {barangays.map((b) => (
                                             <Option key={b.id} value={b.id}>
                                                 {b.name}
@@ -523,8 +513,7 @@ const ProfilePage = () => {
                                 </Form.Item>
 
                                 <Form.Item
-                                    style={{ marginBottom: 0, marginTop: 30 }}
-                                >
+                                    style={{ marginBottom: 0, marginTop: 30 }}>
                                     <Button
                                         type="primary"
                                         htmlType="submit"
@@ -538,8 +527,7 @@ const ProfilePage = () => {
                                                 THEME.BLUE_PRIMARY_BUTTON,
                                             fontWeight: "bold",
                                             width: "100%",
-                                        }}
-                                    >
+                                        }}>
                                         {savingDetails
                                             ? "Processing Update..."
                                             : "Update Record"}
@@ -559,8 +547,7 @@ const ProfilePage = () => {
                                 style={{
                                     margin: 0,
                                     color: THEME.BLUE_AUTHORITY,
-                                }}
-                            >
+                                }}>
                                 <SafetyOutlined style={{ marginRight: 8 }} />
                                 Authentication Security
                             </Title>
@@ -570,8 +557,7 @@ const ProfilePage = () => {
                             height: "100%",
                             boxShadow: THEME.CARD_SHADOW,
                             borderTop: `5px solid ${THEME.BLUE_AUTHORITY}`,
-                        }}
-                    >
+                        }}>
                         <Alert
                             message="Security Warning"
                             description="Always ensure that you are the only one who knows your login credentials. Never share your new password with anyone. (Siguraduhin na kayo lamang ang nakakaalam ng inyong login credentials. Huwag kailanman ibahagi ang inyong bagong password sa kahit kanino.)"
@@ -588,8 +574,7 @@ const ProfilePage = () => {
                                     alignItems: "center",
                                     justifyContent: "center",
                                     padding: "10px 0",
-                                }}
-                            >
+                                }}>
                                 <Button
                                     type="default"
                                     onClick={() => {
@@ -605,8 +590,7 @@ const ProfilePage = () => {
                                         color: THEME.BLUE_AUTHORITY,
                                         borderColor: THEME.BLUE_AUTHORITY,
                                         width: "100%",
-                                    }}
-                                >
+                                    }}>
                                     Change Password
                                 </Button>
                             </div>
@@ -615,8 +599,7 @@ const ProfilePage = () => {
                                 {...FORM_LAYOUT}
                                 form={formPassword}
                                 onFinish={handleSavePassword}
-                                layout="vertical"
-                            >
+                                layout="vertical">
                                 <Form.Item
                                     label="New Password"
                                     name="newPassword"
@@ -631,8 +614,7 @@ const ProfilePage = () => {
                                             message:
                                                 "Password must be at least 8 characters for security. (Ang password ay dapat hindi bababa sa 8 karakter.)",
                                         },
-                                    ]}
-                                >
+                                    ]}>
                                     <Input.Password placeholder="Enter New Secure Password" />
                                 </Form.Item>
 
@@ -663,18 +645,15 @@ const ProfilePage = () => {
                                                 );
                                             },
                                         }),
-                                    ]}
-                                >
+                                    ]}>
                                     <Input.Password placeholder="Re-enter New Password" />
                                 </Form.Item>
 
                                 <Form.Item
-                                    style={{ marginBottom: 0, marginTop: 20 }}
-                                >
+                                    style={{ marginBottom: 0, marginTop: 20 }}>
                                     <Space
                                         direction="vertical"
-                                        style={{ width: "100%" }}
-                                    >
+                                        style={{ width: "100%" }}>
                                         <Button
                                             type="primary"
                                             htmlType="submit"
@@ -688,8 +667,7 @@ const ProfilePage = () => {
                                                     THEME.BLUE_PRIMARY_BUTTON,
                                                 fontWeight: "bold",
                                                 width: "100%",
-                                            }}
-                                        >
+                                            }}>
                                             {savingPassword
                                                 ? "Securing Password..."
                                                 : "Save New Password"}
@@ -701,8 +679,7 @@ const ProfilePage = () => {
                                                 formPassword.resetFields();
                                                 setStatusMessage(null);
                                             }}
-                                            style={{ width: "100%" }}
-                                        >
+                                            style={{ width: "100%" }}>
                                             Cancel Change
                                         </Button>
                                     </Space>
@@ -721,8 +698,7 @@ const ProfilePage = () => {
                                 style={{
                                     margin: 0,
                                     color: THEME.BLUE_AUTHORITY,
-                                }}
-                            >
+                                }}>
                                 <BellOutlined style={{ marginRight: 8 }} />
                                 Barangay Announcements
                             </Title>
@@ -736,8 +712,7 @@ const ProfilePage = () => {
                                     ? THEME.GREEN_SUCCESS
                                     : THEME.RED_ERROR
                             }`,
-                        }}
-                    >
+                        }}>
                         <Alert
                             message={
                                 isSubscribed
@@ -774,8 +749,7 @@ const ProfilePage = () => {
                                           backgroundColor: THEME.GREEN_SUCCESS,
                                           borderColor: THEME.GREEN_SUCCESS,
                                       }),
-                            }}
-                        >
+                            }}>
                             {savingSubscription
                                 ? "Updating..."
                                 : isSubscribed

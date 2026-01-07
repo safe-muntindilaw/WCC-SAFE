@@ -1,5 +1,4 @@
 // AppRoutes.jsx
-
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PublicRoute, ProtectedRoute } from "@/globals";
 import { LandingPage, MainPage } from "@/globals";

@@ -1,3 +1,4 @@
+// UserManagement.jsx
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/globals";
 import * as XLSX from "xlsx";
@@ -728,8 +729,7 @@ const UserManagement = () => {
                     alignItems: "center",
                     minHeight: "calc(100vh - 60px)",
                     width: "100%",
-                }}
-            >
+                }}>
                 <Spin size="large" tip="Loading contact management..." />
             </div>
         );
@@ -737,12 +737,7 @@ const UserManagement = () => {
 
     return (
         <div
-            style={{ padding: window.innerWidth < 768 ? "0 12px 0 12px" : 24 }}
-        >
-            <Title level={window.innerWidth < 768 ? 3 : 2}>
-                Contact Management
-            </Title>
-
+            style={{ padding: window.innerWidth < 768 ? "0 12px 0 12px" : 24 }}>
             {message.content && message.type !== "error-validation" && (
                 <Alert
                     message={message.content}
@@ -767,8 +762,7 @@ const UserManagement = () => {
                 width={window.innerWidth < 768 ? "95%" : "50%"}
                 style={{ maxWidth: window.innerWidth < 768 ? "100%" : 600 }}
                 centered
-                destroyOnHidden
-            >
+                destroyOnHidden>
                 <Form
                     layout="vertical"
                     onFinish={handleSubmit}
@@ -778,8 +772,7 @@ const UserManagement = () => {
                         borderRadius: 8,
                         boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     }}
-                    disabled={loading}
-                >
+                    disabled={loading}>
                     <Title level={4}>
                         {isEditing ? "Edit Contact" : "Add New Contact"}
                     </Title>
@@ -790,8 +783,10 @@ const UserManagement = () => {
                             message="Validation Errors"
                             description={
                                 <ul
-                                    style={{ marginBottom: 0, paddingLeft: 20 }}
-                                >
+                                    style={{
+                                        marginBottom: 0,
+                                        paddingLeft: 20,
+                                    }}>
                                     {validationErrors.map((err, idx) => (
                                         <li key={idx}>{err}</li>
                                     ))}
@@ -858,8 +853,7 @@ const UserManagement = () => {
                                     place_id: value,
                                 }))
                             }
-                            placeholder="-- Select Place --"
-                        >
+                            placeholder="-- Select Place --">
                             {places.map((p) => (
                                 <Option key={p.id} value={p.id}>
                                     {p.name}
@@ -881,8 +875,7 @@ const UserManagement = () => {
                                 flexDirection:
                                     window.innerWidth < 768 ? "column" : "row",
                                 gap: window.innerWidth < 768 ? 8 : 0,
-                            }}
-                        >
+                            }}>
                             {availableRoles.map((role) => (
                                 <Radio key={role} value={role}>
                                     {role}
@@ -913,8 +906,7 @@ const UserManagement = () => {
                                 type="primary"
                                 htmlType="submit"
                                 disabled={loading || !isFormValid}
-                                onClick={handleSubmit}
-                            >
+                                onClick={handleSubmit}>
                                 {loading
                                     ? "Processing..."
                                     : isEditing
@@ -930,8 +922,7 @@ const UserManagement = () => {
                                         resetForm();
                                     }
                                 }}
-                                disabled={loading}
-                            >
+                                disabled={loading}>
                                 {isEditing ? "Cancel" : "Clear"}
                             </Button>
                         </Space>
@@ -950,8 +941,7 @@ const UserManagement = () => {
                 width={window.innerWidth < 768 ? "95%" : "50%"}
                 style={{ maxWidth: window.innerWidth < 768 ? "100%" : 600 }}
                 centered
-                destroyOnHidden
-            >
+                destroyOnHidden>
                 <Form
                     layout="vertical"
                     onFinish={handleFileUpload}
@@ -961,8 +951,7 @@ const UserManagement = () => {
                         borderRadius: 8,
                         boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     }}
-                    disabled={loading || isEditing || batchStatus.loading}
-                >
+                    disabled={loading || isEditing || batchStatus.loading}>
                     <Title level={4}>Batch Upload Contacts</Title>
                     <Alert
                         message="Requirements"
@@ -980,8 +969,7 @@ const UserManagement = () => {
                         {uploadFile && (
                             <Button
                                 onClick={handleRemoveFile}
-                                style={{ marginTop: 8 }}
-                            >
+                                style={{ marginTop: 8 }}>
                                 Remove
                             </Button>
                         )}
@@ -992,8 +980,7 @@ const UserManagement = () => {
                                 type="primary"
                                 htmlType="submit"
                                 onClick={handleFileUpload}
-                                disabled={!uploadFile || batchStatus.loading}
-                            >
+                                disabled={!uploadFile || batchStatus.loading}>
                                 {batchStatus.loading
                                     ? "Processing..."
                                     : "Upload & Process"}
@@ -1005,8 +992,7 @@ const UserManagement = () => {
                                         "/src/assets/safe_contact_list.xlsx";
                                     link.download = "safe_contact_list";
                                     link.click();
-                                }}
-                            >
+                                }}>
                                 Download Template
                             </Button>
                         </Space>
@@ -1030,8 +1016,7 @@ const UserManagement = () => {
                             display: "flex",
                             flexDirection: "column",
                             gap: 12,
-                        }}
-                    >
+                        }}>
                         {/* Desktop: Single Row, Mobile: Three Rows */}
                         <div
                             style={{
@@ -1039,14 +1024,12 @@ const UserManagement = () => {
                                 gap: 12,
                                 alignItems: "center",
                                 flexWrap: "wrap",
-                            }}
-                        >
+                            }}>
                             {/* Group 1: Delete + Search */}
                             <Button
                                 danger
                                 disabled={selectedUsers.length === 0 || loading}
-                                onClick={handleBatchDelete}
-                            >
+                                onClick={handleBatchDelete}>
                                 <DeleteOutlined /> ({selectedUsers.length})
                             </Button>
 
@@ -1068,8 +1051,7 @@ const UserManagement = () => {
                                 onChange={(value) => setSelectedRole(value)}
                                 style={{ flex: "1 1 120px", minWidth: 120 }}
                                 allowClear
-                                placeholder="Filter by role"
-                            >
+                                placeholder="Filter by role">
                                 <Option value="">All Roles</Option>
                                 {availableRoles.map((r) => (
                                     <Option key={r} value={r}>
@@ -1083,8 +1065,7 @@ const UserManagement = () => {
                                 onChange={(value) => setPlaceFilter(value)}
                                 style={{ flex: "1 1 120px", minWidth: 120 }}
                                 allowClear
-                                placeholder="Filter by place"
-                            >
+                                placeholder="Filter by place">
                                 <Option value="">All Places</Option>
                                 {places.map((p) => (
                                     <Option key={p.id} value={p.name}>
@@ -1098,14 +1079,12 @@ const UserManagement = () => {
                                 type="primary"
                                 onClick={() => (
                                     setIsUserModalVisible(true), resetForm()
-                                )}
-                            >
+                                )}>
                                 New Contact
                             </Button>
 
                             <Button
-                                onClick={() => setIsBatchModalVisible(true)}
-                            >
+                                onClick={() => setIsBatchModalVisible(true)}>
                                 Batch Upload
                             </Button>
 
@@ -1116,8 +1095,7 @@ const UserManagement = () => {
                                     alignItems: "center",
                                     gap: 5,
                                     marginLeft: "auto",
-                                }}
-                            >
+                                }}>
                                 <Button
                                     size={"small"}
                                     disabled={currentPage === 1}
@@ -1125,8 +1103,7 @@ const UserManagement = () => {
                                         setCurrentPage((p) =>
                                             Math.max(1, p - 1)
                                         )
-                                    }
-                                >
+                                    }>
                                     {"<"}
                                 </Button>
                                 <span style={{ whiteSpace: "nowrap" }}>
@@ -1139,8 +1116,7 @@ const UserManagement = () => {
                                         setCurrentPage((p) =>
                                             Math.min(totalPages, p + 1)
                                         )
-                                    }
-                                >
+                                    }>
                                     {">"}
                                 </Button>
                             </div>
@@ -1155,8 +1131,7 @@ const UserManagement = () => {
                             justifyContent: "center",
                             alignItems: "center",
                             padding: "40px 0",
-                        }}
-                    >
+                        }}>
                         <p>No contact found.</p>
                     </div>
                 )}
@@ -1173,8 +1148,7 @@ const UserManagement = () => {
                                 y: "calc(100vh - 400px)",
                             }}
                             size={window.innerWidth < 768 ? "small" : "middle"}
-                            sticky
-                        >
+                            sticky>
                             {/* Checkbox select all */}
                             <Table.Column
                                 width={40}
@@ -1212,8 +1186,7 @@ const UserManagement = () => {
                                         style={{
                                             display: "flex",
                                             alignItems: "center",
-                                        }}
-                                    >
+                                        }}>
                                         <span>Name</span>
                                         <Button
                                             size="small"
@@ -1252,8 +1225,7 @@ const UserManagement = () => {
                                         style={{
                                             display: "flex",
                                             alignItems: "center",
-                                        }}
-                                    >
+                                        }}>
                                         <span>Role</span>
                                         <Button
                                             size="small"
@@ -1287,8 +1259,7 @@ const UserManagement = () => {
                                         style={{
                                             display: "flex",
                                             alignItems: "center",
-                                        }}
-                                    >
+                                        }}>
                                         <span>Place</span>
                                         <Button
                                             size="small"
@@ -1343,8 +1314,7 @@ const UserManagement = () => {
                                                     ? "small"
                                                     : "middle"
                                             }
-                                            onClick={() => handleEdit(record)}
-                                        >
+                                            onClick={() => handleEdit(record)}>
                                             Edit
                                         </Button>
                                         <Button
@@ -1356,8 +1326,7 @@ const UserManagement = () => {
                                             danger
                                             onClick={() =>
                                                 handleDelete(record.user_id)
-                                            }
-                                        >
+                                            }>
                                             Delete
                                         </Button>
                                     </Space>

@@ -1,3 +1,4 @@
+// DashboardPage.jsx
 import { useEffect, useState, useMemo, useCallback } from "react";
 import {
     Card,
@@ -15,6 +16,7 @@ import {
     Form,
     InputNumber,
 } from "antd";
+
 import {
     TeamOutlined,
     SettingOutlined,
@@ -26,6 +28,7 @@ import {
     ExclamationCircleOutlined,
     EditOutlined,
 } from "@ant-design/icons";
+
 import { supabase } from "@/globals";
 
 const { Title, Text } = Typography;
@@ -186,16 +189,14 @@ const ThresholdEditModal = ({ isOpen, record, onClose, onSave, isSaving }) => {
             onOk={handleOk}
             confirmLoading={isSaving}
             okText="Save Changes"
-            centered
-        >
+            centered>
             <Form
                 form={form}
                 layout="vertical"
                 initialValues={{
                     min_level: parseFloat(record.min_level),
                     max_level: parseFloat(record.max_level),
-                }}
-            >
+                }}>
                 <Form.Item
                     name="min_level"
                     label={`Minimum Level (${UNIT})`}
@@ -204,8 +205,7 @@ const ThresholdEditModal = ({ isOpen, record, onClose, onSave, isSaving }) => {
                             required: true,
                             message: "Please input the minimum level!",
                         },
-                    ]}
-                >
+                    ]}>
                     <InputNumber
                         min={0}
                         step={0.01}
@@ -236,8 +236,7 @@ const ThresholdEditModal = ({ isOpen, record, onClose, onSave, isSaving }) => {
                                 );
                             },
                         }),
-                    ]}
-                >
+                    ]}>
                     <InputNumber
                         min={0}
                         step={0.01}
@@ -259,8 +258,7 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                     borderTop: `4px solid ${BARANGAY_THEME.BLUE_AUTHORITY}`,
                     textAlign: "center",
                     padding: "40px 20px",
-                }}
-            >
+                }}>
                 <Text type="secondary">
                     No thresholds configured (Walang nakaset na antas)
                 </Text>
@@ -295,13 +293,11 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                                 flexDirection: "column",
                                 flexGrow: 1,
                             }}
-                            hoverable
-                        >
+                            hoverable>
                             <Space
                                 direction="vertical"
                                 style={{ width: "100%", flexGrow: 1 }}
-                                size="middle"
-                            >
+                                size="middle">
                                 <div>
                                     <Text
                                         strong
@@ -310,8 +306,7 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                                             color: statusColor,
                                             display: "block",
                                             lineHeight: 1.2,
-                                        }}
-                                    >
+                                        }}>
                                         {threshold.name} {statusText}
                                     </Text>
                                 </div>
@@ -322,8 +317,7 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                                         fontSize: "13px",
                                         display: "block",
                                         lineHeight: 1.5,
-                                    }}
-                                >
+                                    }}>
                                     {statusDescriptionFull}
                                 </Text>
 
@@ -332,8 +326,7 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                                         display: "flex",
                                         justifyContent: "space-around",
                                         alignItems: "center",
-                                    }}
-                                >
+                                    }}>
                                     <Text style={{ fontSize: "15px" }}>
                                         <strong>Min Level:</strong>{" "}
                                         {threshold.min_level} {UNIT}
@@ -343,8 +336,7 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                                             fontSize: "20px",
                                             color: "#d9d9d9",
                                             margin: "0 8px",
-                                        }}
-                                    >
+                                        }}>
                                         |
                                     </Text>
                                     <Text style={{ fontSize: "15px" }}>
@@ -366,8 +358,7 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                                             color: "#fff",
                                             borderColor:
                                                 BARANGAY_THEME.BLUE_AUTHORITY,
-                                        }}
-                                    >
+                                        }}>
                                         Edit Threshold
                                     </Button>
                                 </div>
@@ -395,8 +386,7 @@ const CardContainer = ({
             minHeight: 130,
         }}
         bodyStyle={{ padding: "24px" }}
-        hoverable
-    >
+        hoverable>
         <Statistic
             title={title}
             value={value ?? "Loading... (Naglo-load...)"}
@@ -509,8 +499,7 @@ const WaterLevelDashboard = ({
                                 borderTop: `4px solid ${BARANGAY_THEME.BLUE_AUTHORITY}`,
                             }}
                             bodyStyle={{ padding: "30px 24px" }}
-                            hoverable
-                        >
+                            hoverable>
                             <Text
                                 strong
                                 style={{
@@ -518,8 +507,7 @@ const WaterLevelDashboard = ({
                                     display: "flex",
                                     alignItems: "center",
                                     color: BARANGAY_THEME.BLUE_AUTHORITY,
-                                }}
-                            >
+                                }}>
                                 <TeamOutlined style={{ marginRight: 15 }} />
                                 {officialAndResidentCount ??
                                     "Loading... (Naglo-load...)"}
@@ -529,8 +517,7 @@ const WaterLevelDashboard = ({
                                 style={{
                                     display: "block",
                                     marginTop: 8,
-                                }}
-                            >
+                                }}>
                                 Includes all verified officials and residents in
                                 the system.
                             </Text>
@@ -550,8 +537,7 @@ const WaterLevelDashboard = ({
                         bodyStyle={{
                             padding: isOfficial ? "24px" : "30px 24px",
                         }}
-                        hoverable
-                    >
+                        hoverable>
                         <Text
                             strong
                             style={{
@@ -560,8 +546,7 @@ const WaterLevelDashboard = ({
                                 display: "flex",
                                 alignItems: "center",
                                 marginBottom: 8,
-                            }}
-                        >
+                            }}>
                             <AlertOutlined style={{ marginRight: 15 }} />
                             {currentStatus ?? noReadingsText}
                         </Text>
@@ -570,8 +555,7 @@ const WaterLevelDashboard = ({
                             style={{
                                 display: "block",
                                 fontSize: isOfficial ? "14px" : "18px",
-                            }}
-                        >
+                            }}>
                             **{currentDescription}**
                         </Text>
                         <Text
@@ -579,8 +563,7 @@ const WaterLevelDashboard = ({
                             style={{
                                 display: "block",
                                 marginTop: 4,
-                            }}
-                        >
+                            }}>
                             Huling Pagbasa: **{lastReadingValue ?? "N/A"}** @{" "}
                             {lastReadingTime ?? "N/A"}
                         </Text>
@@ -596,8 +579,7 @@ const WaterLevelDashboard = ({
                     marginTop: 10,
                     marginBottom: 20,
                     color: BARANGAY_THEME.BLUE_AUTHORITY,
-                }}
-            >
+                }}>
                 Water Level Statistics Today
             </Title>
 
@@ -865,8 +847,7 @@ const DashboardPage = () => {
                     alignItems: "center",
                     minHeight: "calc(100vh - 60px)",
                     width: "100%",
-                }}
-            >
+                }}>
                 <Spin size="large" tip="Loading Barangay dashboard..." />
             </div>
         );
@@ -898,13 +879,11 @@ const DashboardPage = () => {
                     colorPrimary: BARANGAY_THEME.PRIMARY_COLOR,
                     borderRadius: 8,
                 },
-            }}
-        >
+            }}>
             <Space
                 direction="vertical"
                 style={{ width: "100%", paddingInline: 32, marginBottom: 32 }}
-                size="middle"
-            >
+                size="middle">
                 <Col xs={24} sm={24} md={24} style={{ textAlign: "center" }}>
                     <Title
                         level={3}
@@ -914,8 +893,7 @@ const DashboardPage = () => {
                             marginTop: 24,
                             textAlign: "left",
                             color: BARANGAY_THEME.BLUE_AUTHORITY,
-                        }}
-                    >
+                        }}>
                         {roleConfig?.dashboardTitle}
                     </Title>
                 </Col>
@@ -924,15 +902,13 @@ const DashboardPage = () => {
                 <Row
                     justify="space-between"
                     align="middle"
-                    style={{ marginBottom: 0 }}
-                >
+                    style={{ marginBottom: 0 }}>
                     <Title
                         level={4}
                         style={{
                             margin: 0,
                             color: BARANGAY_THEME.BLUE_AUTHORITY,
-                        }}
-                    >
+                        }}>
                         {roleConfig.sectionTitle}
                     </Title>
                     {refreshButton}
@@ -961,15 +937,13 @@ const DashboardPage = () => {
                         <Row
                             justify="space-between"
                             align="middle"
-                            style={{ marginBottom: 10 }}
-                        >
+                            style={{ marginBottom: 10 }}>
                             <Title
                                 level={4}
                                 style={{
                                     margin: 0,
                                     color: BARANGAY_THEME.BLUE_AUTHORITY,
-                                }}
-                            >
+                                }}>
                                 <ExclamationCircleOutlined
                                     style={{ marginRight: 8 }}
                                 />

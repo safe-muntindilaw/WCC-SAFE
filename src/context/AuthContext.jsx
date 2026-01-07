@@ -1,10 +1,11 @@
+// AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/globals";
 import { Spin } from "antd";
 
 const AuthContext = createContext();
 
-// 🟢 OPTIMIZATION: Combine role retrieval and 'is_logged_in' update into one DB call.
+// OPTIMIZATION: Combine role retrieval and 'is_logged_in' update into one DB call.
 const syncRoleAndLogin = async (userId, setUserRole) => {
     if (!userId) {
         setUserRole(null);
@@ -121,8 +122,7 @@ const AuthProvider = ({ children }) => {
                     justifyContent: "center",
                     alignItems: "center",
                     height: "100vh",
-                }}
-            >
+                }}>
                 <Spin size="large" tip="Checking authentication..." />
             </div>
         );

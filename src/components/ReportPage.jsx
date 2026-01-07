@@ -1,3 +1,4 @@
+// ReportPage.jsx
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
     LineChart,
@@ -372,21 +373,33 @@ const ReportPage = () => {
 
     return (
         <div style={{ padding: "8px" }}>
+            {/* -------------------------------------------------------------------------------- */}
+            {/* START: INLINE CSS TO CENTER ANT DESIGN DROPDOWN */}
+            {/* The DatePicker dropdown renders outside the component tree, requiring a global style. */}
+            <style>
+                {`
+                    /* Target the specific DatePicker dropdown using its custom class */
+                    .centered-calendar-dropdown {
+                        left: 50% !important; /* Move the left edge to the center of the viewport */
+                        transform: translateX(-50%) !important; /* Shift back by half of its own width for true centering */
+                    }
+                `}
+            </style>
+            {/* END: INLINE CSS TO CENTER ANT DESIGN DROPDOWN */}
+            {/* -------------------------------------------------------------------------------- */}
             <Space
                 direction="vertical"
                 size="middle"
                 style={{
                     marginBottom: 20,
                     width: "100%",
-                }}
-            >
+                }}>
                 <div
                     style={{
                         width: "100%",
                         display: "flex",
                         justifyContent: "center",
-                    }}
-                >
+                    }}>
                     <Radio.Group
                         value={reportType}
                         onChange={(e) => setReportType(e.target.value)}
@@ -396,8 +409,7 @@ const ReportPage = () => {
                             flexWrap: "wrap",
                             justifyContent: "center",
                             gap: "4px",
-                        }}
-                    >
+                        }}>
                         <Radio.Button value="today">Today</Radio.Button>
                         <Radio.Button value="weekly">Weekly</Radio.Button>
                         <Radio.Button value="monthly">Monthly</Radio.Button>
@@ -414,8 +426,7 @@ const ReportPage = () => {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                        }}
-                    >
+                        }}>
                         <Space wrap style={{ justifyContent: "center" }}>
                             <span>Month:</span>
                             <DatePicker
@@ -433,8 +444,7 @@ const ReportPage = () => {
                                 value={monthView}
                                 onChange={setMonthView}
                                 className="reports-select"
-                                style={{ minWidth: "100px" }}
-                            >
+                                style={{ minWidth: "100px" }}>
                                 <Option value="day">Day</Option>
                                 <Option value="week">Week</Option>
                             </Select>
@@ -452,8 +462,7 @@ const ReportPage = () => {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                        }}
-                    >
+                        }}>
                         <span>Compare Years:</span>
                         <Space wrap style={{ justifyContent: "center" }}>
                             <Select
@@ -462,8 +471,7 @@ const ReportPage = () => {
                                 onChange={setSelectedYears}
                                 placeholder="Select years"
                                 className="reports-select"
-                                style={{ minWidth: "200px" }}
-                            >
+                                style={{ minWidth: "200px" }}>
                                 {Array.from({ length: 10 }, (_, i) => {
                                     const year = (
                                         dayjs().year() - i
@@ -487,8 +495,7 @@ const ReportPage = () => {
                         textAlign: "center",
                         fontSize: "clamp(14px, 4vw, 24px)",
                         lineHeight: "1.3",
-                    }}
-                >
+                    }}>
                     {chartTitle}
                 </Title>
             </Space>
@@ -502,17 +509,20 @@ const ReportPage = () => {
                             display: "flex",
                             justifyContent: "center",
                             alignItems: "center",
-                        }}
-                    >
+                        }}>
                         <Spin size="large" tip="Loading report..." />
                     </div>
                 ) : data.length === 0 ? (
                     <div
                         className="loading-placeholder"
-                        style={{ height: 600 }}
-                    >
+                        style={{
+                            height: "400px",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                        }}>
                         <p style={{ fontSize: "1.2em", color: "#888" }}>
-                            No sensor readings found for the selected period.
+                            No sensor readings found.
                         </p>
                     </div>
                 ) : (
@@ -524,8 +534,7 @@ const ReportPage = () => {
                                 right: window.innerWidth < 768 ? 10 : 30,
                                 left: window.innerWidth < 768 ? -40 : -20,
                                 bottom: window.innerWidth < 768 ? 40 : 20,
-                            }}
-                        >
+                            }}>
                             <CartesianGrid strokeDasharray="3 3" />
 
                             {/* Reference Areas for visual guidance */}

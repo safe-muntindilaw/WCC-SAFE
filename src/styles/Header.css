@@ -127,7 +127,7 @@
     main,
     .ant-layout-content,
     #root {
-        padding-bottom: 56px !important;
+        /* padding-bottom: 56px !important; */
         box-sizing: border-box;
     }
 

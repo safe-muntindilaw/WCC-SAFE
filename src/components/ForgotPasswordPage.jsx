@@ -1,3 +1,4 @@
+// ForgotPasswordPage.jsx
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/globals";
 import { useState } from "react";
@@ -104,8 +105,7 @@ const ForgotPasswordPage = () => {
                 minHeight: "100vh",
                 backgroundColor: THEME.BACKGROUND_LIGHT, // Government background
                 padding: "1rem",
-            }}
-        >
+            }}>
             <Card
                 style={{
                     maxWidth: 450,
@@ -115,8 +115,7 @@ const ForgotPasswordPage = () => {
                     backgroundColor: THEME.CARD_BG,
                     borderTop: `5px solid ${THEME.BLUE_PRIMARY}`, // Blue accent border
                     paddingTop: 10,
-                }}
-            >
+                }}>
                 {/* Header Section */}
                 <div style={{ textAlign: "center", marginBottom: 24 }}>
                     <Title
@@ -125,14 +124,12 @@ const ForgotPasswordPage = () => {
                             color: THEME.BLUE_PRIMARY,
                             marginBottom: 4,
                             fontWeight: "800",
-                        }}
-                    >
+                        }}>
                         SAFE MUNTINDILAW
                     </Title>
                     <Text
                         type="secondary"
-                        style={{ color: THEME.BLUE_PRIMARY }}
-                    >
+                        style={{ color: THEME.BLUE_PRIMARY }}>
                         Account Recovery
                     </Text>
                 </div>
@@ -154,8 +151,7 @@ const ForgotPasswordPage = () => {
                     form={form}
                     name="forgot_password_form"
                     onFinish={handleReset}
-                    layout="vertical"
-                >
+                    layout="vertical">
                     {/* Email Input */}
                     <Form.Item
                         label={<Text strong>Registered Email Address</Text>}
@@ -171,8 +167,7 @@ const ForgotPasswordPage = () => {
                             },
                         ]}
                         required
-                        tooltip="Enter the email associated with your account."
-                    >
+                        tooltip="Enter the email associated with your account.">
                         <Input
                             placeholder="Enter your email"
                             prefix={
@@ -205,8 +200,7 @@ const ForgotPasswordPage = () => {
                         onMouseLeave={(e) =>
                             (e.currentTarget.style.backgroundColor =
                                 THEME.BLUE_PRIMARY)
-                        }
-                    >
+                        }>
                         {isLoading
                             ? "SENDING LINK..."
                             : "SEND PASSWORD RESET LINK"}
@@ -220,8 +214,7 @@ const ForgotPasswordPage = () => {
                             width: "100%",
                             marginTop: 24,
                             textAlign: "center",
-                        }}
-                    >
+                        }}>
                         <Text>
                             Remember your password?{" "}
                             <Link
@@ -229,8 +222,7 @@ const ForgotPasswordPage = () => {
                                 style={{
                                     color: THEME.BLUE_PRIMARY,
                                     fontWeight: "600",
-                                }}
-                            >
+                                }}>
                                 Back to Login
                             </Link>
                         </Text>
@@ -241,8 +233,7 @@ const ForgotPasswordPage = () => {
                                 style={{
                                     color: THEME.BLUE_PRIMARY,
                                     fontWeight: "600",
-                                }}
-                            >
+                                }}>
                                 Register here
                             </Link>
                         </Text>

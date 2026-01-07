@@ -79,8 +79,7 @@ const LoginPage = () => {
                 height: "100vh",
                 backgroundColor: THEME.BACKGROUND_LIGHT,
                 padding: "1rem",
-            }}
-        >
+            }}>
             <Card
                 style={{
                     maxWidth: 450,
@@ -89,8 +88,7 @@ const LoginPage = () => {
                     borderRadius: 12,
                     backgroundColor: THEME.CARD_BG,
                     borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
-                }}
-            >
+                }}>
                 <div style={{ textAlign: "center", marginBottom: 24 }}>
                     {/* Logo */}
                     {/* <div style={{ width: 100, height: 50, margin: '0 auto' }}> */}
@@ -102,8 +100,8 @@ const LoginPage = () => {
                             color: THEME.BLUE_PRIMARY,
                             marginBottom: 4,
                             fontWeight: "800",
-                        }}
-                    >
+                            fontSize: "clamp(24px, 5vw, 32px)",
+                        }}>
                         SAFE MUNTINDILAW
                     </Title>
                     <Text style={{ color: THEME.BLUE_PRIMARY }}>
@@ -136,8 +134,7 @@ const LoginPage = () => {
                                 type: "email",
                                 message: "The input is not valid E-mail!",
                             },
-                        ]}
-                    >
+                        ]}>
                         <Input
                             placeholder="Enter your registered email"
                             prefix={
@@ -157,8 +154,7 @@ const LoginPage = () => {
                                 required: true,
                                 message: "Please input your Password!",
                             },
-                        ]}
-                    >
+                        ]}>
                         <Input.Password
                             placeholder="Enter your password"
                             prefix={
@@ -184,14 +180,13 @@ const LoginPage = () => {
                             marginTop: 16,
                         }}
                         onMouseEnter={(e) =>
-                        (e.currentTarget.style.backgroundColor =
-                            THEME.BUTTON_HOVER)
+                            (e.currentTarget.style.backgroundColor =
+                                THEME.BUTTON_HOVER)
                         }
                         onMouseLeave={(e) =>
-                        (e.currentTarget.style.backgroundColor =
-                            THEME.BLUE_PRIMARY)
-                        }
-                    >
+                            (e.currentTarget.style.backgroundColor =
+                                THEME.BLUE_PRIMARY)
+                        }>
                         {loading ? "AUTHENTICATING..." : "LOG IN"}
                     </Button>
 
@@ -203,8 +198,7 @@ const LoginPage = () => {
                             width: "100%",
                             marginTop: 24,
                             textAlign: "center",
-                        }}
-                    >
+                        }}>
                         <Text>
                             Don’t have an account?{" "}
                             <Link
@@ -212,8 +206,7 @@ const LoginPage = () => {
                                 style={{
                                     color: THEME.BLUE_PRIMARY,
                                     fontWeight: "600",
-                                }}
-                            >
+                                }}>
                                 Register here
                             </Link>
                         </Text>
@@ -224,8 +217,7 @@ const LoginPage = () => {
                                 style={{
                                     color: THEME.BLUE_PRIMARY,
                                     fontWeight: "600",
-                                }}
-                            >
+                                }}>
                                 Click here
                             </Link>
                         </Text>
