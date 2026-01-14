@@ -1,9 +1,25 @@
 {
-    "short_name": "SAFE Muntindilaw",
+    "short_name": "SAFE",
     "name": "SAFE Muntindilaw",
     "icons": [
         {
-            "src": "logo.png",
+            "src": "192.png",
+            "type": "image/png",
+            "sizes": "192x192"
+        },
+        {
+            "src": "512.png",
+            "type": "image/png",
+            "sizes": "512x512"
+        },
+        {
+            "src": "512.png",
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "maskable"
+        },
+        {
+            "src": "logo.svg",
             "type": "image/svg+xml",
             "sizes": "any"
         }
