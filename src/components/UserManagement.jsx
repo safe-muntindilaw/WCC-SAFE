@@ -1781,7 +1781,7 @@ const UserManagement = () => {
                                 onClick={() => {
                                     const link = document.createElement("a");
                                     link.href =
-                                        "/src/assets/safe_contact_list.xlsx";
+                                        "/safe_contact_list.xlsx";
                                     link.download = "safe_contact_list.xlsx";
                                     link.click();
                                 }}
