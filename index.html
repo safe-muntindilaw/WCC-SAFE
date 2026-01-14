@@ -28,20 +28,21 @@
                 transition: opacity 1s ease-in-out;
                 cursor: pointer;
                 background-color: #0a3d62;
+                perspective: 1200px;
             }
 
             .moving-gradient {
                 position: absolute;
-                inset: -50%; /* Large area for smooth tilt movement */
+                inset: -100%;
                 background: radial-gradient(
                     circle at center,
-                    rgba(24, 144, 255, 0.25) 0%,
+                    rgba(24, 144, 255, 0.3) 0%,
                     rgba(24, 144, 255, 0.1) 45%,
                     rgba(10, 61, 98, 0) 80%
                 );
                 animation: bgBreath 6s ease-in-out infinite;
                 z-index: -1;
-                will-change: opacity, transform;
+                will-change: transform;
             }
 
             .content {
@@ -51,6 +52,7 @@
                 align-items: center;
                 z-index: 1;
                 position: relative;
+                transform-style: preserve-3d;
                 will-change: transform;
             }
 
@@ -60,22 +62,25 @@
                 justify-content: center;
                 align-items: center;
                 animation: logoBreath 6s ease-in-out infinite;
+                transform-style: preserve-3d;
             }
 
             .floating-logo {
                 width: 140px;
                 position: relative;
                 z-index: 2;
-                filter: drop-shadow(0 0 30px rgba(24, 144, 255, 0.3));
+                filter: drop-shadow(0 15px 35px rgba(0, 0, 0, 0.4));
+                transform: translateZ(60px);
             }
 
             .logo-ripple {
                 position: absolute;
                 border: 2px solid rgba(24, 144, 255, 0.4);
-                border-radius: 50%; /* Back to perfect circle */
+                border-radius: 50%;
                 z-index: 1;
                 animation: rippleExpand 3s cubic-bezier(0.2, 0.4, 0.5, 0.9)
                     infinite;
+                transform: translateZ(20px);
             }
 
             .logo-ripple:nth-child(2) {
@@ -89,8 +94,8 @@
                     opacity: 0.8;
                 }
                 100% {
-                    width: 400px;
-                    height: 400px;
+                    width: 450px;
+                    height: 450px;
                     opacity: 0;
                 }
             }
@@ -102,8 +107,8 @@
                     transform: scale(1);
                 }
                 50% {
-                    opacity: 1;
-                    transform: scale(1.15);
+                    opacity: 0.8;
+                    transform: scale(1.1);
                 }
             }
 
@@ -113,14 +118,14 @@
                     transform: scale(1);
                 }
                 50% {
-                    transform: scale(1.06);
+                    transform: scale(1.04);
                 }
             }
 
             .fade-out {
                 opacity: 0;
                 pointer-events: none;
-                transform: scale(1.05);
+                transform: scale(1.1);
                 transition: opacity 0.8s ease-out, transform 0.8s ease-out;
             }
         </style>
@@ -169,21 +174,27 @@
 
             window.addEventListener("deviceorientation", (event) => {
                 const now = Date.now();
-                if (now - lastUpdate < 16) return;
+                if (now - lastUpdate < 11) return;
                 lastUpdate = now;
 
                 const y = event.beta;
                 const x = event.gamma;
 
                 if (x !== null && y !== null) {
-                    const moveX = Math.max(-15, Math.min(15, x / 4));
-                    const moveY = Math.max(-15, Math.min(15, (y - 45) / 4));
+                    const moveX = Math.max(-35, Math.min(35, x / 1.5));
+                    const moveY = Math.max(-35, Math.min(35, (y - 45) / 1.5));
+                    const rotX = Math.max(-20, Math.min(20, (y - 45) / -2));
+                    const rotY = Math.max(-20, Math.min(20, x / 2));
 
                     requestAnimationFrame(() => {
-                        logo.style.transform = `translate3d(${moveX}px, ${moveY}px, 0)`;
-                        bg.style.transform = `translate3d(${moveX * -0.4}px, ${
-                            moveY * -0.4
-                        }px, 0)`;
+                        logo.style.transform = `
+                            translate3d(${moveX}px, ${moveY}px, 0)
+                            rotateX(${rotX}deg)
+                            rotateY(${rotY}deg)
+                        `;
+                        bg.style.transform = `translate3d(${moveX * -1.2}px, ${
+                            moveY * -1.2
+                        }px, 0) scale(1.2)`;
                     });
                 }
             });
