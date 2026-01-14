@@ -1,17 +1,44 @@
+/* ==========================================================================
+   1. VARIABLES & RESET
+   ========================================================================== */
+:root {
+    --nav-height-desktop: 64px;
+    --nav-height-mobile: 56px;
+    --hover-yellow-bg: #fffbe6;
+    --hover-red-bg: #fff1f0;
+    --hover-yellow-text: #fadb14;
+    --danger-red: #ff4d4f;
+}
+
+/* ==========================================================================
+   2. HEADER LAYOUT
+   ========================================================================== */
 .nav-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: var(--color-primary);
-    padding: 0 32px;
-    height: 64px;
-    position: relative;
+    background: #0056a0;
+    padding: 0 16px;
+    height: var(--nav-height-desktop);
+    position: sticky;
+    top: 0;
     z-index: 1100;
+}
+
+.nav-logo-container {
+    display: flex;
+    align-items: center;
 }
 
 .nav-logo {
     height: 48px;
-    margin-right: 40px;
+}
+
+/* ==========================================================================
+   3. DESKTOP NAVIGATION MENU
+   ========================================================================== */
+.nav-desktop-menu {
+    display: contents;
 }
 
 .nav-menu {
@@ -25,81 +52,96 @@
     margin: 0 16px;
     background: transparent !important;
     border-bottom: none !important;
-    transition: color 0.3s ease;
+    transition: all 0.3s ease;
 }
 
+/* Default Link State */
 .nav-menu .ant-menu-item a,
 .nav-menu .ant-menu-item .anticon {
     color: var(--color-text-inverse) !important;
     font-weight: bold;
-    transition: color 0.3s ease;
 }
 
+/* Hover & Selected States */
 .nav-menu .ant-menu-item:hover a,
-.nav-menu .ant-menu-item:hover .anticon {
-    color: var(--color-accent) !important;
-    left: 0 !important;
-    right: 0 !important;
-}
-
 .nav-menu .ant-menu-item-selected a,
+.nav-menu .ant-menu-item:hover .anticon,
 .nav-menu .ant-menu-item-selected .anticon {
     color: var(--color-accent) !important;
 }
 
+/* Bottom Border Indicator */
+.nav-menu .ant-menu-item::after {
+    transition: all 0.3s ease !important;
+}
+
+.nav-menu .ant-menu-item:hover::after,
 .nav-menu .ant-menu-item-selected::after {
     border-bottom: 3px solid var(--color-accent) !important;
     left: 0 !important;
     right: 0 !important;
 }
 
-.nav-menu .ant-menu-item:hover::after {
-    border-bottom: 3px solid var(--color-accent) !important;
-    left: 0 !important;
-    right: 0 !important;
-}
-
-.nav-logout {
+/* ==========================================================================
+   4. USER SECTION & DROPDOWN
+   ========================================================================== */
+.nav-user-section {
     margin-left: auto;
+    cursor: pointer;
+    padding: 0 12px;
 }
 
-.nav-logout .ant-btn {
+.user-dropdown-trigger {
     color: var(--color-text-inverse);
-    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     transition: color 0.3s ease;
-    background: transparent;
-    border: none;
 }
 
-.nav-logout .ant-btn:hover {
-    color: var(--color-accent) !important;
+.user-dropdown-trigger:hover {
+    color: var(--color-accent);
 }
 
-.nav-desktop-menu {
-    display: contents;
+.user-avatar-initial {
+    background-color: var(--color-accent) !important;
+    color: #000 !important;
+    font-weight: bold;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Dropdown Menu Styling */
+.user-dropdown-info {
+    padding: 8px 12px;
+    min-width: 160px;
+}
+
+.role-badge .ant-badge-status-text {
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #8c8c8c;
+}
+
+/* Unified Hover Effects for Dropdown Items */
+.custom-user-dropdown .ant-dropdown-menu-item {
+    transition: all 0.2s ease;
+}
+
+/* Profile/Standard Items -> Yellow Hover */
+.custom-user-dropdown
+    .ant-dropdown-menu-item:not(.ant-dropdown-menu-item-danger):hover {
+    background-color: var(--hover-yellow-bg) !important;
+}
+
+/* Logout (Danger) Item -> Red Hover */
+.custom-user-dropdown .ant-dropdown-menu-item-danger:hover {
+    background-color: #fff1f0 !important;
+    color: #ff4d4f !important;
 }
 
 .nav-mobile-bottom {
     display: none;
-}
-
-.bottom-nav-item {
-    flex: 1;
-    text-align: center;
-    align-content: center;
-    padding: 10px 0;
-    background: var(--color-primary);
-    color: var(--color-text-inverse);
-    font-size: 20px;
-    transition: color 0.3s ease;
-}
-
-.bottom-nav-item.active {
-    color: var(--color-accent);
-}
-
-.bottom-nav-item:hover {
-    color: var(--color-accent);
 }
 
 @media (max-width: 768px) {
@@ -108,7 +150,7 @@
     }
 
     .nav-header {
-        height: 56px;
+        height: var(--nav-height-mobile);
     }
 
     .nav-mobile-bottom {
@@ -117,25 +159,36 @@
         bottom: 0;
         left: 0;
         right: 0;
-        height: 56px;
+        height: var(--nav-height-mobile);
         background: var(--color-primary);
         border-top: 1px solid rgba(255, 255, 255, 0.2);
         z-index: 1000;
-        width: 100%;
     }
 
-    main,
-    .ant-layout-content,
-    #root {
-        /* padding-bottom: 56px !important; */
+    .bottom-nav-item {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--color-text-inverse);
+        font-size: 20px;
+        transition: color 0.3s ease;
+    }
+
+    .bottom-nav-item.active,
+    .bottom-nav-item:hover {
+        color: var(--color-accent);
+    }
+
+    .protected-container {
+        padding-bottom: var(--nav-height-mobile) !important;
+        min-height: 100dvh;
         box-sizing: border-box;
     }
+}
 
-    .nav-logout {
-        display: block;
-        position: absolute;
-        right: 16px;
-        top: 50%;
-        transform: translateY(-50%);
+@media (max-width: 480px) {
+    .desktop-only {
+        display: none;
     }
 }

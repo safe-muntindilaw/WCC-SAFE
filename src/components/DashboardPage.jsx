@@ -1,4 +1,4 @@
-// DashboardPage.jsx
+// DashboardPage.jsx - Enhanced Version
 import { useEffect, useState, useMemo, useCallback } from "react";
 import {
     Card,
@@ -7,16 +7,18 @@ import {
     Statistic,
     Typography,
     Space,
-    message,
     Spin,
     Button,
-    Divider,
     ConfigProvider,
     Modal,
     Form,
     InputNumber,
+    Empty,
+    Input,
+    Tabs,
+    Flex,
+    Alert,
 } from "antd";
-
 import {
     TeamOutlined,
     SettingOutlined,
@@ -25,92 +27,73 @@ import {
     AlertOutlined,
     RiseOutlined,
     ReloadOutlined,
-    ExclamationCircleOutlined,
     EditOutlined,
+    MessageOutlined,
+    LockOutlined,
+    EyeInvisibleOutlined,
+    EyeTwoTone,
+    KeyOutlined,
+    TrophyOutlined,
+    FallOutlined,
 } from "@ant-design/icons";
-
 import { supabase } from "@/globals";
+import { THEME, cardStyle, cardStyleAdaptive } from "@/utils/theme";
+import { showSuccess, showError, showWarning } from "@/utils/notifications";
+import { useResponsive } from "@/utils/useResponsive";
+import { useConfirmDialog } from "@/utils/confirmDialog";
 
-const { Title, Text } = Typography;
-
-const CONVERSION_FACTOR = 1;
+const { Title, Text, Paragraph } = Typography;
+const { TextArea } = Input;
 const UNIT = "m";
 
-const BARANGAY_THEME = {
-    BLUE_AUTHORITY: "#0A3D62",
-    GREEN_SAFE: "#52C41A",
-    YELLOW_NORMAL: "#fde321",
-    ORANGE_ALERT: "#FFA500",
-    RED_CRITICAL: "#CF1322",
-    CARD_SHADOW: "0 4px 12px rgba(0, 0, 0, 0.12)",
-    PRIMARY_COLOR: "#0A3D62",
-};
-
-const cardStyle = {
-    borderRadius: 10,
-    boxShadow: BARANGAY_THEME.CARD_SHADOW,
-    transition: "transform 0.3s ease, box-shadow 0.3s ease",
-    borderTop: `4px solid ${BARANGAY_THEME.BLUE_AUTHORITY}`,
-    background: "#fff",
-    cursor: "default",
-};
-
-// Role configuration for cleaner permission checks
+/* =========================
+   ROLE & STATUS CONFIG
+========================= */
 const ROLE_CONFIG = {
     Admin: {
         canEditThresholds: true,
         canViewRoleCounts: true,
         canViewReadings: false,
+        canEditDefaultPassword: true,
         showThresholds: true,
-        dashboardTitle: "Barangay Admin Control Panel",
-        sectionTitle: "Key User Statistics",
+        dashboardTitle: "Admin Dashboard",
+        sectionTitle: "System Management",
     },
     Official: {
-        canEditThresholds: false,
+        canEditThresholds: true,
         canViewRoleCounts: true,
         canViewReadings: true,
+        canEditDefaultPassword: false,
         showThresholds: true,
-        dashboardTitle: "Barangay Official's Overview",
-        sectionTitle: "Live Data Overview",
+        dashboardTitle: "Official's Dashboard",
+        sectionTitle: "Live Data Overview & Monitoring",
     },
     Resident: {
         canEditThresholds: false,
         canViewRoleCounts: false,
         canViewReadings: true,
+        canEditDefaultPassword: false,
         showThresholds: false,
-        dashboardTitle: "Barangay Resident Water Monitor",
-        sectionTitle: "Live Data Overview",
+        dashboardTitle: "Water Level Monitor",
+        sectionTitle: "Current Water Level Status",
     },
 };
 
-const getStatusColor = (statusName) => {
-    const colors = {
-        L0: BARANGAY_THEME.GREEN_SAFE,
-        L1: BARANGAY_THEME.YELLOW_NORMAL,
-        L2: BARANGAY_THEME.ORANGE_ALERT,
-        L3: BARANGAY_THEME.RED_CRITICAL,
-    };
-    return colors[statusName] || BARANGAY_THEME.BLUE_AUTHORITY;
+const STATUS_CONFIG = {
+    L0: { color: THEME.GREEN_SAFE, label: "L0", desc: "Safe Level" },
+    L1: { color: THEME.YELLOW_NORMAL, label: "L1", desc: "Minor Risk" },
+    L2: { color: THEME.ORANGE_ALERT, label: "L2", desc: "Moderate Risk" },
+    L3: { color: THEME.RED_CRITICAL, label: "L3", desc: "Highest Risk" },
+    default: {
+        color: THEME.BLUE_AUTHORITY,
+        label: "Unknown",
+        desc: "Unknown Status",
+    },
 };
 
-const getStatusDescription = (statusName) => {
-    const descriptions = {
-        L0: "Normal (Safe Water Level - Ligtas at normal ang antas ng tubig)",
-        L1: "Alert (Minor Risk, Prepare for Monitoring - May kaunting peligro, maghanda sa pagbabantay)",
-        L2: "Warning (Moderate Risk, Evacuation Preparation - Katamtamang peligro, maghanda para sa paglikas)",
-        L3: "Critical (Highest Risk, Immediate Evacuation Required - Pinakamataas na peligro, kailangan na ang agarang paglikas)",
-    };
-    return (
-        descriptions[statusName] || "Unknown Status (Hindi Tiyak na Katayuan)"
-    );
-};
-
-const getTodayStartISO = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return today.toISOString();
-};
-
+/* =========================
+   HOOK: useAuth
+========================= */
 const useAuth = () => {
     const [userRole, setUserRole] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -123,6 +106,7 @@ const useAuth = () => {
                     data: { session },
                     error,
                 } = await supabase.auth.getSession();
+
                 if (error) throw error;
 
                 if (!session?.user) {
@@ -130,32 +114,198 @@ const useAuth = () => {
                     return;
                 }
 
-                const userId = session.user.id;
                 const { data: roleData, error: roleError } = await supabase
                     .from("contacts")
                     .select("role")
-                    .eq("user_id", userId)
+                    .eq("user_id", session.user.id)
                     .maybeSingle();
 
                 if (roleError) throw roleError;
-
                 setUserRole(roleData?.role ?? null);
             } catch (err) {
-                console.error("Error fetching user role:", err);
-                setUserRole(null);
+                console.error(err);
+                showError("Failed to load user role");
             } finally {
                 setLoading(false);
             }
         };
-
         fetchUserRole();
     }, []);
 
     return { userRole, loading };
 };
 
-const ThresholdEditModal = ({ isOpen, record, onClose, onSave, isSaving }) => {
+/* =========================
+   COMPONENT: DefaultPasswordModal
+========================= */
+const DefaultPasswordModal = ({ isOpen, onClose, isMobile }) => {
     const [form] = Form.useForm();
+    const [loading, setLoading] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState("");
+    const { confirm } = useConfirmDialog();
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchCurrentPassword();
+        }
+    }, [isOpen]);
+
+    const fetchCurrentPassword = async () => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from("default_password")
+                .select("default")
+                .single();
+
+            if (error) throw error;
+            setCurrentPassword(data.default);
+            form.setFieldsValue({ password: data.default });
+        } catch (err) {
+            console.error(err);
+            showError("Failed to load default password");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        try {
+            const values = await form.validateFields();
+
+            confirm({
+                title: "Update Default Password",
+                content:
+                    "Are you sure you want to change the default password for new users?",
+                onOk: async () => {
+                    setLoading(true);
+                    try {
+                        const { error } = await supabase
+                            .from("default_password")
+                            .update({ default: values.password })
+                            .eq("id", 1);
+
+                        if (error) throw error;
+
+                        showSuccess("Default password updated successfully");
+                        setCurrentPassword(values.password);
+                        onClose();
+                    } catch (err) {
+                        console.error(err);
+                        showError("Failed to update default password");
+                    } finally {
+                        setLoading(false);
+                    }
+                },
+            });
+        } catch (err) {
+            console.log("Validation Failed:", err);
+        }
+    };
+
+    return (
+        <Modal
+            title={
+                <Title level={4} style={{ margin: 0 }}>
+                    <LockOutlined style={{ marginRight: 8 }} />
+                    Default Password Settings
+                </Title>
+            }
+            open={isOpen}
+            onCancel={onClose}
+            footer={null}
+            width={isMobile ? "100%" : 500}
+            centered
+            destroyOnClose>
+            <Card
+                bordered={false}
+                style={{
+                    borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
+                    marginTop: 16,
+                }}
+                styles={{ body: { padding: isMobile ? 16 : 24 } }}>
+                <Space direction="vertical" style={{ width: "100%" }}>
+                    <Alert
+                        message="Important"
+                        description="This password will be assigned to all newly created user accounts. Users should change it immediately after their first login."
+                        type="warning"
+                        showIcon
+                    />
+
+                    <Form form={form} layout="vertical">
+                        <Form.Item
+                            name="password"
+                            label="Default Password"
+                            rules={[
+                                {
+                                    required: true,
+                                    message: "Please enter a default password!",
+                                },
+                                {
+                                    min: 6,
+                                    message:
+                                        "Password must be at least 6 characters!",
+                                },
+                            ]}>
+                            <Input.Password
+                                placeholder="Enter default password"
+                                iconRender={(visible) =>
+                                    visible ? (
+                                        <EyeTwoTone />
+                                    ) : (
+                                        <EyeInvisibleOutlined />
+                                    )
+                                }
+                            />
+                        </Form.Item>
+                    </Form>
+
+                    <Flex justify="end" gap={12}>
+                        <Button
+                            danger
+                            style={{
+                                height: isMobile ? 32 : 40,
+                                borderRadius: 6,
+                                width: "100%",
+                            }}
+                            onClick={onClose}
+                            disabled={loading}>
+                            Cancel
+                        </Button>
+                        <Button
+                            type="primary"
+                            onClick={handleSave}
+                            loading={loading}
+                            style={{
+                                height: isMobile ? 32 : 40,
+                                borderRadius: 6,
+                                width: "100%",
+                            }}>
+                            Update
+                        </Button>
+                    </Flex>
+                </Space>
+            </Card>
+        </Modal>
+    );
+};
+
+/* =========================
+   COMPONENT: ThresholdSettingsModal
+========================= */
+const ThresholdSettingsModal = ({
+    isOpen,
+    record,
+    onClose,
+    onSave,
+    isSaving,
+    isMobile,
+}) => {
+    const [form] = Form.useForm();
+    const [smsTemplates, setSmsTemplates] = useState([]);
+    const [activeTab, setActiveTab] = useState("threshold");
+    const [saving, setSaving] = useState(false);
+    const { confirm } = useConfirmDialog();
 
     useEffect(() => {
         if (record) {
@@ -163,47 +313,143 @@ const ThresholdEditModal = ({ isOpen, record, onClose, onSave, isSaving }) => {
                 min_level: parseFloat(record.min_level),
                 max_level: parseFloat(record.max_level),
             });
+            fetchSmsTemplates();
         }
-    }, [record, form]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [record]);
 
-    const handleOk = async () => {
+    const fetchSmsTemplates = async () => {
+        if (!record) return;
         try {
-            const values = await form.validateFields();
+            const { data, error } = await supabase
+                .from("sms_templates")
+                .select("*")
+                .eq("threshold_name", record.name);
+            if (error) throw error;
+            setSmsTemplates(data || []);
+        } catch (err) {
+            console.error(err);
+            showError("Failed to load SMS templates");
+        }
+    };
+
+    const handleSaveThreshold = async () => {
+        try {
+            const values = await form.validateFields([
+                "min_level",
+                "max_level",
+            ]);
             onSave(record.id, values);
-        } catch (errorInfo) {
-            console.log("Validation Failed:", errorInfo);
+        } catch (err) {
+            console.log("Validation Failed:", err);
+        }
+    };
+
+    const handleSaveSmsTemplate = async (templateId) => {
+        const value = form.getFieldValue(`template_${templateId}`);
+        if (!value || !value.trim()) {
+            throw new Error("SMS template cannot be empty");
+        }
+
+        const { error } = await supabase
+            .from("sms_templates")
+            .update({
+                message_template: value,
+                updated_at: new Date().toISOString(),
+            })
+            .eq("id", templateId);
+
+        if (error) throw error;
+    };
+
+    const handleSaveAll = async () => {
+        if (activeTab === "threshold") {
+            confirm({
+                title: "Save Threshold Changes",
+                content: `Are you sure you want to update the threshold settings for ${record.name}?`,
+                onOk: async () => {
+                    await handleSaveThreshold();
+                },
+            });
+        } else {
+            const templateIds = smsTemplates.map((t) => t.id);
+            if (templateIds.length === 0) {
+                showWarning("No templates to save");
+                return;
+            }
+
+            confirm({
+                title: "Save SMS Template Changes",
+                content: `Are you sure you want to update the SMS template(s) for ${record.name}?`,
+                onOk: async () => {
+                    setSaving(true);
+                    let successCount = 0;
+                    let failCount = 0;
+
+                    for (const templateId of templateIds) {
+                        try {
+                            await handleSaveSmsTemplate(templateId);
+                            successCount++;
+                        } catch (err) {
+                            console.error(err);
+                            failCount++;
+                        }
+                    }
+
+                    setSaving(false);
+
+                    if (failCount === 0 && successCount > 0) {
+                        showSuccess("SMS template(s) updated successfully");
+                        await fetchSmsTemplates();
+                    } else if (successCount === 0) {
+                        showError("Failed to update SMS templates");
+                    } else {
+                        showWarning(
+                            `Updated ${successCount} template(s), ${failCount} failed`
+                        );
+                        await fetchSmsTemplates();
+                    }
+                },
+            });
         }
     };
 
     if (!record) return null;
 
-    return (
-        <Modal
-            title={`Edit Threshold: ${record.name} - ${getStatusDescription(
-                record.name
-            )
-                .split("(")[0]
-                .trim()}`}
-            open={isOpen}
-            onCancel={onClose}
-            onOk={handleOk}
-            confirmLoading={isSaving}
-            okText="Save Changes"
-            centered>
-            <Form
-                form={form}
-                layout="vertical"
-                initialValues={{
-                    min_level: parseFloat(record.min_level),
-                    max_level: parseFloat(record.max_level),
+    const thresholdTab = (
+        <Space direction="vertical" size={16} style={{ width: "100%" }}>
+            <Card
+                size="small"
+                style={{
+                    background: "#e6f7ff",
+                    border: "1px solid #91d5ff",
+                    borderRadius: 8,
                 }}>
+                <Space direction="vertical" size={4}>
+                    <Text strong style={{ fontSize: 13 }}>
+                        Threshold Settings:
+                    </Text>
+                    <ul
+                        style={{
+                            margin: 0,
+                            paddingLeft: 18,
+                            fontSize: 13,
+                            color: "#595959",
+                        }}>
+                        <li>Minimum level must be less than maximum level</li>
+                        <li>Values are measured in meters (m)</li>
+                    </ul>
+                </Space>
+            </Card>
+
+            <Form form={form} layout="vertical">
                 <Form.Item
                     name="min_level"
                     label={`Minimum Level (${UNIT})`}
                     rules={[
                         {
                             required: true,
-                            message: "Please input the minimum level!",
+                            message: "Please input minimum level!",
                         },
                     ]}>
                     <InputNumber
@@ -219,20 +465,17 @@ const ThresholdEditModal = ({ isOpen, record, onClose, onSave, isSaving }) => {
                     rules={[
                         {
                             required: true,
-                            message: "Please input the maximum level!",
+                            message: "Please input maximum level!",
                         },
                         ({ getFieldValue }) => ({
                             validator(_, value) {
                                 if (
                                     !value ||
                                     value >= getFieldValue("min_level")
-                                ) {
+                                )
                                     return Promise.resolve();
-                                }
                                 return Promise.reject(
-                                    new Error(
-                                        "Max Level must be greater than or equal to Min Level!"
-                                    )
+                                    new Error("Max must be >= Min!")
                                 );
                             },
                         }),
@@ -245,123 +488,271 @@ const ThresholdEditModal = ({ isOpen, record, onClose, onSave, isSaving }) => {
                     />
                 </Form.Item>
             </Form>
+        </Space>
+    );
+
+    const smsTab = (
+        <Space direction="vertical" size={16} style={{ width: "100%" }}>
+            <Card
+                size="small"
+                style={{
+                    background: "#e6f7ff",
+                    border: "1px solid #91d5ff",
+                    borderRadius: 8,
+                }}>
+                <Space direction="vertical" size={4}>
+                    <Text strong style={{ fontSize: 13 }}>
+                        SMS Template Guidelines:
+                    </Text>
+                    <ul
+                        style={{
+                            margin: 0,
+                            paddingLeft: 18,
+                            fontSize: 13,
+                            color: "#595959",
+                        }}>
+                        <li>Keep messages clear and concise</li>
+                        <li>Include relevant water level information</li>
+                        <li>Add emergency contact if needed</li>
+                        <li>Use {"{water_level}"} to display dynamic data</li>
+                    </ul>
+                </Space>
+            </Card>
+
+            {smsTemplates.length === 0 ? (
+                <Card
+                    size="small"
+                    style={{
+                        background: "#fff7e6",
+                        border: "1px solid #ffd591",
+                        borderRadius: 8,
+                    }}>
+                    <Text style={{ fontSize: 13, color: "#ad6800" }}>
+                        No SMS template found for {record.name}. Please create
+                        one in the database.
+                    </Text>
+                </Card>
+            ) : (
+                <Form form={form} layout="vertical">
+                    {smsTemplates.map((template) => (
+                        <Form.Item
+                            key={template.id}
+                            name={`template_${template.id}`}
+                            label={`SMS Template for ${
+                                template.threshold_name || record.name
+                            }`}
+                            initialValue={template.message_template}
+                            rules={[
+                                {
+                                    required: true,
+                                    message: "Template cannot be empty!",
+                                },
+                            ]}>
+                            <TextArea
+                                rows={4}
+                                placeholder="Enter SMS message template..."
+                                maxLength={160}
+                                showCount
+                            />
+                        </Form.Item>
+                    ))}
+                </Form>
+            )}
+        </Space>
+    );
+
+    return (
+        <Modal
+            title={
+                <Title level={4} style={{ margin: 0 }}>
+                    <SettingOutlined style={{ marginRight: 8 }} />
+                    Settings: {record.name}
+                </Title>
+            }
+            open={isOpen}
+            onCancel={onClose}
+            footer={null}
+            width={isMobile ? "100%" : 600}
+            centered
+            destroyOnClose>
+            <Card
+                bordered={false}
+                style={{
+                    borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
+                    marginTop: 16,
+                }}
+                styles={{ body: { padding: isMobile ? 16 : 24 } }}>
+                <Space direction="vertical" size={24} style={{ width: "100%" }}>
+                    <Tabs
+                        activeKey={activeTab}
+                        onChange={setActiveTab}
+                        items={[
+                            {
+                                key: "threshold",
+                                label: (
+                                    <span>
+                                        <AlertOutlined /> Threshold
+                                    </span>
+                                ),
+                                children: thresholdTab,
+                            },
+                            {
+                                key: "sms",
+                                label: (
+                                    <span>
+                                        <MessageOutlined /> SMS Template
+                                    </span>
+                                ),
+                                children: smsTab,
+                            },
+                        ]}
+                    />
+
+                    <Flex justify="grow" gap={12}>
+                        <Button
+                            danger
+                            style={{
+                                height: isMobile ? 32 : 40,
+                                borderRadius: 6,
+                                width: "100%",
+                            }}
+                            onClick={onClose}
+                            disabled={isSaving || saving}>
+                            Cancel
+                        </Button>
+
+                        <Button
+                            type="primary"
+                            onClick={handleSaveAll}
+                            loading={isSaving || saving}
+                            disabled={
+                                activeTab === "sms" && smsTemplates.length === 0
+                            }
+                            style={{
+                                height: isMobile ? 32 : 40,
+                                borderRadius: 6,
+                                width: "100%",
+                            }}>
+                            {isSaving || saving
+                                ? "Saving..."
+                                : `Save ${
+                                      activeTab === "threshold"
+                                          ? "Threshold"
+                                          : "Template"
+                                  }`}
+                        </Button>
+                    </Flex>
+                </Space>
+            </Card>
         </Modal>
     );
 };
 
+/* =========================
+   COMPONENT: CardContainer
+========================= */
+const CardContainer = ({
+    title,
+    value,
+    prefix,
+    color = THEME.BLUE_PRIMARY,
+    subText,
+    loading = false,
+}) => (
+    <Card
+        style={{
+            ...cardStyleAdaptive,
+            border: `1px solid ${color}`,
+            borderTopWidth: 4,
+        }}>
+        {loading ? (
+            <Spin />
+        ) : (
+            <>
+                <Statistic
+                    title={title}
+                    value={value ?? "N/A"}
+                    prefix={prefix}
+                    valueStyle={{ color }}
+                />
+                {subText && (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                        {subText}
+                    </Text>
+                )}
+            </>
+        )}
+    </Card>
+);
+
+/* =========================
+   COMPONENT: RefreshButton
+========================= */
+const RefreshButton = ({ refreshing, onRefresh }) => (
+    <Button
+        type="default"
+        ghost
+        icon={<ReloadOutlined spin={refreshing} />}
+        onClick={onRefresh}
+        loading={refreshing}
+        style={{ color: "white", borderColor: "white" }}
+    />
+);
+
+/* =========================
+   COMPONENT: ThresholdCards
+========================= */
 const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
-    if (!thresholds || thresholds.length === 0) {
-        return (
-            <Card
-                style={{
-                    boxShadow: BARANGAY_THEME.CARD_SHADOW,
-                    borderTop: `4px solid ${BARANGAY_THEME.BLUE_AUTHORITY}`,
-                    textAlign: "center",
-                    padding: "40px 20px",
-                }}>
-                <Text type="secondary">
-                    No thresholds configured (Walang nakaset na antas)
-                </Text>
-            </Card>
-        );
-    }
+    if (!thresholds?.length)
+        return <Empty description="No thresholds configured" />;
 
     return (
-        <Row gutter={[16, 16]}>
-            {thresholds.map((threshold) => {
-                const statusColor = getStatusColor(threshold.name);
-                const statusText = getStatusDescription(threshold.name)
-                    .split("(")[0]
-                    .trim();
-                const statusDescriptionFull = getStatusDescription(
-                    threshold.name
-                );
+        <Row gutter={[24, 24]}>
+            {thresholds.map((t) => {
+                const status = STATUS_CONFIG[t.name] || STATUS_CONFIG.default;
 
                 return (
-                    <Col xs={24} sm={12} lg={6} key={threshold.id}>
+                    <Col xs={24} sm={12} lg={6} key={t.id}>
                         <Card
                             style={{
-                                ...cardStyle,
-                                borderTop: `4px solid ${statusColor}`,
-                                minHeight: 240,
-                                display: "flex",
-                                flexDirection: "column",
-                            }}
-                            bodyStyle={{
-                                padding: "24px",
-                                display: "flex",
-                                flexDirection: "column",
-                                flexGrow: 1,
-                            }}
-                            hoverable>
+                                ...cardStyleAdaptive,
+                                border: `1px solid ${status.color}`,
+                                borderTopWidth: "4px",
+                            }}>
                             <Space
                                 direction="vertical"
-                                style={{ width: "100%", flexGrow: 1 }}
+                                style={{ width: "100%" }}
                                 size="middle">
-                                <div>
-                                    <Text
-                                        strong
-                                        style={{
-                                            fontSize: "28px",
-                                            color: statusColor,
-                                            display: "block",
-                                            lineHeight: 1.2,
-                                        }}>
-                                        {threshold.name} {statusText}
-                                    </Text>
-                                </div>
-
                                 <Text
-                                    type="secondary"
+                                    strong
                                     style={{
-                                        fontSize: "13px",
-                                        display: "block",
-                                        lineHeight: 1.5,
+                                        fontSize: 24,
+                                        color: status.color,
                                     }}>
-                                    {statusDescriptionFull}
+                                    <AlertOutlined /> {t.name} THRESHOLD
                                 </Text>
-
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-around",
-                                        alignItems: "center",
-                                    }}>
-                                    <Text style={{ fontSize: "15px" }}>
-                                        <strong>Min Level:</strong>{" "}
-                                        {threshold.min_level} {UNIT}
+                                <Text type="secondary">{status.desc}</Text>
+                                <Flex justify="center" gap={16}>
+                                    <Text>
+                                        Min: {t.min_level}
+                                        {UNIT}
                                     </Text>
-                                    <Text
-                                        style={{
-                                            fontSize: "20px",
-                                            color: "#d9d9d9",
-                                            margin: "0 8px",
-                                        }}>
-                                        |
+                                    |
+                                    <Text>
+                                        Max: {t.max_level}
+                                        {UNIT}
                                     </Text>
-                                    <Text style={{ fontSize: "15px" }}>
-                                        <strong>Max Level:</strong>{" "}
-                                        {threshold.max_level} {UNIT}
-                                    </Text>
-                                </div>
+                                </Flex>
                             </Space>
-
                             {isUserAdmin && (
-                                <div style={{ marginTop: "auto" }}>
-                                    <Button
-                                        icon={<EditOutlined />}
-                                        onClick={() => onEdit(threshold)}
-                                        style={{
-                                            width: "100%",
-                                            backgroundColor:
-                                                BARANGAY_THEME.BLUE_AUTHORITY,
-                                            color: "#fff",
-                                            borderColor:
-                                                BARANGAY_THEME.BLUE_AUTHORITY,
-                                        }}>
-                                        Edit Threshold
-                                    </Button>
-                                </div>
+                                <Button
+                                    icon={<EditOutlined />}
+                                    onClick={() => onEdit(t)}
+                                    block
+                                    type="primary"
+                                    style={{ marginTop: 16 }}>
+                                    Settings
+                                </Button>
                             )}
                         </Card>
                     </Col>
@@ -371,279 +762,33 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
     );
 };
 
-const CardContainer = ({
-    title,
-    value,
-    prefix,
-    color = BARANGAY_THEME.BLUE_AUTHORITY,
-    subText,
-}) => (
-    <Card
-        style={{
-            ...cardStyle,
-            borderTop: `4px solid ${color}`,
-            height: "100%",
-            minHeight: 130,
-        }}
-        bodyStyle={{ padding: "24px" }}
-        hoverable>
-        <Statistic
-            title={title}
-            value={value ?? "Loading... (Naglo-load...)"}
-            prefix={prefix}
-            valueStyle={{ color, fontWeight: "bold" }}
-        />
-        {subText && (
-            <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
-                {subText}
-            </Text>
-        )}
-    </Card>
-);
-
-const RefreshButton = ({ refreshing, onRefresh }) => (
-    <Button
-        type="primary"
-        icon={<ReloadOutlined spin={refreshing} />}
-        onClick={onRefresh}
-        loading={refreshing}
-        style={{
-            backgroundColor: BARANGAY_THEME.BLUE_AUTHORITY,
-            borderColor: BARANGAY_THEME.BLUE_AUTHORITY,
-            fontWeight: "bold",
-        }}
-    />
-);
-
-// Admin-specific dashboard view
-const AdminDashboard = ({
-    roleCount,
-    // thresholds,
-    // onEditThreshold,
-    // refreshButton,
-}) => {
-    const totalUsers = roleCount
-        ? roleCount.Admin + roleCount.Official + roleCount.Resident
-        : null;
-
-    return (
-        <Row gutter={[24, 24]}>
-            <Col xs={24} sm={12} md={6}>
-                <CardContainer
-                    title="Total Users in System (Kabuuang Gumagamit)"
-                    value={totalUsers}
-                    prefix={<TeamOutlined />}
-                    color={BARANGAY_THEME.BLUE_AUTHORITY}
-                />
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-                <CardContainer
-                    title="Admins (Mga Admin)"
-                    value={roleCount?.Admin}
-                    prefix={<SettingOutlined />}
-                    color={BARANGAY_THEME.BLUE_AUTHORITY}
-                />
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-                <CardContainer
-                    title="Officials (Mga Opisyal)"
-                    value={roleCount?.Official}
-                    prefix={<BankOutlined />}
-                    color={BARANGAY_THEME.BLUE_AUTHORITY}
-                />
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-                <CardContainer
-                    title="Residents (Mga Residente)"
-                    value={roleCount?.Resident}
-                    prefix={<HomeOutlined />}
-                    color={BARANGAY_THEME.BLUE_AUTHORITY}
-                />
-            </Col>
-        </Row>
-    );
-};
-
-// Official/Resident dashboard view
-const WaterLevelDashboard = ({
-    userRole,
-    roleCount,
-    currentStatus,
-    currentStatusColor,
-    lastReadingValue,
-    lastReadingTime,
-    averageReading,
-    peakReading,
-}) => {
-    const isOfficial = userRole === "Official";
-    const noReadingsText = "No readings yet (Wala pang naitala)";
-    const currentDescription = currentStatus
-        ? getStatusDescription(currentStatus)
-        : noReadingsText;
-
-    const officialAndResidentCount = roleCount
-        ? roleCount.Official + roleCount.Resident
-        : null;
-
-    return (
-        <>
-            <Row gutter={[24, 24]}>
-                {isOfficial && (
-                    <Col xs={24} md={12}>
-                        <Card
-                            title="Total Barangay Users (Opisyal + Residente)"
-                            style={{
-                                ...cardStyle,
-                                height: "100%",
-                                minHeight: 180,
-                                borderTop: `4px solid ${BARANGAY_THEME.BLUE_AUTHORITY}`,
-                            }}
-                            bodyStyle={{ padding: "30px 24px" }}
-                            hoverable>
-                            <Text
-                                strong
-                                style={{
-                                    fontSize: "36px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    color: BARANGAY_THEME.BLUE_AUTHORITY,
-                                }}>
-                                <TeamOutlined style={{ marginRight: 15 }} />
-                                {officialAndResidentCount ??
-                                    "Loading... (Naglo-load...)"}
-                            </Text>
-                            <Text
-                                type="secondary"
-                                style={{
-                                    display: "block",
-                                    marginTop: 8,
-                                }}>
-                                Includes all verified officials and residents in
-                                the system.
-                            </Text>
-                        </Card>
-                    </Col>
-                )}
-
-                <Col xs={24} md={isOfficial ? 12 : 24}>
-                    <Card
-                        title="Current Water Level Status (Kasalukuyang Antas ng Tubig)"
-                        style={{
-                            ...cardStyle,
-                            height: "100%",
-                            minHeight: isOfficial ? 180 : 200,
-                            borderTop: `4px solid ${currentStatusColor}`,
-                        }}
-                        bodyStyle={{
-                            padding: isOfficial ? "24px" : "30px 24px",
-                        }}
-                        hoverable>
-                        <Text
-                            strong
-                            style={{
-                                color: currentStatusColor,
-                                fontSize: isOfficial ? "36px" : "48px",
-                                display: "flex",
-                                alignItems: "center",
-                                marginBottom: 8,
-                            }}>
-                            <AlertOutlined style={{ marginRight: 15 }} />
-                            {currentStatus ?? noReadingsText}
-                        </Text>
-                        <Text
-                            type="secondary"
-                            style={{
-                                display: "block",
-                                fontSize: isOfficial ? "14px" : "18px",
-                            }}>
-                            **{currentDescription}**
-                        </Text>
-                        <Text
-                            type="secondary"
-                            style={{
-                                display: "block",
-                                marginTop: 4,
-                            }}>
-                            Huling Pagbasa: **{lastReadingValue ?? "N/A"}** @{" "}
-                            {lastReadingTime ?? "N/A"}
-                        </Text>
-                    </Card>
-                </Col>
-            </Row>
-
-            <Divider />
-
-            <Title
-                level={4}
-                style={{
-                    marginTop: 10,
-                    marginBottom: 20,
-                    color: BARANGAY_THEME.BLUE_AUTHORITY,
-                }}>
-                Water Level Statistics Today
-            </Title>
-
-            <Row gutter={[24, 24]}>
-                <Col xs={24} md={8}>
-                    <CardContainer
-                        title="Average Level Today (Karaniwang Antas Ngayon)"
-                        value={
-                            averageReading
-                                ? `${averageReading}${UNIT}`
-                                : noReadingsText
-                        }
-                        prefix={<RiseOutlined />}
-                    />
-                </Col>
-                <Col xs={24} md={8}>
-                    <CardContainer
-                        title={`Lowest Level Today (Pinakamababang Antas - Highest Flood Risk)`}
-                        value={
-                            peakReading
-                                ? `${peakReading}${UNIT}`
-                                : noReadingsText
-                        }
-                        prefix={<RiseOutlined />}
-                        color={
-                            currentStatus === "L3" || currentStatus === "L2"
-                                ? currentStatusColor
-                                : BARANGAY_THEME.BLUE_AUTHORITY
-                        }
-                        subText={`Lowest reading = Closest to flooding (0${UNIT} = flood level)`}
-                    />
-                </Col>
-                <Col xs={24} md={8}>
-                    <CardContainer
-                        title="Last Sensor Reading Time (Oras ng Huling Pagbasa)"
-                        value={lastReadingTime ?? "N/A"}
-                        prefix={<ReloadOutlined />}
-                        subText={
-                            lastReadingValue
-                                ? `Value: ${lastReadingValue}`
-                                : null
-                        }
-                    />
-                </Col>
-            </Row>
-        </>
-    );
-};
-
+/* =========================
+   COMPONENT: DashboardPage
+========================= */
 const DashboardPage = () => {
     const { userRole, loading: isAuthLoading } = useAuth();
-    const [roleCount, setRoleCount] = useState(null);
+    const { isMobile } = useResponsive();
+
+    const [roleCount, setRoleCount] = useState({
+        Admin: 0,
+        Official: 0,
+        Resident: 0,
+    });
     const [todayReadings, setTodayReadings] = useState([]);
     const [thresholds, setThresholds] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRecord, setEditingRecord] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
     const roleConfig = userRole ? ROLE_CONFIG[userRole] : null;
 
-    const fetchRoleCounts = async () => {
+    /* =========================
+     FETCH FUNCTIONS
+  ========================== */
+    const fetchRoleCounts = useCallback(async () => {
         try {
             const [adminRes, officialRes, residentRes] = await Promise.all([
                 supabase
@@ -660,63 +805,111 @@ const DashboardPage = () => {
                     .eq("role", "Resident"),
             ]);
 
-            if (adminRes.error) throw adminRes.error;
-            if (officialRes.error) throw officialRes.error;
-            if (residentRes.error) throw residentRes.error;
-
-            setRoleCount({
+            const counts = {
                 Admin: adminRes.count || 0,
                 Official: officialRes.count || 0,
                 Resident: residentRes.count || 0,
-            });
-        } catch (err) {
-            console.error("Error fetching user role counts:", err);
-            message.error("Error fetching user role counts.");
-            setRoleCount(null);
-        }
-    };
+            };
 
-    const fetchTodayReadings = async () => {
+            setRoleCount(counts);
+        } catch (err) {
+            console.error(err);
+            showError("Failed to fetch user counts");
+            setRoleCount({ Admin: 0, Official: 0, Resident: 0 });
+        }
+    }, []);
+
+    const fetchTodayReadings = useCallback(async () => {
         try {
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayStartISO = todayStart.toISOString();
+
             const { data, error } = await supabase
                 .from("sensor_readings")
                 .select("water_level, created_at")
-                .gte("created_at", getTodayStartISO())
+                .gte("created_at", todayStartISO)
                 .order("created_at", { ascending: false });
 
             if (error) throw error;
 
             setTodayReadings(data || []);
         } catch (err) {
-            console.error("Error fetching readings:", err);
-            message.warning("Failed to load today's sensor readings.");
+            console.error(err);
+            showWarning("Failed to load sensor readings");
             setTodayReadings([]);
         }
-    };
+    }, []);
 
-    const fetchThresholds = async () => {
+    const fetchThresholds = useCallback(async () => {
         try {
             const { data, error } = await supabase
                 .from("water_thresholds")
                 .select("*")
-                .order("name", { ascending: true });
+                .order("name");
 
             if (error) throw error;
 
-            setThresholds(
-                (data || []).map((t) => ({
-                    ...t,
-                    min_level: parseFloat(t.min_level).toFixed(2),
-                    max_level: parseFloat(t.max_level).toFixed(2),
-                }))
-            );
+            const formattedThresholds = (data || []).map((t) => ({
+                ...t,
+                min_level: parseFloat(t.min_level).toFixed(2),
+                max_level: parseFloat(t.max_level).toFixed(2),
+            }));
+
+            setThresholds(formattedThresholds);
         } catch (err) {
-            console.error("Error fetching thresholds:", err);
-            message.warning("Failed to load alert thresholds.");
+            console.error(err);
+            showWarning("Failed to load thresholds");
             setThresholds([]);
         }
-    };
+    }, []);
 
+    const refreshDashboard = useCallback(
+        async (isInitial = false) => {
+            if (!roleConfig) return;
+
+            if (isInitial) setLoading(true);
+            else setRefreshing(true);
+
+            try {
+                const promises = [fetchThresholds()];
+
+                if (roleConfig.canViewRoleCounts) {
+                    promises.push(fetchRoleCounts());
+                }
+
+                if (roleConfig.canViewReadings) {
+                    promises.push(fetchTodayReadings());
+                }
+
+                await Promise.all(promises);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+                setRefreshing(false);
+            }
+        },
+        [roleConfig, fetchThresholds, fetchRoleCounts, fetchTodayReadings]
+    );
+
+    useEffect(() => {
+        if (!isAuthLoading && userRole && roleConfig) {
+            refreshDashboard(true);
+
+            const interval = setInterval(() => {
+                refreshDashboard(false);
+            }, 10000);
+
+            return () => {
+                clearInterval(interval);
+            };
+        }
+    }, [isAuthLoading, userRole, roleConfig, refreshDashboard]);
+
+    /* =========================
+     MODAL HANDLERS
+  ========================== */
     const handleEditThreshold = useCallback((record) => {
         setEditingRecord(record);
         setIsModalOpen(true);
@@ -727,23 +920,16 @@ const DashboardPage = () => {
         try {
             const { error } = await supabase
                 .from("water_thresholds")
-                .update({
-                    min_level: values.min_level,
-                    max_level: values.max_level,
-                })
+                .update(values)
                 .eq("id", id);
-
             if (error) throw error;
-
-            message.success(
-                `Successfully updated ${editingRecord.name} thresholds.`
-            );
+            showSuccess(`Threshold ${editingRecord.name} updated successfully`);
             await fetchThresholds();
             setIsModalOpen(false);
             setEditingRecord(null);
         } catch (err) {
-            console.error("Error updating threshold:", err);
-            message.error("Failed to update threshold. Please try again.");
+            console.error(err);
+            showError("Failed to update threshold");
         } finally {
             setIsSaving(false);
         }
@@ -754,203 +940,357 @@ const DashboardPage = () => {
         setEditingRecord(null);
     };
 
-    const refreshDashboard = useCallback(
-        async (isInitial = false) => {
-            if (!userRole || !roleConfig) return;
+    const handleOpenPasswordModal = () => {
+        setIsPasswordModalOpen(true);
+    };
 
-            if (isInitial) setLoading(true);
-            else setRefreshing(true);
+    const handleClosePasswordModal = () => {
+        setIsPasswordModalOpen(false);
+    };
 
-            try {
-                const promises = [fetchThresholds()];
-
-                if (roleConfig.canViewRoleCounts)
-                    promises.push(fetchRoleCounts());
-                if (roleConfig.canViewReadings)
-                    promises.push(fetchTodayReadings());
-
-                await Promise.all(promises);
-            } catch (err) {
-                console.error("Refresh cycle failed:", err);
-            } finally {
-                if (isInitial) setLoading(false);
-                else setRefreshing(false);
-            }
+    /* =========================
+     HELPER: Get threshold for water level
+  ========================== */
+    const getThresholdForLevel = useCallback(
+        (level) => {
+            if (!thresholds.length) return "default";
+            const parsedLevel = parseFloat(level);
+            const threshold = thresholds.find((t) => {
+                const min = parseFloat(t.min_level);
+                const max = parseFloat(t.max_level);
+                return parsedLevel >= min && parsedLevel <= max;
+            });
+            return threshold?.name || "default";
         },
-        [userRole, roleConfig]
+        [thresholds]
     );
 
-    useEffect(() => {
-        if (!isAuthLoading) {
-            refreshDashboard(true);
-            const interval = userRole
-                ? setInterval(() => refreshDashboard(false), 10000)
-                : null;
-
-            return () => {
-                if (interval) clearInterval(interval);
-            };
-        }
-    }, [isAuthLoading, refreshDashboard, userRole]);
-
+    /* =========================
+     WATER STATS
+  ========================== */
     const waterLevelStats = useMemo(() => {
-        if (!todayReadings.length || !thresholds.length) {
+        if (!todayReadings.length || !thresholds.length) return {};
+
+        try {
+            const lastReading = parseFloat(todayReadings[0].water_level);
+
+            const avg = (
+                todayReadings.reduce(
+                    (sum, r) => sum + parseFloat(r.water_level),
+                    0
+                ) / todayReadings.length
+            ).toFixed(2);
+
+            const peak = Math.max(
+                ...todayReadings.map((r) => parseFloat(r.water_level))
+            ).toFixed(2);
+
+            const lowest = Math.min(
+                ...todayReadings.map((r) => parseFloat(r.water_level))
+            ).toFixed(2);
+
+            const currentThreshold = getThresholdForLevel(lastReading);
+            const avgThreshold = getThresholdForLevel(avg);
+            const peakThreshold = getThresholdForLevel(peak);
+            const lowestThreshold = getThresholdForLevel(lowest);
+
             return {
-                averageReading: null,
-                peakReading: null,
-                lastReadingValue: null,
-                lastReadingTime: null,
-                currentStatus: null,
-                currentStatusColor: BARANGAY_THEME.BLUE_AUTHORITY,
+                lastReadingValue: `${lastReading.toFixed(2)}${UNIT}`,
+                lastReadingTime: new Date(
+                    todayReadings[0].created_at
+                ).toLocaleTimeString(),
+                averageReading: `${avg}${UNIT}`,
+                peakReading: `${peak}${UNIT}`,
+                lowestReading: `${lowest}${UNIT}`,
+                totalReadings: todayReadings.length,
+                currentStatus: STATUS_CONFIG[currentThreshold].label,
+                currentStatusColor: STATUS_CONFIG[currentThreshold].color,
+                avgColor: STATUS_CONFIG[avgThreshold].color,
+                peakColor: STATUS_CONFIG[peakThreshold].color,
+                lowestColor: STATUS_CONFIG[lowestThreshold].color,
             };
+        } catch (err) {
+            console.error(err);
+            return {};
         }
+    }, [todayReadings, thresholds, getThresholdForLevel]);
 
-        const readingsInM = todayReadings.map(
-            (r) => parseFloat(r.water_level) * CONVERSION_FACTOR
-        );
-        const lastLevelM = readingsInM[0];
-
-        const avg = (
-            readingsInM.reduce((a, b) => a + b, 0) / readingsInM.length
-        ).toFixed(2);
-        const peak = Math.min(...readingsInM).toFixed(2);
-        const timeString = new Date(
-            todayReadings[0].created_at
-        ).toLocaleTimeString();
-        const lastValue = `${lastLevelM.toFixed(2)}${UNIT}`;
-
-        const status =
-            thresholds.find(
-                (t) =>
-                    lastLevelM >= parseFloat(t.min_level) &&
-                    lastLevelM <= parseFloat(t.max_level)
-            )?.name ?? "N/A";
-
-        const color = getStatusColor(status);
-        ``;
-        return {
-            averageReading: avg,
-            peakReading: peak,
-            lastReadingValue: lastValue,
-            lastReadingTime: timeString,
-            currentStatus: status,
-            currentStatusColor: color,
-        };
-    }, [todayReadings, thresholds]);
-
+    /* =========================
+     RENDER
+  ========================== */
     if (isAuthLoading || loading) {
         return (
             <div
                 style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
                     display: "flex",
+                    flexDirection: "column",
                     justifyContent: "center",
                     alignItems: "center",
-                    minHeight: "calc(100vh - 60px)",
-                    width: "100%",
+                    backgroundColor: "rgba(255, 255, 255, 0.9)",
+                    zIndex: 100,
                 }}>
-                <Spin size="large" tip="Loading Barangay dashboard..." />
+                <Spin size="large" tip="Loading dashboard..." />
             </div>
         );
     }
 
     if (!userRole || !roleConfig) {
         return (
-            <div style={{ padding: 24 }}>
-                <Title level={2}>Access Denied (Hindi Pinahihintulutan)</Title>
-                <Text type="secondary">
-                    Your role ({userRole || "Unknown"}) does not have a defined
-                    dashboard view or permission to view the data.
-                </Text>
+            <div style={{ padding: 32 }}>
+                <Empty description="Access Denied" />
             </div>
         );
     }
 
-    const refreshButton = (
-        <RefreshButton
-            refreshing={refreshing}
-            onRefresh={() => refreshDashboard(false)}
-        />
-    );
-
     return (
-        <ConfigProvider
-            theme={{
-                token: {
-                    colorPrimary: BARANGAY_THEME.PRIMARY_COLOR,
-                    borderRadius: 8,
-                },
-            }}>
+        <ConfigProvider theme={{ token: { colorPrimary: THEME.BLUE_PRIMARY } }}>
             <Space
                 direction="vertical"
-                style={{ width: "100%", paddingInline: 32, marginBottom: 32 }}
-                size="middle">
-                <Col xs={24} sm={24} md={24} style={{ textAlign: "center" }}>
-                    <Title
-                        level={3}
-                        style={{
-                            fontSize: "clamp(18px, 4vw, 32px)",
-                            marginBottom: 0,
-                            marginTop: 24,
-                            textAlign: "left",
-                            color: BARANGAY_THEME.BLUE_AUTHORITY,
-                        }}>
-                        {roleConfig?.dashboardTitle}
-                    </Title>
-                </Col>
-                <Divider style={{ margin: "10px 0 20px 0" }} />
+                style={{ width: "100%", padding: isMobile ? 16 : 32 }}
+                size="large">
+                {/* HEADER */}
+                <Card
+                    style={{
+                        ...cardStyle,
+                        background: THEME.BLUE_PRIMARY,
+                        border: "none",
+                    }}>
+                    <Row justify="space-between" align="middle">
+                        <Col>
+                            <Title
+                                level={isMobile ? 4 : 2}
+                                style={{ color: "#fff", margin: 0 }}>
+                                {roleConfig.dashboardTitle}
+                            </Title>
+                            <Text style={{ color: "rgba(255,255,255,0.85)" }}>
+                                {roleConfig.sectionTitle}
+                            </Text>
+                        </Col>
+                        <Col>
+                            <Space>
+                                {roleConfig.canEditDefaultPassword && (
+                                    <Button
+                                        type="default"
+                                        ghost
+                                        icon={<LockOutlined />}
+                                        onClick={handleOpenPasswordModal}
+                                        style={{
+                                            color: "white",
+                                            borderColor: "white",
+                                        }}>
+                                        {!isMobile && "Default Password"}
+                                    </Button>
+                                )}
+                                <RefreshButton
+                                    refreshing={refreshing}
+                                    onRefresh={() => refreshDashboard(false)}
+                                />
+                            </Space>
+                        </Col>
+                    </Row>
+                </Card>
 
-                <Row
-                    justify="space-between"
-                    align="middle"
-                    style={{ marginBottom: 0 }}>
-                    <Title
-                        level={4}
-                        style={{
-                            margin: 0,
-                            color: BARANGAY_THEME.BLUE_AUTHORITY,
-                        }}>
-                        {roleConfig.sectionTitle}
-                    </Title>
-                    {refreshButton}
-                </Row>
-
-                {userRole === "Admin" && (
-                    <AdminDashboard
-                        roleCount={roleCount}
-                        thresholds={thresholds}
-                        onEditThreshold={handleEditThreshold}
-                        refreshButton={refreshButton}
-                    />
+                {/* USER ROLE STATISTICS */}
+                {roleConfig.canViewRoleCounts && (
+                    <>
+                        <Row gutter={[24, 24]}>
+                            {userRole === "Admin" && (
+                                <Col
+                                    xs={userRole === "Admin" ? 12 : 24}
+                                    sm={12}
+                                    md={6}>
+                                    <CardContainer
+                                        title="Admins"
+                                        value={roleCount?.Admin}
+                                        prefix={<SettingOutlined />}
+                                        color={THEME.BLUE_AUTHORITY}
+                                    />
+                                </Col>
+                            )}
+                            <Col
+                                xs={userRole === "Admin" ? 12 : 24}
+                                sm={12}
+                                md={userRole === "Admin" ? 6 : 8}>
+                                <CardContainer
+                                    title="Officials"
+                                    value={roleCount?.Official}
+                                    prefix={<BankOutlined />}
+                                    color={THEME.BLUE_PRIMARY}
+                                />
+                            </Col>
+                            <Col
+                                xs={userRole === "Admin" ? 12 : 24}
+                                sm={12}
+                                md={userRole === "Admin" ? 6 : 8}>
+                                <CardContainer
+                                    title="Residents"
+                                    value={roleCount?.Resident}
+                                    prefix={<HomeOutlined />}
+                                    color={THEME.GREEN_SAFE}
+                                />
+                            </Col>
+                            <Col
+                                xs={userRole === "Admin" ? 12 : 24}
+                                sm={12}
+                                md={userRole === "Admin" ? 6 : 8}>
+                                <CardContainer
+                                    title="Total Users"
+                                    value={
+                                        roleCount
+                                            ? userRole === "Admin"
+                                                ? roleCount.Admin +
+                                                  roleCount.Official +
+                                                  roleCount.Resident
+                                                : roleCount.Official +
+                                                  roleCount.Resident
+                                            : 0
+                                    }
+                                    prefix={<TeamOutlined />}
+                                    color="#722ed1"
+                                />
+                            </Col>
+                        </Row>
+                    </>
                 )}
 
-                {(userRole === "Official" || userRole === "Resident") && (
-                    <WaterLevelDashboard
-                        userRole={userRole}
-                        roleCount={roleCount}
-                        {...waterLevelStats}
-                    />
+                {/* WATER LEVEL MONITORING */}
+                {roleConfig.canViewReadings && (
+                    <>
+                        {todayReadings.length === 0 ? (
+                            <Card
+                                style={{
+                                    height: isMobile ? "55vh" : "35vh",
+                                    border: "none",
+                                }}
+                                styles={{
+                                    body: {
+                                        height: "100%",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                    },
+                                }}>
+                                <Empty description="No water level readings available today" />
+                            </Card>
+                        ) : (
+                            <>
+                                <Row gutter={[24, 24]}>
+                                    <Col xs={12} md={8}>
+                                        <CardContainer
+                                            title="Current Status"
+                                            value={
+                                                waterLevelStats.currentStatus ||
+                                                "N/A"
+                                            }
+                                            color={
+                                                waterLevelStats.currentStatusColor
+                                            }
+                                            prefix={<AlertOutlined />}
+                                            subText="Threshold Level"
+                                        />
+                                    </Col>
+                                    <Col xs={12} md={8}>
+                                        <CardContainer
+                                            title="Last Reading"
+                                            value={
+                                                waterLevelStats.lastReadingValue ||
+                                                "N/A"
+                                            }
+                                            color={
+                                                waterLevelStats.currentStatusColor
+                                            }
+                                            subText={`As of ${
+                                                waterLevelStats.lastReadingTime ||
+                                                "N/A"
+                                            }`}
+                                        />
+                                    </Col>
+                                    <Col xs={12} md={8}>
+                                        <CardContainer
+                                            title="Peak Level"
+                                            value={
+                                                waterLevelStats.peakReading ||
+                                                "N/A"
+                                            }
+                                            prefix={<RiseOutlined />}
+                                            color={waterLevelStats.peakColor}
+                                            subText="Highest today"
+                                        />
+                                    </Col>
+                                    <Col xs={12} md={8}>
+                                        <CardContainer
+                                            title="Lowest Level"
+                                            value={
+                                                waterLevelStats.lowestReading ||
+                                                "N/A"
+                                            }
+                                            prefix={<FallOutlined />}
+                                            color={waterLevelStats.lowestColor}
+                                            subText="Lowest today"
+                                        />
+                                    </Col>
+
+                                    <Col xs={12} md={8}>
+                                        <CardContainer
+                                            title="Average Today"
+                                            value={
+                                                waterLevelStats.averageReading ||
+                                                "N/A"
+                                            }
+                                            color={waterLevelStats.avgColor}
+                                            subText={`From ${
+                                                waterLevelStats.totalReadings ||
+                                                0
+                                            } readings`}
+                                        />
+                                    </Col>
+                                    <Col xs={12} md={8}>
+                                        <CardContainer
+                                            title="Total Readings"
+                                            value={
+                                                waterLevelStats.totalReadings ||
+                                                "N/A"
+                                            }
+                                            color="#5e5e5e"
+                                            subText="Since midnight"
+                                        />
+                                    </Col>
+                                </Row>
+                            </>
+                        )}
+                    </>
                 )}
 
+                {/* THRESHOLD CONFIGURATION */}
                 {roleConfig.showThresholds && (
                     <>
-                        <Divider />
-                        <Row
-                            justify="space-between"
-                            align="middle"
-                            style={{ marginBottom: 10 }}>
-                            <Title
-                                level={4}
-                                style={{
-                                    margin: 0,
-                                    color: BARANGAY_THEME.BLUE_AUTHORITY,
-                                }}>
-                                <ExclamationCircleOutlined
-                                    style={{ marginRight: 8 }}
-                                />
-                                Water Level Alert Thresholds (Mga Antas ng
-                                Babala)
-                            </Title>
-                        </Row>
+                        <Card
+                            style={{
+                                ...cardStyle,
+                                background: THEME.BLUE_PRIMARY,
+                                border: "none",
+                            }}>
+                            <Row justify="space-between" align="middle">
+                                <Col>
+                                    <Title
+                                        level={isMobile ? 4 : 2}
+                                        style={{ color: "#fff", margin: 0 }}>
+                                        Threshold Settings
+                                    </Title>
+                                    <Text
+                                        style={{
+                                            color: "rgba(255,255,255,0.85)",
+                                        }}>
+                                        Configure threshold settings.
+                                    </Text>
+                                </Col>
+                            </Row>
+                        </Card>
                         <ThresholdCards
                             thresholds={thresholds}
                             isUserAdmin={roleConfig.canEditThresholds}
@@ -960,13 +1300,22 @@ const DashboardPage = () => {
                 )}
             </Space>
 
-            <ThresholdEditModal
+            <ThresholdSettingsModal
                 isOpen={isModalOpen}
                 record={editingRecord}
                 onClose={handleCloseModal}
                 onSave={handleSaveThreshold}
                 isSaving={isSaving}
+                isMobile={isMobile}
             />
+
+            {roleConfig.canEditDefaultPassword && (
+                <DefaultPasswordModal
+                    isOpen={isPasswordModalOpen}
+                    onClose={handleClosePasswordModal}
+                    isMobile={isMobile}
+                />
+            )}
         </ConfigProvider>
     );
 };

@@ -1,5 +1,4 @@
-// RegisterPage.jsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/globals";
 import {
@@ -7,447 +6,233 @@ import {
     Typography,
     Input,
     Button,
-    Form,
     Select,
     Space,
     Row,
     Col,
-    Alert,
     Checkbox,
     Modal,
+    Tooltip,
 } from "antd";
+import { FloatLabel } from "@/utils/FloatLabel";
 import {
-    UserAddOutlined,
+    UserOutlined,
     MailOutlined,
     LockOutlined,
     PhoneOutlined,
     HomeOutlined,
-    CheckCircleOutlined,
-    CloseCircleOutlined,
+    InfoCircleOutlined,
 } from "@ant-design/icons";
+import { THEME, cardStyle } from "@/utils/theme";
+import { capitalizeWords, cleanName } from "@/utils/validation";
+import {
+    showSuccessNotification,
+    showErrorNotification,
+    showValidationErrors,
+} from "@/utils/notifications";
+import {
+    useResponsive,
+    useResponsiveStyles,
+    useResponsivePadding,
+} from "@/utils/useResponsive";
+import {
+    useEmailValidation,
+    useContactValidation,
+    usePasswordValidation,
+} from "@/utils/useFormValidation";
+import {
+    PasswordRequirements,
+    PasswordStrengthIndicator,
+    InlineValidationText,
+} from "@/utils/ValidationCard";
 
 const { Title, Text, Link } = Typography;
 const { Option } = Select;
+const INPUT_HEIGHT = { mobile: 32, desktop: 40 };
 
-const THEME = {
-    BLUE_PRIMARY: "#0056a0",
-    BACKGROUND_LIGHT: "#f0f2f5",
-    CARD_BG: "white",
-    BUTTON_HOVER: "#004480",
-    CARD_SHADOW: "0 8px 16px rgba(0, 86, 160, 0.2)",
-    ACCENT_YELLOW: "#ffc72c",
-};
+const TERMS_TEXT = `By clicking "I agree" and registering for the SAFE MUNTINDILAW Resident Portal (the "Service"), you agree to be bound by these Terms and Conditions ("Terms"). If you do not agree to these Terms, you may not register or use the Service.
 
-const initialFormData = {
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    contactNumber: "",
-    place: "",
-};
+1. Eligibility and Registration
+  • The Service is strictly available only to bona fide and registered residents of Barangay Muntindilaw, Antipolo City.
+  • You represent and warrant that all information provided during registration is true, accurate, and complete.
 
-const TERMS_AND_CONDITIONS_TEXT = `
-TERMS AND CONDITIONS FOR SAFE MUNTINDILAW RESIDENT PORTAL
+2. Purpose of the Service
+The SAFE MUNTINDILAW Resident Portal is provided for:
+  • Facilitating official communication and advisories from the Barangay.
+  • Enabling efficient response during emergencies and disasters.
+  • Maintaining a secure, verified directory of residents for local governance and planning.
 
-Effective Date: November 22, 2025
+3. Data Privacy and Use
+  • You explicitly consent to the collection, processing, and storage of your personal data by the Barangay office.
+  • The Barangay commits to taking reasonable measures to protect your personal data.
+  • Your personal data will not be sold, rented, or disclosed to third parties for marketing purposes.
 
-1. Definitions
-The terms "Barangay" or "Barangay Office" refer to the governing body of Barangay Muntindilaw, Antipolo City, and its authorized representatives who operate the Service.
+4. User Responsibilities
+  • You are responsible for maintaining the confidentiality of your account password.
+  • You agree to notify the Barangay immediately of any unauthorized use of your account.
 
-2. Acceptance of Terms
-By clicking "I agree" and registering for the SAFE MUNTINDILAW Resident Portal (the "Service"), you agree to be bound by these Terms and Conditions ("Terms"). If you do not agree to these Terms, you may not register or use the Service.
+5. Termination
+The Barangay reserves the right to suspend or terminate your account without prior notice if you breach these Terms.
 
-3. Eligibility and Registration
-• Eligibility: The Service is strictly available only to **bona fide and registered residents** of Barangay Muntindilaw, Antipolo City.
-• Accuracy of Information: You represent and warrant that all information provided during registration, including your name, email, contact number, and place of residence, is true, accurate, and complete. You acknowledge that providing false or misleading information is grounds for immediate termination of your account and may result in legal action.
-• Contact Number: You agree to register a functional mobile contact number which will be verified and used for urgent advisories, emergency contact, and official communications from the Barangay office.
-
-4. Purpose of the Service
-The SAFE MUNTINDILAW Resident Portal is provided for the sole purpose of:
-• Facilitating official communication and advisories from the Barangay.
-• Enabling efficient response during emergencies and disasters.
-• Maintaining a secure, verified directory of residents for local governance and planning.
-
-5. Data Privacy and Use (Philippines Data Privacy Act Compliance)
-• Consent: You explicitly consent to the collection, processing, and storage of your personal data (name, contact number, address/place, and email) by the Barangay office for the purposes outlined in Section 4.
-• Security: The Barangay commits to taking reasonable technical, organizational, and physical measures to protect your personal data against accidental or unlawful destruction, alteration, and unauthorized access.
-• Non-Disclosure: Your personal data will not be sold, rented, or disclosed to third parties for marketing purposes. It will only be shared with authorized government agencies or emergency response units when necessary for the execution of public functions or in emergency situations.
-• Data Retention: Personal data collected shall be retained for the duration of the residency and/or as required by relevant government regulations.
-
-6. User Responsibilities
-• Account Security: You are responsible for maintaining the confidentiality of your account password and for all activities that occur under your account. You agree to notify the Barangay immediately of any unauthorized use of your password or account.
-• Prohibited Conduct: You agree not to use the Service for any unlawful purpose, including but not limited to harassment, distribution of spam, or posting unauthorized content.
-
-7. Termination
-The Barangay reserves the right to suspend or terminate your account and access to the Service, without prior notice, if you breach these Terms, including but not limited to the provision of false registration information, or upon request due to change in residency status.
-
-8. Limitation of Liability
-The Service is provided "as is." The Barangay and its officials will not be liable for any direct, indirect, incidental, special, or consequential damages resulting from the use or inability to use the Service.
-
-9. Governing Law and Dispute Resolution
-These Terms shall be governed by and construed in accordance with the laws of the Republic of the Philippines. Any dispute arising from these Terms shall be exclusively submitted to the appropriate courts in Antipolo City.
-`;
+6. Governing Law
+These Terms shall be governed by and construed in accordance with the laws of the Republic of the Philippines.`;
 
 const RegisterPage = ({ onSuccess }) => {
     const navigate = useNavigate();
+
+    const { isMobile } = useResponsive();
+    const responsivePadding = useResponsivePadding();
+    const { fontSize } = useResponsiveStyles();
+
+    const inputHeight = isMobile ? INPUT_HEIGHT.mobile : INPUT_HEIGHT.desktop;
+
     const [places, setPlaces] = useState([]);
-    const [formData, setFormData] = useState(initialFormData);
-    const [status, setStatus] = useState({ message: null, isError: false });
     const [loading, setLoading] = useState(false);
-    const [emailValid, setEmailValid] = useState(null);
-    const [contactValid, setContactValid] = useState(null);
-    const [contactPrefixError, setContactPrefixError] = useState(null);
-    const [emailFormatInvalid, setEmailFormatInvalid] = useState(false);
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [formData, setFormData] = useState({
+        firstName: "",
+        lastName: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        contactNumber: "",
+        place: "",
+    });
 
-    // Alphanumeric Password Validation
-    const validatePassword = (password) => {
-        return {
-            length: password.length >= 8 && password.length <= 32,
-            uppercase: /[A-Z]/.test(password),
-            lowercase: /[a-z]/.test(password),
-            number: /[0-9]/.test(password),
-            hasLetter: /[a-zA-Z]/.test(password),
-            hasNumber: /[0-9]/.test(password),
-            specialCharacters: /[^a-zA-Z0-9]/.test(password),
-        };
-    };
-
-    // Detect suspicious patterns in contact numbers
-    const detectSuspiciousPattern = (number) => {
-        // Check for 4 or more consecutive identical digits
-        const repeatingPattern = /(\d)\1{3,}/;
-        if (repeatingPattern.test(number)) {
-            return "Contact number contains too many repeated digits (max 3 in a row)";
-        }
-
-        // Check for sequential patterns (ascending or descending) - 4 or more
-        let sequentialCount = 1;
-        for (let i = 1; i < number.length; i++) {
-            const current = parseInt(number[i]);
-            const previous = parseInt(number[i - 1]);
-
-            if (current === previous + 1 || current === previous - 1) {
-                sequentialCount++;
-                if (sequentialCount >= 4) {
-                    return "Contact number contains suspicious sequential pattern (max 3 in sequence)";
-                }
-            } else {
-                sequentialCount = 1;
-            }
-        }
-
-        return null;
-    };
-
-    const passwordChecks = validatePassword(formData.password);
-    const isPasswordValid = Object.values(passwordChecks).every(
-        (check) => check
+    // Use shared validation hooks
+    const emailValidation = useEmailValidation(formData.email, false, "");
+    const contactValidation = useContactValidation(
+        formData.contactNumber,
+        false,
+        null
     );
-    const passwordsMatch = formData.password === formData.confirmPassword;
+    const passwordValidation = usePasswordValidation(
+        formData.password,
+        formData.confirmPassword
+    );
 
-    const showModal = () => setIsModalVisible(true);
-    const handleOk = () => setIsModalVisible(false);
-    const handleCancel = () => setIsModalVisible(false);
-
+    // Fetch Places on Mount
     useEffect(() => {
         const fetchPlaces = async () => {
-            const { data } = await supabase.from("places").select("id, name");
-            if (data) setPlaces(data);
+            const { data, error } = await supabase
+                .from("places")
+                .select("*")
+                .order("name");
+            if (!error) setPlaces(data);
         };
         fetchPlaces();
     }, []);
 
-    // Email Validation
-    const checkEmail = useCallback(async (email) => {
-        const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+    // Form validation
+    const isFormValid = useMemo(() => {
+        const {
+            firstName,
+            lastName,
+            email,
+            password,
+            confirmPassword,
+            contactNumber,
+            place,
+        } = formData;
 
-        if (!email) {
-            setEmailValid(null);
-            setEmailFormatInvalid(false);
-            return;
-        }
+        return (
+            firstName.trim() &&
+            lastName.trim() &&
+            emailValidation.isValid === true &&
+            contactNumber.length === 10 &&
+            contactValidation.isValid === true &&
+            password &&
+            passwordValidation.isValid &&
+            passwordValidation.passwordsMatch &&
+            place &&
+            agreedToTerms
+        );
+    }, [
+        formData,
+        emailValidation,
+        contactValidation,
+        passwordValidation,
+        agreedToTerms,
+    ]);
 
-        if (!emailRegex.test(email)) {
-            setEmailFormatInvalid(true);
-            setEmailValid(false);
-            return;
-        }
-
-        setEmailFormatInvalid(false);
-
-        const { data } = await supabase
-            .from("contacts")
-            .select("email")
-            .eq("email", email)
-            .maybeSingle();
-
-        setEmailValid(!data);
-    }, []);
-
-    // Phone Number Validation with Pattern Detection
-    const checkContact = useCallback(async (contact) => {
-        const cleanedNumber = contact.replace(/\D/g, "");
-        setContactPrefixError(null);
-
-        if (cleanedNumber.length !== 9) {
-            setContactPrefixError(null);
-            return setContactValid(null);
-        }
-
-        // Prepend '9' to create full 10-digit number for pattern checking
-        const fullTenDigit = "9" + cleanedNumber;
-
-        // Check for suspicious patterns on the full number
-        const patternError = detectSuspiciousPattern(fullTenDigit);
-        if (patternError) {
-            setContactPrefixError(patternError);
-            return setContactValid(false);
-        }
-
-        const fullNumber = `+63${fullTenDigit}`;
-        const { data } = await supabase
-            .from("contacts")
-            .select("contact_number")
-            .eq("contact_number", fullNumber)
-            .maybeSingle();
-
-        setContactPrefixError(null);
-        setContactValid(!data);
-    }, []);
-
+    // Handlers
     const handleChange = (e) => {
-        let { name, value } = e.target;
-        setStatus({ message: null, isError: false });
+        const { name, value } = e.target;
+        let formattedValue = value;
 
         if (name === "firstName" || name === "lastName") {
-            // Remove only unwanted characters if necessary, but preserve parentheses
-            // For now, just capitalize properly without stripping characters
-            const words = value.split(" ").map((word) => {
-                if (word.length === 0) return word;
-                return word.charAt(0).toUpperCase() + word.slice(1);
-            });
-            value = words.join(" ");
+            formattedValue = capitalizeWords(value);
         } else if (name === "contactNumber") {
-            const numericValue = value.replace(/\D/g, "");
-            value = numericValue;
-            checkContact(value);
-        } else if (name === "email") {
-            checkEmail(value);
+            const digits = value.replace(/\D/g, "");
+            if (digits.length > 0 && digits[0] !== "9") return;
+            formattedValue = digits.slice(0, 10);
         }
 
-        setFormData((prev) => ({ ...prev, [name]: value }));
-    };
-
-    const handleSelectChange = (value) => {
-        setFormData((prev) => ({ ...prev, place: value }));
-        setStatus({ message: null, isError: false });
-    };
-
-    const handleTermsChange = (e) => {
-        setAgreedToTerms(e.target.checked);
-        setStatus({ message: null, isError: false });
+        setFormData((prev) => ({ ...prev, [name]: formattedValue }));
     };
 
     const handleRegister = async () => {
         setLoading(true);
-        setStatus({ message: null, isError: false });
-
         const { firstName, lastName, email, password, contactNumber, place } =
             formData;
-        const displayName = `${firstName} ${lastName}`;
-
-        // Password Validation
-        if (!isPasswordValid) {
-            setLoading(false);
-            return setStatus({
-                message:
-                    "Password must meet all security requirements (8-32 characters, uppercase, lowercase, number, alphanumeric with special character).",
-                isError: true,
-            });
-        }
-
-        if (!passwordsMatch) {
-            setLoading(false);
-            return setStatus({
-                message: "Passwords do not match.",
-                isError: true,
-            });
-        }
-
-        if (emailFormatInvalid) {
-            setLoading(false);
-            return setStatus({
-                message:
-                    "Please enter a valid email address (e.g., user@gmail.com).",
-                isError: true,
-            });
-        }
-
-        if (emailValid === false || emailValid === null) {
-            setLoading(false);
-            return setStatus({
-                message: "Please enter a valid and available email address.",
-                isError: true,
-            });
-        }
-
-        const cleanedContact = contactNumber.replace(/\D/g, "");
-
-        // Enhanced contact validation with pattern check
-        if (cleanedContact.length !== 9) {
-            setLoading(false);
-            return setStatus({
-                message: "Please enter a valid, 9-digit contact number.",
-                isError: true,
-            });
-        }
-
-        // Prepend '9' to create full 10-digit number for pattern checking
-        const fullTenDigit = "9" + cleanedContact;
-        const patternError = detectSuspiciousPattern(fullTenDigit);
-        if (patternError) {
-            setLoading(false);
-            return setStatus({
-                message: patternError,
-                isError: true,
-            });
-        }
-
-        if (contactValid === false) {
-            setLoading(false);
-            return setStatus({
-                message: "This contact number is already taken or invalid.",
-                isError: true,
-            });
-        }
-
-        if (!place) {
-            setLoading(false);
-            return setStatus({
-                message: "Please select your place of residence.",
-                isError: true,
-            });
-        }
-
-        if (!agreedToTerms) {
-            setLoading(false);
-            return setStatus({
-                message:
-                    "You must agree to the Terms and Conditions to register.",
-                isError: true,
-            });
-        }
-
-        const fullNumber = `+639${cleanedContact}`;
-        const placeIdToSave = place || null;
-        const formattedFirstName =
-            firstName.charAt(0).toUpperCase() +
-            firstName.slice(1).toLowerCase();
-        const formattedLastName =
-            lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase();
 
         try {
+            const fullNumber = `+63${contactNumber}`;
+            const cleanedFirstName = capitalizeWords(cleanName(firstName));
+            const cleanedLastName = capitalizeWords(cleanName(lastName));
+            const displayName = `${cleanedFirstName} ${cleanedLastName}`;
+
+            // 1. Auth Signup
             const { data: authData, error: authError } =
                 await supabase.auth.signUp({
                     email,
                     password,
                     options: {
-                        data: { role: "Resident", display_name: displayName },
+                        data: {
+                            role: "Resident",
+                            display_name: displayName,
+                        },
                     },
-                    display_name: displayName,
                 });
 
             if (authError) throw authError;
 
+            // 2. Database Insert
             const { error: dbError } = await supabase.from("contacts").insert([
                 {
                     user_id: authData.user.id,
-                    first_name: formattedFirstName,
-                    last_name: formattedLastName,
+                    first_name: cleanedFirstName,
+                    last_name: cleanedLastName,
                     email,
                     contact_number: fullNumber,
-                    place_id: placeIdToSave,
+                    place_id: place,
                     role: "Resident",
+                    password_changed: true,
                 },
             ]);
 
             if (dbError) throw dbError;
 
-            setStatus({
-                message:
-                    "Registration successful! Check your email for a confirmation link.",
-                isError: false,
+            showSuccessNotification({
+                message: "Registration Successful!",
+                description:
+                    "Please check your email for verification before logging in.",
             });
-            onSuccess?.();
+
+            if (onSuccess) onSuccess();
+            navigate("/login");
         } catch (err) {
-            setStatus({
-                message: `Registration failed: ${err.message}`,
-                isError: true,
+            showErrorNotification({
+                message: "Registration Failed",
+                description:
+                    err.message ||
+                    "An error occurred during registration. Please try again.",
             });
         } finally {
             setLoading(false);
         }
     };
-
-    const cleanedContactNumber = formData.contactNumber.replace(/\D/g, "");
-    const isFormValid =
-        formData.firstName &&
-        formData.lastName &&
-        formData.email &&
-        formData.password &&
-        formData.confirmPassword &&
-        cleanedContactNumber.length === 9 &&
-        formData.place &&
-        passwordsMatch &&
-        isPasswordValid &&
-        emailValid === true &&
-        contactValid === true &&
-        agreedToTerms;
-
-    const getPasswordStatus = () => {
-        if (formData.password.length === 0) return { status: "", help: null };
-
-        if (!isPasswordValid) {
-            return {
-                status: "error",
-                help: "Password must meet all requirements",
-            };
-        }
-
-        if (
-            formData.confirmPassword.length > 0 &&
-            formData.password !== formData.confirmPassword
-        ) {
-            return { status: "warning", help: "Passwords do not match." };
-        }
-
-        return { status: "success", help: "" };
-    };
-
-    const getConfirmPasswordStatus = () => {
-        if (formData.confirmPassword.length === 0)
-            return { status: "", help: null };
-
-        if (!isPasswordValid) {
-            return {
-                status: "error",
-                help: "Password must meet requirements first",
-            };
-        }
-
-        if (formData.password === formData.confirmPassword) {
-            return { status: "success", help: "Passwords match." };
-        } else {
-            return { status: "error", help: "Passwords do not match." };
-        }
-    };
-
-    const passwordStatus = getPasswordStatus();
-    const confirmPasswordStatus = getConfirmPasswordStatus();
 
     return (
         <div
@@ -455,480 +240,352 @@ const RegisterPage = ({ onSuccess }) => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                minHeight: "100vh",
+                minHeight: "100dvh",
                 backgroundColor: THEME.BACKGROUND_LIGHT,
-                padding: "1rem",
+                padding: responsivePadding,
             }}>
             <Card
                 style={{
+                    ...cardStyle,
                     maxWidth: 500,
                     width: "100%",
-                    boxShadow: THEME.CARD_SHADOW,
-                    borderRadius: 12,
-                    borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
-                    paddingTop: 10,
-                    marginTop: 10,
-                    marginBottom: 10,
+                    borderTop: `6px solid ${THEME.BLUE_PRIMARY}`,
                 }}>
-                <div style={{ textAlign: "center", marginBottom: 24 }}>
+                <div
+                    style={{
+                        textAlign: "center",
+                        marginBottom: THEME.SPACING_LG,
+                    }}>
                     <Title
-                        level={2}
+                        level={isMobile ? 3 : 2}
                         style={{
                             color: THEME.BLUE_PRIMARY,
-                            marginBottom: 4,
-                            fontWeight: "800",
-                            fontSize: "clamp(24px, 5vw, 32px)",
+                            margin: 0,
                         }}>
-                        SAFE MUNTINDILAW
+                        Resident Registration
                     </Title>
                     <Text
                         type="secondary"
-                        style={{ color: THEME.BLUE_PRIMARY, fontSize: "13px" }}>
-                        Resident Registration Portal
+                        style={{ fontSize: fontSize.subtitle }}>
+                        Smart Alerts for Flood Emergencies
                     </Text>
                 </div>
 
-                {status.message && (
-                    <Alert
-                        message={status.message}
-                        type={status.isError ? "error" : "success"}
-                        showIcon
-                        style={{ marginBottom: 16 }}
-                        closable
-                    />
-                )}
-
-                <Form layout="vertical" onFinish={handleRegister}>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item
-                                label={<Text strong>First Name</Text>}
-                                required>
+                <Space
+                    direction="vertical"
+                    size="middle"
+                    style={{ width: "100%" }}>
+                    <Row gutter={[16, 16]}>
+                        <Col xs={24} sm={12}>
+                            <FloatLabel
+                                label="First Name"
+                                value={formData.firstName}>
                                 <Input
-                                    placeholder="Enter first name"
+                                    prefix={<UserOutlined />}
                                     name="firstName"
                                     value={formData.firstName}
                                     onChange={handleChange}
+                                    style={{ height: inputHeight }}
                                 />
-                            </Form.Item>
+                            </FloatLabel>
                         </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                label={<Text strong>Last Name</Text>}
-                                required>
+                        <Col xs={24} sm={12}>
+                            <FloatLabel
+                                label="Last Name"
+                                value={formData.lastName}>
                                 <Input
-                                    placeholder="Enter last name"
+                                    prefix={<UserOutlined />}
                                     name="lastName"
                                     value={formData.lastName}
                                     onChange={handleChange}
+                                    style={{ height: inputHeight }}
                                 />
-                            </Form.Item>
+                            </FloatLabel>
                         </Col>
                     </Row>
 
-                    <Form.Item
-                        label={<Text strong>Email Address</Text>}
-                        required
-                        validateStatus={
-                            formData.email.length === 0
-                                ? ""
-                                : emailFormatInvalid
-                                ? "error"
-                                : emailValid === true
-                                ? "success"
-                                : emailValid === false
-                                ? "error"
-                                : "validating"
-                        }
-                        help={
-                            formData.email.length > 0
-                                ? emailFormatInvalid
-                                    ? "Email must be a valid email address (e.g., user@gmail.com)"
-                                    : emailValid === true
-                                    ? "Available"
-                                    : emailValid === false
-                                    ? "Taken or invalid format"
-                                    : null
-                                : null
-                        }>
-                        <Input
-                            placeholder="example@gmail.com"
-                            name="email"
-                            type="email"
+                    <div>
+                        <FloatLabel
+                            label="Email Address (Gmail only)"
                             value={formData.email}
-                            onChange={handleChange}
-                            prefix={
-                                <MailOutlined
-                                    style={{ color: THEME.BLUE_PRIMARY }}
-                                />
+                            status={
+                                formData.email &&
+                                emailValidation.touched &&
+                                !emailValidation.isValid &&
+                                !emailValidation.checking
+                                    ? "error"
+                                    : formData.email &&
+                                      emailValidation.touched &&
+                                      emailValidation.isValid
+                                    ? "success"
+                                    : undefined
+                            }>
+                            <Input
+                                prefix={<MailOutlined />}
+                                name="email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                style={{ height: inputHeight }}
+                            />
+                        </FloatLabel>
+                        <InlineValidationText
+                            isValid={emailValidation.isValid}
+                            checking={emailValidation.checking}
+                            touched={emailValidation.touched}
+                            validText="Email is available"
+                            invalidText={
+                                emailValidation.exists
+                                    ? "Email already taken"
+                                    : "Invalid email format"
                             }
                         />
-                    </Form.Item>
+                    </div>
 
-                    <Row gutter={16}>
+                    <Row gutter={[16, 16]}>
                         <Col xs={24} sm={12}>
-                            <Form.Item
-                                label={<Text strong>Contact Number</Text>}
-                                required
-                                validateStatus={
-                                    cleanedContactNumber.length === 0
-                                        ? ""
-                                        : contactPrefixError
-                                        ? "error"
-                                        : contactValid === true
-                                        ? "success"
-                                        : contactValid === false
-                                        ? "error"
-                                        : "validating"
-                                }
-                                help={
-                                    contactPrefixError ||
-                                    (cleanedContactNumber.length > 0 &&
-                                    contactValid !== null
-                                        ? contactValid
-                                            ? "Available"
-                                            : "Taken or invalid format"
-                                        : null)
-                                }>
-                                <div style={{ position: "relative" }}>
+                            <div>
+                                <FloatLabel
+                                    label="Contact Number"
+                                    value={formData.contactNumber}
+                                    status={
+                                        formData.contactNumber &&
+                                        contactValidation.touched &&
+                                        !contactValidation.isValid &&
+                                        !contactValidation.checking
+                                            ? "error"
+                                            : formData.contactNumber &&
+                                              contactValidation.touched &&
+                                              contactValidation.isValid
+                                            ? "success"
+                                            : undefined
+                                    }>
                                     <Input
                                         prefix={
-                                            <Text
-                                                strong
+                                            <div
                                                 style={{
-                                                    marginRight: 4,
-                                                    color: THEME.BLUE_PRIMARY,
+                                                    display: "flex",
+                                                    alignItems: "center",
                                                 }}>
-                                                +63
-                                            </Text>
+                                                <PhoneOutlined />
+                                                <span
+                                                    style={{
+                                                        userSelect: "none",
+                                                    }}>
+                                                    +63
+                                                </span>
+                                            </div>
+                                        }
+                                        suffix={
+                                            <Tooltip title="Must be 10 digits (e.g., 9123456789)">
+                                                <InfoCircleOutlined
+                                                    style={{
+                                                        color: "rgba(0,0,0,.45)",
+                                                        cursor: "help",
+                                                    }}
+                                                />
+                                            </Tooltip>
                                         }
                                         name="contactNumber"
-                                        value={
-                                            formData.contactNumber
-                                                ? "9" + formData.contactNumber
-                                                : "9"
-                                        }
-                                        onChange={(e) => {
-                                            const value = e.target.value;
-                                            // Remove the leading '9' if present
-                                            const withoutNine =
-                                                value.startsWith("9")
-                                                    ? value.slice(1)
-                                                    : value;
-                                            handleChange({
-                                                target: {
-                                                    name: "contactNumber",
-                                                    value: withoutNine,
-                                                },
-                                            });
+                                        value={formData.contactNumber}
+                                        onChange={handleChange}
+                                        style={{ height: inputHeight }}
+                                        styles={{
+                                            prefix: { marginRight: 0 },
                                         }}
-                                        maxLength={10}
-                                        type="tel"
-                                        suffix={
-                                            <PhoneOutlined
-                                                style={{
-                                                    color: THEME.BLUE_PRIMARY,
-                                                }}
-                                            />
-                                        }
-                                        style={{ position: "relative" }}
                                     />
-                                    {formData.contactNumber.length === 0 && (
-                                        <div
-                                            style={{
-                                                position: "absolute",
-                                                left: "65px",
-                                                top: "50%",
-                                                transform: "translateY(-50%)",
-                                                color: "#bfbfbf",
-                                                pointerEvents: "none",
-                                                fontSize: "14px",
-                                            }}>
-                                            XXXXXXXXX
-                                        </div>
-                                    )}
-                                </div>
-                            </Form.Item>
+                                </FloatLabel>
+                                <InlineValidationText
+                                    isValid={contactValidation.isValid}
+                                    checking={contactValidation.checking}
+                                    touched={contactValidation.touched}
+                                    validText="Contact number is available"
+                                    invalidText={
+                                        contactValidation.exists
+                                            ? "Number already taken"
+                                            : "Invalid contact number"
+                                    }
+                                />
+                            </div>
                         </Col>
                         <Col xs={24} sm={12}>
-                            <Form.Item
-                                label={<Text strong>Area</Text>}
-                                required>
+                            <FloatLabel label="Area" value={formData.place}>
+                                {formData.place && (
+                                    <HomeOutlined
+                                        className="select-prefix-icon"
+                                        style={{
+                                            position: "absolute",
+                                            left: "12px",
+                                            top: "50%",
+                                            transform: "translateY(-50%)",
+                                            zIndex: 2,
+                                        }}
+                                    />
+                                )}
                                 <Select
-                                    placeholder="Select your Place"
-                                    name="place"
+                                    style={{
+                                        width: "100%",
+                                        height: inputHeight,
+                                    }}
                                     value={formData.place || undefined}
-                                    onChange={handleSelectChange}
-                                    suffixIcon={
-                                        <HomeOutlined
-                                            style={{
-                                                color: THEME.BLUE_PRIMARY,
-                                            }}
-                                        />
+                                    onChange={(val) =>
+                                        setFormData((p) => ({
+                                            ...p,
+                                            place: val,
+                                        }))
                                     }>
-                                    <Option value="" disabled>
-                                        Select Place
-                                    </Option>
                                     {places.map((p) => (
                                         <Option key={p.id} value={p.id}>
                                             {p.name}
                                         </Option>
                                     ))}
                                 </Select>
-                            </Form.Item>
+                            </FloatLabel>
                         </Col>
                     </Row>
 
-                    <Row gutter={16}>
+                    <Row gutter={[16, 16]}>
                         <Col xs={24} sm={12}>
-                            <Form.Item
-                                label={<Text strong>Password</Text>}
-                                required
-                                validateStatus={passwordStatus.status}
-                                help={passwordStatus.help}>
+                            <FloatLabel
+                                label="Password"
+                                value={formData.password}>
                                 <Input.Password
-                                    placeholder="Enter password"
+                                    prefix={<LockOutlined />}
                                     name="password"
                                     value={formData.password}
                                     onChange={handleChange}
-                                    prefix={
-                                        <LockOutlined
-                                            style={{
-                                                color: THEME.BLUE_PRIMARY,
-                                            }}
-                                        />
-                                    }
+                                    style={{ height: inputHeight }}
                                 />
-                            </Form.Item>
+                            </FloatLabel>
                         </Col>
                         <Col xs={24} sm={12}>
-                            <Form.Item
-                                label={<Text strong>Confirm Password</Text>}
-                                required
-                                validateStatus={confirmPasswordStatus.status}
-                                help={confirmPasswordStatus.help}>
-                                <Input.Password
-                                    placeholder="Confirm your password"
-                                    name="confirmPassword"
+                            <div>
+                                <FloatLabel
+                                    label="Confirm Password"
                                     value={formData.confirmPassword}
-                                    onChange={handleChange}
-                                    prefix={
-                                        <LockOutlined
-                                            style={{
-                                                color: THEME.BLUE_PRIMARY,
-                                            }}
-                                        />
-                                    }
-                                />
-                            </Form.Item>
+                                    status={
+                                        formData.confirmPassword &&
+                                        !passwordValidation.passwordsMatch
+                                            ? "error"
+                                            : formData.confirmPassword &&
+                                              passwordValidation.passwordsMatch
+                                            ? "success"
+                                            : undefined
+                                    }>
+                                    <Input.Password
+                                        prefix={<LockOutlined />}
+                                        name="confirmPassword"
+                                        value={formData.confirmPassword}
+                                        onChange={handleChange}
+                                        style={{ height: inputHeight }}
+                                    />
+                                </FloatLabel>
+                                {formData.confirmPassword && (
+                                    <InlineValidationText
+                                        isValid={
+                                            passwordValidation.passwordsMatch
+                                        }
+                                        checking={false}
+                                        validText="Passwords match"
+                                        invalidText="Passwords do not match"
+                                    />
+                                )}
+                            </div>
                         </Col>
                     </Row>
 
-                    {/* Password Requirements Display */}
-                    {formData.password.length > 0 && (
-                        <div
-                            style={{
-                                marginBottom: 12,
-                                padding: 10,
-                                backgroundColor: "#f6f8fa",
-                                borderRadius: 6,
-                                border: "1px solid #e1e4e8",
-                            }}>
-                            <Text
-                                strong
-                                style={{
-                                    display: "block",
-                                    marginBottom: 6,
-                                    color: THEME.BLUE_PRIMARY,
-                                    fontSize: "12px",
-                                }}>
-                                Password Requirements:
-                            </Text>
-                            <Space direction="vertical" size={2}>
-                                <Text
-                                    style={{
-                                        fontSize: 11,
-                                        color: passwordChecks.length
-                                            ? "#52c41a"
-                                            : "#8c8c8c",
-                                    }}>
-                                    {passwordChecks.length ? (
-                                        <CheckCircleOutlined />
-                                    ) : (
-                                        <CloseCircleOutlined />
-                                    )}{" "}
-                                    8-32 characters
-                                </Text>
-                                <Text
-                                    style={{
-                                        fontSize: 11,
-                                        color: passwordChecks.uppercase
-                                            ? "#52c41a"
-                                            : "#8c8c8c",
-                                    }}>
-                                    {passwordChecks.uppercase ? (
-                                        <CheckCircleOutlined />
-                                    ) : (
-                                        <CloseCircleOutlined />
-                                    )}{" "}
-                                    One uppercase letter (A-Z)
-                                </Text>
-                                <Text
-                                    style={{
-                                        fontSize: 11,
-                                        color: passwordChecks.lowercase
-                                            ? "#52c41a"
-                                            : "#8c8c8c",
-                                    }}>
-                                    {passwordChecks.lowercase ? (
-                                        <CheckCircleOutlined />
-                                    ) : (
-                                        <CloseCircleOutlined />
-                                    )}{" "}
-                                    One lowercase letter (a-z)
-                                </Text>
-                                <Text
-                                    style={{
-                                        fontSize: 11,
-                                        color: passwordChecks.number
-                                            ? "#52c41a"
-                                            : "#8c8c8c",
-                                    }}>
-                                    {passwordChecks.number ? (
-                                        <CheckCircleOutlined />
-                                    ) : (
-                                        <CloseCircleOutlined />
-                                    )}{" "}
-                                    One number (0-9)
-                                </Text>
-                                <Text
-                                    style={{
-                                        fontSize: 11,
-                                        color:
-                                            passwordChecks.hasLetter &&
-                                            passwordChecks.hasNumber
-                                                ? "#52c41a"
-                                                : "#8c8c8c",
-                                    }}>
-                                    {passwordChecks.hasLetter &&
-                                    passwordChecks.hasNumber ? (
-                                        <CheckCircleOutlined />
-                                    ) : (
-                                        <CloseCircleOutlined />
-                                    )}{" "}
-                                    Alphanumeric
-                                </Text>
-                                <Text
-                                    style={{
-                                        fontSize: 11,
-                                        color: passwordChecks.specialCharacters
-                                            ? "#52c41a"
-                                            : "#8c8c8c",
-                                    }}>
-                                    {passwordChecks.specialCharacters ? (
-                                        <CheckCircleOutlined />
-                                    ) : (
-                                        <CloseCircleOutlined />
-                                    )}{" "}
-                                    Special character
-                                </Text>
-                            </Space>
-                        </div>
+                    {formData.password && (
+                        <>
+                            <PasswordRequirements
+                                checks={passwordValidation.checks}
+                                showOnlyIncomplete={false}
+                            />
+                            <PasswordStrengthIndicator
+                                strength={passwordValidation.strength}
+                                showLabel={true}
+                            />
+                        </>
                     )}
-
-                    <Form.Item name="agreement" valuePropName="checked">
-                        <Checkbox
-                            checked={agreedToTerms}
-                            onChange={handleTermsChange}
-                            style={{
-                                color: THEME.BLUE_PRIMARY,
-                                fontWeight: "500",
-                            }}>
-                            I have read and agree to the
-                            <Link
-                                onClick={showModal}
-                                style={{
-                                    color: THEME.BLUE_PRIMARY,
-                                    fontWeight: "700",
-                                    marginLeft: 4,
-                                }}>
-                                Terms and Conditions
-                            </Link>
-                        </Checkbox>
-                    </Form.Item>
 
                     <Button
                         type="primary"
-                        htmlType="submit"
                         block
-                        icon={<UserAddOutlined />}
+                        size="large"
                         loading={loading}
                         disabled={!isFormValid || loading}
-                        style={{
-                            backgroundColor: THEME.BLUE_PRIMARY,
-                            borderColor: THEME.BLUE_PRIMARY,
-                            height: 44,
-                            fontWeight: 600,
-                            marginTop: 16,
-                            transition: "background-color 0.3s",
-                        }}
-                        onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                THEME.BUTTON_HOVER)
-                        }
-                        onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                THEME.BLUE_PRIMARY)
-                        }>
-                        Register
+                        onClick={handleRegister}
+                        style={{ height: inputHeight, fontWeight: 600 }}>
+                        CREATE ACCOUNT
                     </Button>
 
-                    <div style={{ marginTop: 20, textAlign: "center" }}>
-                        <Text>
-                            Already have an account?{" "}
+                    <Space
+                        direction="vertical"
+                        size={4}
+                        style={{ width: "100%", textAlign: "center", gap: 0 }}>
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                gap: "8px",
+                            }}>
+                            <Checkbox
+                                checked={agreedToTerms}
+                                onChange={(e) =>
+                                    setAgreedToTerms(e.target.checked)
+                                }
+                            />
+                            <Text type="secondary" style={{ fontSize: "14px" }}>
+                                I agree to the{" "}
+                                <Link
+                                    primary
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        setIsModalVisible(true);
+                                    }}>
+                                    Terms & Conditions
+                                </Link>
+                            </Text>
+                        </div>
+
+                        <div>
+                            <Text type="secondary">
+                                Already have an account?{" "}
+                            </Text>
                             <Link onClick={() => navigate("/login")}>
-                                Log In
+                                Login here
                             </Link>
-                        </Text>
-                    </div>
-                </Form>
+                        </div>
+                    </Space>
+                </Space>
             </Card>
 
             <Modal
-                title={
-                    <Title level={4} style={{ color: THEME.BLUE_PRIMARY }}>
-                        Terms and Conditions
-                    </Title>
-                }
+                title={<Title level={4}>Terms and Conditions</Title>}
                 open={isModalVisible}
-                onOk={handleOk}
-                onCancel={handleCancel}
+                onCancel={() => setIsModalVisible(false)}
+                centered
                 footer={[
-                    <Button key="back" onClick={handleCancel}>
+                    <Button
+                        key="close"
+                        onClick={() => setIsModalVisible(false)}>
                         Close
                     </Button>,
                     <Button
-                        key="submit"
+                        key="agree"
                         type="primary"
                         onClick={() => {
                             setAgreedToTerms(true);
-                            handleOk();
-                        }}
-                        style={{
-                            backgroundColor: THEME.BLUE_PRIMARY,
-                            borderColor: THEME.BLUE_PRIMARY,
+                            setIsModalVisible(false);
                         }}>
-                        I Agree & Close
+                        I Agree
                     </Button>,
                 ]}
                 width={700}>
                 <div
                     style={{
-                        maxHeight: "60vh",
+                        maxHeight: "71dvh",
                         overflowY: "auto",
                         padding: 10,
-                        border: `1px solid ${THEME.BACKGROUND_LIGHT}`,
-                        borderRadius: 5,
                     }}>
                     <pre
                         style={{
@@ -936,7 +593,7 @@ const RegisterPage = ({ onSuccess }) => {
                             fontFamily: "inherit",
                             fontSize: "0.9em",
                         }}>
-                        {TERMS_AND_CONDITIONS_TEXT}
+                        {TERMS_TEXT}
                     </pre>
                 </div>
             </Modal>

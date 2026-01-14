@@ -1,0 +1,180 @@
+/* FloatLabel.css - Floating label styles */
+:root {
+    --float-label-rest: #0056a0; /* THEME.BLUE_PRIMARY */
+    --float-label-focus: #0056a0;
+    /* --float-label-focus: #1890ff; */
+    --float-label-error: #ff4d4f;
+}
+
+.float-label {
+    position: relative;
+    margin-bottom: 0;
+}
+
+.float-label .label {
+    position: absolute;
+    pointer-events: none;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: 0.2s ease all;
+    font-size: 14px;
+    color: rgba(0, 0, 0, 0.45);
+    background: white;
+    padding: 0 4px;
+    z-index: 1;
+}
+
+/* When label floats up - at rest state */
+.float-label .label-float {
+    top: 0;
+    font-size: 12px;
+    color: var(--float-label-rest);
+}
+
+/* Adjust label position for inputs with prefix icons */
+.float-label .ant-input-affix-wrapper .label,
+.float-label .ant-input-password .label {
+    left: 42px;
+}
+
+.float-label .ant-input-group-wrapper .label {
+    left: 54px;
+}
+
+/* Default colors at rest */
+.float-label .ant-input-prefix,
+.float-label .ant-input-password-prefix,
+.float-label .ant-input-prefix span,
+.float-label .ant-input-password-prefix span,
+.float-label .select-prefix-icon {
+    color: var(--float-label-rest);
+    transition: color 0.2s ease;
+}
+
+.float-label input,
+.float-label .ant-input,
+.float-label .ant-input-password input,
+.float-label .ant-select-selection-item {
+    color: var(--float-label-rest) !important;
+    transition: color 0.2s ease;
+}
+
+/* Focused state - light blue */
+.float-label.is-focused .label-float,
+.float-label.is-focused .ant-input-prefix,
+.float-label.is-focused .ant-input-password-prefix,
+.float-label.is-focused .ant-input-prefix span,
+.float-label.is-focused .ant-input-password-prefix span,
+.float-label.is-focused .select-prefix-icon,
+.float-label.is-focused input,
+.float-label.is-focused .ant-input,
+.float-label.is-focused .ant-input-password input,
+.float-label.is-focused .ant-select-selection-item {
+    color: var(--float-label-focus) !important;
+}
+
+/* Error state - red */
+.float-label.status-error .label-float,
+.float-label.status-error .ant-input-prefix,
+.float-label.status-error .ant-input-password-prefix,
+.float-label.status-error .ant-input-prefix span,
+.float-label.status-error .ant-input-password-prefix span,
+.float-label.status-error .select-prefix-icon,
+.float-label.status-error input,
+.float-label.status-error .ant-input,
+.float-label.status-error .ant-input-password input,
+.float-label.status-error .ant-select-selection-item {
+    color: var(--float-label-error) !important;
+}
+
+/* Padding adjustments */
+.float-label input,
+.float-label .ant-select-selector,
+.float-label .ant-input-affix-wrapper {
+    padding-top: 8px;
+}
+
+/* Select prefix icon visibility */
+.float-label .select-prefix-icon {
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.float-label.is-floating .select-prefix-icon {
+    opacity: 1;
+}
+
+.float-label .ant-select-selector {
+    padding-left: 12px !important;
+    transition: padding 0.2s ease !important;
+}
+
+.float-label.is-floating .ant-select-selector {
+    padding-left: 28px !important;
+}
+
+.float-label.is-floating .ant-select-selection-search {
+    inset-inline-start: 28px !important;
+}
+
+/* ---------------------------------------------------------- */
+
+/* Ensure modals are always on top */
+.ant-modal-root,
+.ant-modal-mask,
+.ant-modal-wrap {
+    z-index: 1100 !important;
+}
+
+.ant-table-wrapper .ant-table-pagination.ant-pagination {
+    margin: 16px 0 0 0;
+}
+
+/* --- Success State - Add this to FloatLabel.css --- */
+
+/* Border Colors */
+.float-label.status-success .ant-input,
+.float-label.status-success .ant-input-affix-wrapper,
+.float-label.status-success .ant-select-selector {
+    border-color: #52c41a !important;
+}
+
+/* Success Text and Icon Colors */
+.float-label.status-success .label-float,
+.float-label.status-success .ant-input-prefix,
+.float-label.status-success .ant-input-password-prefix,
+.float-label.status-success .ant-input-prefix span,
+.float-label.status-success .ant-input-password-prefix span,
+.float-label.status-success .select-prefix-icon,
+.float-label.status-success input,
+.float-label.status-success .ant-input,
+.float-label.status-success .ant-input-password input,
+.float-label.status-success .ant-select-selection-item {
+    color: #52c41a !important;
+}
+
+/* Error Border Colors (Ensure this is also present) */
+.float-label.status-error .ant-input,
+.float-label.status-error .ant-input-affix-wrapper,
+.float-label.status-error .ant-select-selector {
+    border-color: var(--float-label-error) !important;
+}
+
+/* Target the internal Ant Design Drawer classes */
+.ant-drawer-content-wrapper,
+.ant-drawer-content {
+    box-shadow: none !important;
+    -webkit-box-shadow: none !important;
+}
+
+/* If you want to be safe and only target TOP placements */
+.ant-drawer-top .ant-drawer-content-wrapper {
+    box-shadow: none !important;
+}

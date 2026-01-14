@@ -5,131 +5,92 @@ import { Spin } from "antd";
 
 const AuthContext = createContext();
 
-// OPTIMIZATION: Combine role retrieval and 'is_logged_in' update into one DB call.
-const syncRoleAndLogin = async (userId, setUserRole) => {
-    if (!userId) {
-        setUserRole(null);
-        return;
-    }
-
-    // Attempt to update is_logged_in to TRUE AND fetch the user's role in a single query.
-    const { data, error } = await supabase
-        .from("contacts")
-        .update({ is_logged_in: true })
-        .select("role")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-    if (error) {
-        console.error("Error fetching/syncing user role:", error);
-        setUserRole("Resident"); // Fallback role on error
-    } else if (data) {
-        // Use the role returned from the update operation
-        setUserRole(data.role || "Resident");
-    } else {
-        // Fallback if no contact record exists
-        setUserRole("Resident");
-    }
-};
-
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [userRole, setUserRole] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [onlineUsers, setOnlineUsers] = useState({}); // Track who is online
 
-    // 1. Sync role whenever user changes (login/logout)
+    const fetchRole = async (userId) => {
+        const { data } = await supabase
+            .from("contacts")
+            .select("role")
+            .eq("user_id", userId)
+            .maybeSingle();
+        setUserRole(data?.role || "Resident");
+    };
+
     useEffect(() => {
-        let isMounted = true;
+        let channel;
 
-        if (isMounted) {
-            // Use the combined function to sync role and login status
-            syncRoleAndLogin(user?.id, setUserRole);
-        }
-
-        return () => {
-            isMounted = false;
-        };
-    }, [user]); // Re-runs when the Supabase user state changes
-
-    // 2. Initial session load and real-time auth listener setup
-    useEffect(() => {
-        let isMounted = true;
-
-        const handleAuthState = (session, event) => {
-            if (!isMounted) return;
-
-            const authenticatedUser = session?.user ?? null;
-
-            if (event === "PASSWORD_RECOVERY") {
-                console.log("🔐 Recovery mode — skipping role/DB sync");
-                if (authenticatedUser) setUser(authenticatedUser);
-                return;
-            }
-
-            // Set the main user state, which triggers the first useEffect
-            setUser(authenticatedUser);
-
-            if (event === "SIGNED_OUT") {
-                setUserRole(null); // Clear role on sign out
-            }
-        };
-
-        // Initial session load
         const init = async () => {
-            const { data } = await supabase.auth.getSession();
-            handleAuthState(data?.session, null);
-            setLoading(false); // Authentication check is complete
+            const {
+                data: { session },
+            } = await supabase.auth.getSession();
+            if (session?.user) {
+                setUser(session.user);
+                await fetchRole(session.user.id);
+                setupPresence(session.user);
+            }
+            setLoading(false);
         };
+
+        const setupPresence = (currentUser) => {
+            // Create a channel for tracking online users
+            channel = supabase.channel("online-users", {
+                config: { presence: { key: currentUser.id } },
+            });
+
+            channel
+                .on("presence", { event: "sync" }, () => {
+                    const state = channel.presenceState();
+                    setOnlineUsers(state);
+                })
+                .subscribe(async (status) => {
+                    if (status === "SUBSCRIBED") {
+                        // "Track" this device's presence
+                        await channel.track({
+                            online_at: new Date().toISOString(),
+                            device: window.navigator.userAgent.includes("Mobi")
+                                ? "Mobile"
+                                : "Desktop",
+                        });
+                    }
+                });
+        };
+
         init();
 
-        // Real-time listener
-        const { data: subscription } = supabase.auth.onAuthStateChange(
-            (event, session) => {
-                console.log("Auth event:", event);
-                handleAuthState(session, event);
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === "SIGNED_IN") {
+                setUser(session?.user);
+                fetchRole(session?.user?.id);
+                if (session?.user) setupPresence(session.user);
+            } else if (event === "SIGNED_OUT") {
+                setUser(null);
+                setUserRole(null);
+                if (channel) channel.unsubscribe();
             }
-        );
+        });
 
         return () => {
-            isMounted = false;
-            subscription?.unsubscribe?.();
+            subscription?.unsubscribe();
+            if (channel) channel.unsubscribe();
         };
     }, []);
 
     const logout = async () => {
-        if (user?.id) {
-            // Update is_logged_in flag to false before logging out
-            const { error } = await supabase
-                .from("contacts")
-                .update({ is_logged_in: false })
-                .eq("user_id", user.id);
-
-            if (error)
-                console.error(
-                    "Failed to update is_logged_in on logout:",
-                    error
-                );
-        }
-
+        // Presence unsubscribes automatically on signOut
+        setUser(null);
+        setUserRole(null);
         await supabase.auth.signOut();
     };
 
-    if (loading) {
-        return (
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    height: "100vh",
-                }}>
-                <Spin size="large" tip="Checking authentication..." />
-            </div>
-        );
-    }
-
     return (
-        <AuthContext.Provider value={{ user, userRole, loading, logout }}>
+        <AuthContext.Provider
+            value={{ user, userRole, loading, logout, onlineUsers }}>
             {children}
         </AuthContext.Provider>
     );

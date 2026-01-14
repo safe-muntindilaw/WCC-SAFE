@@ -1,27 +1,33 @@
-// LoginPage.jsx
+// LoginPage.jsx - Updated with consistent styling from RegisterPage
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/globals";
-import { Card, Typography, Input, Button, Form, Space, Alert } from "antd";
+import { Card, Typography, Input, Button, Space, Spin } from "antd";
+import { FloatLabel } from "@/utils/FloatLabel";
 import { UserOutlined, LockOutlined, LoginOutlined } from "@ant-design/icons";
-
-import BarangayLogo from "@/assets/logo.png";
+import { THEME, cardStyle } from "@/utils/theme";
+import { showSuccess, showError } from "@/utils/notifications";
+import {
+    useResponsive,
+    useResponsiveStyles,
+    useResponsivePadding,
+} from "@/utils/useResponsive";
 
 const { Title, Text, Link } = Typography;
 
-const THEME = {
-    BLUE_PRIMARY: "#0056a0",
-    BACKGROUND_LIGHT: "#f0f2f5",
-    CARD_BG: "white",
-    BUTTON_HOVER: "#004480",
-    CARD_SHADOW: "0 8px 16px rgba(0, 86, 160, 0.2)",
-};
-
 const LoginPage = () => {
     const navigate = useNavigate();
-    // const [formData, setFormData] = useState(initialFormData);
-    const [statusMessage, setStatusMessage] = useState(null);
+
+    // Responsive Hooks
+    const { isMobile } = useResponsive();
+    const responsivePadding = useResponsivePadding();
+    const { fontSize, buttonSize } = useResponsiveStyles();
+
+    // State
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
+    const [checking, setChecking] = useState(true);
 
     // Check session on load
     useEffect(() => {
@@ -30,23 +36,25 @@ const LoginPage = () => {
                 data: { session },
             } = await supabase.auth.getSession();
             if (session) navigate("/dashboard", { replace: true });
+            setChecking(false);
         })();
     }, [navigate]);
 
-    const handleLogin = async (values) => {
+    const handleLogin = async () => {
+        if (!email || !password) {
+            showError("Please enter email and password");
+            return;
+        }
+
         setLoading(true);
-        setStatusMessage(null);
-        const { email, password } = values;
 
         try {
-            // Sign in with Supabase v2
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
             if (error) throw error;
 
-            // Update user login status in "contacts"
             const userId = data.user.id;
             const { error: updateError } = await supabase
                 .from("contacts")
@@ -60,15 +68,38 @@ const LoginPage = () => {
                 );
             }
 
-            // Navigate to dashboard
+            showSuccess("Login successful");
             navigate("/dashboard", { replace: true });
         } catch (err) {
             console.error("Login error:", err);
-            setStatusMessage("Login failed. Please check your credentials.");
+            showError(
+                err.message || "Login failed. Please check your credentials"
+            );
         } finally {
             setLoading(false);
         }
     };
+
+    const handleKeyPress = (e) => {
+        if (e.key === "Enter") {
+            handleLogin();
+        }
+    };
+
+    if (checking) {
+        return (
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100vh",
+                    backgroundColor: THEME.BACKGROUND_LIGHT,
+                }}>
+                <Spin size="large" tip="Checking authentication..." />
+            </div>
+        );
+    }
 
     return (
         <div
@@ -76,153 +107,94 @@ const LoginPage = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                height: "100vh",
+                minHeight: "100dvh",
                 backgroundColor: THEME.BACKGROUND_LIGHT,
-                padding: "1rem",
+                padding: responsivePadding,
             }}>
             <Card
                 style={{
+                    ...cardStyle,
                     maxWidth: 450,
                     width: "100%",
-                    boxShadow: THEME.CARD_SHADOW,
-                    borderRadius: 12,
-                    backgroundColor: THEME.CARD_BG,
-                    borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
+                    borderTop: `6px solid ${THEME.BLUE_PRIMARY}`,
                 }}>
-                <div style={{ textAlign: "center", marginBottom: 24 }}>
-                    {/* Logo */}
-                    {/* <div style={{ width: 100, height: 50, margin: '0 auto' }}> */}
-                    {/* <img src={BarangayLogo} alt="Muntindilaw Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> */}
-                    {/* </div> */}
+                <div
+                    style={{
+                        textAlign: "center",
+                        marginBottom: THEME.SPACING_LG,
+                    }}>
                     <Title
-                        level={2}
+                        level={isMobile ? 3 : 2}
                         style={{
                             color: THEME.BLUE_PRIMARY,
-                            marginBottom: 4,
-                            fontWeight: "800",
-                            fontSize: "clamp(24px, 5vw, 32px)",
+                            margin: 0,
                         }}>
-                        SAFE MUNTINDILAW
+                        Welcome Back
                     </Title>
-                    <Text style={{ color: THEME.BLUE_PRIMARY }}>
+                    <Text
+                        type="secondary"
+                        style={{ fontSize: fontSize.subtitle }}>
                         Smart Alerts for Flood Emergencies
                     </Text>
                 </div>
 
-                {statusMessage && (
-                    <Alert
-                        message={statusMessage}
-                        type="error"
-                        showIcon
-                        style={{ marginBottom: 20 }}
-                        closable
-                        onClose={() => setStatusMessage(null)}
-                    />
-                )}
-
-                <Form layout="vertical" onFinish={handleLogin}>
-                    {/* Email */}
-                    <Form.Item
-                        label={<Text strong>Email Address</Text>}
-                        name="email"
-                        rules={[
-                            {
-                                required: true,
-                                message: "Please input your Email!",
-                            },
-                            {
-                                type: "email",
-                                message: "The input is not valid E-mail!",
-                            },
-                        ]}>
+                <Space
+                    direction="vertical"
+                    size="middle"
+                    style={{ width: "100%" }}>
+                    <FloatLabel label="Email Address" value={email}>
                         <Input
-                            placeholder="Enter your registered email"
-                            prefix={
-                                <UserOutlined
-                                    style={{ color: THEME.BLUE_PRIMARY }}
-                                />
-                            }
+                            type="email"
+                            prefix={<UserOutlined />}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            onKeyDown={handleKeyPress}
+                            disabled={loading}
                         />
-                    </Form.Item>
+                    </FloatLabel>
 
-                    {/* Password */}
-                    <Form.Item
-                        label={<Text strong>Password</Text>}
-                        name="password"
-                        rules={[
-                            {
-                                required: true,
-                                message: "Please input your Password!",
-                            },
-                        ]}>
+                    <FloatLabel label="Password" value={password}>
                         <Input.Password
-                            placeholder="Enter your password"
-                            prefix={
-                                <LockOutlined
-                                    style={{ color: THEME.BLUE_PRIMARY }}
-                                />
-                            }
+                            prefix={<LockOutlined />}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            onKeyDown={handleKeyPress}
+                            disabled={loading}
                         />
-                    </Form.Item>
+                    </FloatLabel>
 
-                    {/* Login Button */}
                     <Button
                         type="primary"
-                        htmlType="submit"
                         block
+                        size={buttonSize}
                         icon={<LoginOutlined />}
                         loading={loading}
-                        style={{
-                            backgroundColor: THEME.BLUE_PRIMARY,
-                            borderColor: THEME.BLUE_PRIMARY,
-                            height: 44,
-                            fontWeight: 600,
-                            marginTop: 16,
-                        }}
-                        onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                THEME.BUTTON_HOVER)
-                        }
-                        onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                THEME.BLUE_PRIMARY)
-                        }>
+                        onClick={handleLogin}
+                        style={{ height: 36, fontWeight: 600 }}>
                         {loading ? "AUTHENTICATING..." : "LOG IN"}
                     </Button>
 
-                    {/* Links */}
                     <Space
                         direction="vertical"
-                        size="small"
-                        style={{
-                            width: "100%",
-                            marginTop: 24,
-                            textAlign: "center",
-                        }}>
-                        <Text>
-                            Don’t have an account?{" "}
-                            <Link
-                                onClick={() => navigate("/register")}
-                                style={{
-                                    color: THEME.BLUE_PRIMARY,
-                                    fontWeight: "600",
-                                }}>
+                        size={0}
+                        style={{ width: "100%", textAlign: "center" }}>
+                        <div>
+                            <Text type="secondary">
+                                Don't have an account?{" "}
+                            </Text>
+                            <Link onClick={() => navigate("/register")}>
                                 Register here
                             </Link>
-                        </Text>
-                        <Text>
-                            Forgot password?{" "}
-                            <Link
-                                onClick={() => navigate("/forgot-password")}
-                                style={{
-                                    color: THEME.BLUE_PRIMARY,
-                                    fontWeight: "600",
-                                }}>
+                        </div>
+
+                        <div>
+                            <Text type="secondary">Forgot password? </Text>
+                            <Link onClick={() => navigate("/forgot-password")}>
                                 Click here
                             </Link>
-                        </Text>
+                        </div>
                     </Space>
-                </Form>
+                </Space>
             </Card>
         </div>
     );

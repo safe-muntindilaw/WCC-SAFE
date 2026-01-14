@@ -1,22 +1,19 @@
-// ProfilePage.jsx
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/globals";
 import { useAuth } from "@/context/AuthContext";
 import {
     Layout,
     Card,
-    Form,
     Input,
     Button,
     Select,
     Spin,
-    message,
-    Alert,
     Space,
     Typography,
     Row,
     Col,
-    Divider,
+    Alert,
+    Badge,
 } from "antd";
 import {
     UserOutlined,
@@ -24,107 +21,132 @@ import {
     LockOutlined,
     EnvironmentOutlined,
     BellOutlined,
+    HomeOutlined,
+    MailOutlined,
+    PhoneOutlined,
 } from "@ant-design/icons";
+import { FloatLabel } from "@/utils/FloatLabel";
+import { THEME, cardStyle } from "@/utils/theme";
+import {
+    cleanName,
+    capitalizeWords,
+    formatPhoneNumber,
+} from "@/utils/validation";
+import {
+    showSuccessNotification,
+    showErrorNotification,
+    showValidationErrors,
+} from "@/utils/notifications";
+import { useConfirmDialog } from "@/utils/confirmDialog";
+import { useResponsive } from "@/utils/useResponsive";
+import {
+    useContactValidation,
+    usePasswordValidation,
+} from "@/utils/useFormValidation";
+import {
+    PasswordRequirements,
+    PasswordStrengthIndicator,
+    InlineValidationText,
+} from "@/utils/ValidationCard";
 
-// --- 1. THEME AND CONSTANTS ---
 const { Title, Text } = Typography;
 const { Content } = Layout;
-const { Option } = Select;
-
-const THEME = {
-    BLUE_AUTHORITY: "#0A3D62",
-    BLUE_PRIMARY_BUTTON: "#1A5276",
-    CARD_SHADOW: "0 8px 16px rgba(10, 61, 98, 0.1)",
-    MAX_WIDTH: "1400px",
-    RED_ERROR: "#ff4d4f",
-    GREEN_SUCCESS: "#59ad2fff",
-};
-
-const FORM_LAYOUT = {
-    labelCol: { span: 24 },
-    wrapperCol: { span: 24 },
-};
-
-// --- 2. PHONE NUMBER UTILITIES ---
-const formatPhoneNumber = (number) => {
-    const digits = String(number || "").replace(/\D/g, "");
-    return digits.length >= 10 ? digits.slice(-10) : digits;
-};
-
-// Detect suspicious patterns in contact numbers
-const detectSuspiciousPattern = (number) => {
-    // Check for 4 or more consecutive identical digits
-    const repeatingPattern = /(\d)\1{3,}/;
-    if (repeatingPattern.test(number)) {
-        return "Contact number contains too many repeated digits (max 3 in a row)";
-    }
-
-    // Check for sequential patterns (ascending or descending) - 4 or more
-    let sequentialCount = 1;
-    for (let i = 1; i < number.length; i++) {
-        const current = parseInt(number[i]);
-        const previous = parseInt(number[i - 1]);
-
-        if (current === previous + 1 || current === previous - 1) {
-            sequentialCount++;
-            if (sequentialCount >= 4) {
-                return "Contact number contains suspicious sequential pattern (max 3 in sequence)";
-            }
-        } else {
-            sequentialCount = 1;
-        }
-    }
-
-    return null;
-};
-
-// --- 3. MAIN COMPONENT ---
+const INPUT_HEIGHT = { mobile: 32, desktop: 40 };
 
 const ProfilePage = () => {
     const { user } = useAuth();
-    const [formDetails] = Form.useForm();
-    const [formPassword] = Form.useForm();
+    const { confirm } = useConfirmDialog();
+    const { isMobile } = useResponsive();
 
+    const inputHeight = isMobile ? INPUT_HEIGHT.mobile : INPUT_HEIGHT.desktop;
+
+    const [profileData, setProfileData] = useState({
+        firstName: "",
+        lastName: "",
+        email: "",
+        contactNumber: "",
+        placeId: "",
+    });
+    const [passwordData, setPasswordData] = useState({
+        newPassword: "",
+        confirmPassword: "",
+    });
+    const [areas, setAreas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [savingDetails, setSavingDetails] = useState(false);
     const [savingPassword, setSavingPassword] = useState(false);
-    const [savingSubscription, setSavingSubscription] = useState(false);
-    const [statusMessage, setStatusMessage] = useState(null);
-    const [barangays, setBarangays] = useState([]);
-    const [isChangingPassword, setIsChangingPassword] = useState(false);
     const [isSubscribed, setIsSubscribed] = useState(false);
+    const [savingSubscription, setSavingSubscription] = useState(false);
+    const [originalContactNumber, setOriginalContactNumber] = useState("");
+    const [hasDefaultPassword, setHasDefaultPassword] = useState(false);
 
+    // Use shared validation hooks
+    const contactValidation = useContactValidation(
+        profileData.contactNumber,
+        true,
+        user?.id,
+        originalContactNumber
+    );
+
+    const passwordValidation = usePasswordValidation(
+        passwordData.newPassword,
+        passwordData.confirmPassword
+    );
+
+    // Add CSS for green button
+    useEffect(() => {
+        const style = document.createElement("style");
+        style.textContent = `
+            .green-button.ant-btn-primary {
+                background-color: ${THEME.GREEN_SUCCESS};
+                border-color: ${THEME.GREEN_SUCCESS};
+            }
+            .green-button.ant-btn-primary:hover:not(:disabled) {
+                background-color: #45a049 !important;
+                border-color: #45a049 !important;
+            }
+            .green-button.ant-btn-primary:active:not(:disabled) {
+                background-color: #3d8b40 !important;
+                border-color: #3d8b40 !important;
+            }
+        `;
+        document.head.appendChild(style);
+        return () => document.head.removeChild(style);
+    }, []);
+
+    // Handle recovery token from URL
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get("token");
         const type = urlParams.get("type");
 
         if (code && type === "recovery") {
-            // exchange code for session
             supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
                 if (error) {
-                    message.error(
-                        "The recovery link has expired or is invalid."
-                    );
+                    showErrorNotification({
+                        message: "Recovery Link Invalid",
+                        description:
+                            "The recovery link has expired or is invalid. Please request a new one.",
+                    });
                 } else {
-                    // set state to show password reset form
-                    setIsChangingPassword(true);
-                    message.success("Please set your new password below.");
+                    showSuccessNotification({
+                        message: "Password Recovery",
+                        description:
+                            "Please set your new password below to secure your account.",
+                    });
                 }
             });
-            // clean URL
             history.replaceState(null, "", window.location.pathname);
         }
     }, []);
 
-    // --- Data Fetching Effect ---
+    // Fetch profile and areas data
     useEffect(() => {
         if (!user) return;
 
         const fetchData = async () => {
             setLoading(true);
             try {
-                // Fetch contact data and places data concurrently
                 const [
                     { data: contactData, error: contactError },
                     { data: placesData, error: placesError },
@@ -132,54 +154,305 @@ const ProfilePage = () => {
                     supabase
                         .from("contacts")
                         .select(
-                            "first_name, last_name, email, contact_number, place_id, subscribed"
+                            "first_name, last_name, email, contact_number, place_id, subscribed, password_changed"
                         )
                         .eq("user_id", user.id)
                         .maybeSingle(),
-                    supabase.from("places").select("id, name"),
+                    supabase.from("places").select("id, name").order("name"),
                 ]);
 
-                if (contactError) throw new Error("Failed to load profile.");
-                if (placesError) throw new Error("Failed to load barangays.");
+                if (contactError)
+                    throw new Error("Failed to load profile data");
+                if (placesError) throw new Error("Failed to load areas");
 
                 if (contactData) {
-                    // Format the contact number for display
                     const formattedNumber = formatPhoneNumber(
-                        contactData.contact_number?.replace("+63", "")
+                        contactData.contact_number?.replace("+63", "") || ""
                     );
-
-                    const initialValues = {
+                    setProfileData({
                         firstName: contactData.first_name || "",
                         lastName: contactData.last_name || "",
                         email: user.email || contactData.email || "",
                         contactNumber: formattedNumber,
-                        place: contactData.place_id || undefined,
-                    };
-                    formDetails.setFieldsValue(initialValues);
+                        placeId: contactData.place_id || "",
+                    });
+                    // Store the clean 10-digit number for comparison
+                    setOriginalContactNumber(formattedNumber); // Update this line
                     setIsSubscribed(contactData.subscribed || false);
+                    setHasDefaultPassword(!contactData.password_changed);
                 }
 
                 if (placesData) {
-                    // Sort barangays alphabetically by name
-                    setBarangays(
-                        placesData.sort((a, b) => a.name.localeCompare(b.name))
-                    );
+                    setAreas(placesData);
                 }
             } catch (error) {
-                message.error(error.message || "Failed to load initial data.");
+                showErrorNotification({
+                    message: "Failed to Load Profile",
+                    description:
+                        error.message ||
+                        "An error occurred while loading your profile data.",
+                });
             } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
-    }, [user, formDetails]);
+    }, [user]);
 
-    // ** Function for Subscription Toggle **
+    // Validate profile form
+    const validateProfileForm = () => {
+        const errors = [];
+
+        const cleanedFirstName = cleanName(profileData.firstName);
+        const cleanedLastName = cleanName(profileData.lastName);
+
+        if (!cleanedFirstName || cleanedFirstName.length < 2) {
+            errors.push("First name must be at least 2 characters");
+        } else if (!/^[a-zA-Z\s]+$/.test(cleanedFirstName)) {
+            errors.push("First name must contain only letters and spaces");
+        }
+
+        if (!cleanedLastName || cleanedLastName.length < 2) {
+            errors.push("Last name must be at least 2 characters");
+        } else if (!/^[a-zA-Z\s]+$/.test(cleanedLastName)) {
+            errors.push("Last name must contain only letters and spaces");
+        }
+
+        if (!profileData.contactNumber) {
+            errors.push("Contact number is required");
+        } else if (profileData.contactNumber.length !== 10) {
+            errors.push("Contact number must be exactly 10 digits");
+        } else if (!profileData.contactNumber.startsWith("9")) {
+            errors.push("Contact number must start with 9");
+        }
+
+        if (contactValidation.exists) {
+            errors.push(
+                "Contact number is already registered to another account"
+            );
+        }
+
+        if (!profileData.placeId) {
+            errors.push("Please select your area");
+        }
+
+        return errors;
+    };
+
+    // Show profile update confirmation dialog
+    const showProfileUpdateConfirmation = () => {
+        const errors = validateProfileForm();
+
+        if (errors.length > 0) {
+            showValidationErrors(errors);
+            return;
+        }
+
+        const selectedArea = areas.find((a) => a.id === profileData.placeId);
+        const cleanedFirstName = capitalizeWords(
+            cleanName(profileData.firstName)
+        );
+        const cleanedLastName = capitalizeWords(
+            cleanName(profileData.lastName)
+        );
+
+        confirm({
+            title: "Update Profile Information?",
+            content: (
+                <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                    <div>
+                        <Text strong style={{ color: THEME.BLUE_PRIMARY }}>
+                            Name:
+                        </Text>{" "}
+                        <Text>
+                            {cleanedFirstName} {cleanedLastName}
+                        </Text>
+                    </div>
+                    <div>
+                        <Text strong style={{ color: THEME.BLUE_PRIMARY }}>
+                            Contact:
+                        </Text>{" "}
+                        <Text>+63{profileData.contactNumber}</Text>
+                    </div>
+                    <div>
+                        <Text strong style={{ color: THEME.BLUE_PRIMARY }}>
+                            Area:
+                        </Text>{" "}
+                        <Text>{selectedArea?.name || "-"}</Text>
+                    </div>
+                </Space>
+            ),
+            okText: "Update Profile",
+            cancelText: "Cancel",
+            onOk: handleSaveDetails,
+        });
+    };
+
+    // Handle profile update
+    const handleSaveDetails = async () => {
+        if (!user) return;
+        setSavingDetails(true);
+
+        try {
+            const cleanedFirstName = capitalizeWords(
+                cleanName(profileData.firstName)
+            );
+            const cleanedLastName = capitalizeWords(
+                cleanName(profileData.lastName)
+            );
+            const formattedNumber = `+63${profileData.contactNumber}`;
+
+            const { error: contactError } = await supabase
+                .from("contacts")
+                .update({
+                    first_name: cleanedFirstName,
+                    last_name: cleanedLastName,
+                    contact_number: formattedNumber,
+                    place_id: profileData.placeId,
+                })
+                .eq("user_id", user.id);
+
+            if (contactError) throw contactError;
+
+            setProfileData((prev) => ({
+                ...prev,
+                firstName: cleanedFirstName,
+                lastName: cleanedLastName,
+            }));
+            setOriginalContactNumber(profileData.contactNumber);
+
+            showSuccessNotification({
+                message: "Profile Updated",
+                description:
+                    "Your profile information has been updated successfully.",
+            });
+        } catch (err) {
+            if (
+                err.code === "23505" ||
+                (err.message &&
+                    err.message.includes("contacts_contact_number_key"))
+            ) {
+                showErrorNotification({
+                    message: "Update Failed",
+                    description:
+                        "This contact number is already registered to another account.",
+                });
+            } else {
+                showErrorNotification({
+                    message: "Update Failed",
+                    description:
+                        err.message ||
+                        "Failed to update profile. Please try again.",
+                });
+            }
+        } finally {
+            setSavingDetails(false);
+        }
+    };
+
+    // Validate password form
+    const validatePasswordForm = () => {
+        const errors = [];
+
+        if (!passwordData.newPassword) {
+            errors.push("New password is required");
+        } else if (!passwordValidation.isValid) {
+            errors.push("Password does not meet all requirements");
+        }
+
+        if (!passwordData.confirmPassword) {
+            errors.push("Please confirm your password");
+        } else if (!passwordValidation.passwordsMatch) {
+            errors.push("Passwords do not match");
+        }
+
+        return errors;
+    };
+
+    // Show password change confirmation dialog
+    const showPasswordChangeConfirmation = () => {
+        const errors = validatePasswordForm();
+
+        if (errors.length > 0) {
+            showValidationErrors(errors);
+            return;
+        }
+
+        confirm({
+            title: "Change Your Password?",
+            content:
+                "Are you sure you want to change your password? You will need to use the new password for future logins.",
+            okText: "Yes, Change Password",
+            cancelText: "Cancel",
+            onOk: handleSavePassword,
+        });
+    };
+
+    // Handle password update
+    const handleSavePassword = async () => {
+        setSavingPassword(true);
+        try {
+            const { error: pwError } = await supabase.auth.updateUser({
+                password: passwordData.newPassword,
+            });
+
+            if (pwError) throw pwError;
+
+            const { error: updateError } = await supabase
+                .from("contacts")
+                .update({ password_changed: true })
+                .eq("user_id", user.id);
+
+            if (updateError) {
+                console.error(
+                    "Failed to update password_changed flag:",
+                    updateError
+                );
+            }
+
+            setPasswordData({ newPassword: "", confirmPassword: "" });
+            setHasDefaultPassword(false);
+
+            showSuccessNotification({
+                message: "Password Updated",
+                description:
+                    "Your password has been changed successfully. Please use your new password for future logins.",
+            });
+        } catch (err) {
+            showErrorNotification({
+                message: "Password Update Failed",
+                description:
+                    err.message ||
+                    "Failed to change password. Please try again.",
+            });
+            setPasswordData({ newPassword: "", confirmPassword: "" });
+        } finally {
+            setSavingPassword(false);
+        }
+    };
+
+    // Show subscription confirmation dialog
+    const showSubscriptionConfirmation = () => {
+        const newStatus = !isSubscribed;
+        confirm({
+            title: newStatus
+                ? "Enable SMS Notifications?"
+                : "Disable SMS Notifications?",
+            content: newStatus
+                ? "Stay informed. You will receive real-time emergency alerts and important community updates directly to your phone."
+                : "Are you sure? By unsubscribing, you may miss critical safety alerts and time-sensitive announcements.",
+            okText: newStatus ? "Enable Updates" : "Unsubscribe",
+            cancelText: "Keep as is",
+            danger: !newStatus,
+            onOk: handleToggleSubscription,
+        });
+    };
+
+    // Handle subscription toggle
     const handleToggleSubscription = async () => {
         if (!user) return;
         setSavingSubscription(true);
-        setStatusMessage(null);
         const newStatus = !isSubscribed;
 
         try {
@@ -191,571 +464,485 @@ const ProfilePage = () => {
             if (error) throw error;
 
             setIsSubscribed(newStatus);
-            const msg = newStatus
-                ? "✅ Successfully Subscribed to Barangay Announcements! (Matagumpay na naka-subscribe sa mga anunsyo ng Barangay.)"
-                : "✅ Successfully Unsubscribed from Barangay Announcements. (Matagumpay na naka-unsubscribe sa mga anunsyo ng Barangay.)";
-            setStatusMessage(msg);
-            message.success(newStatus ? "Subscribed!" : "Unsubscribed!");
+
+            showSuccessNotification({
+                message: newStatus ? "Alerts Enabled" : "Alerts Disabled",
+                description: newStatus
+                    ? "You will now receive emergency alerts and important announcements via SMS."
+                    : "You have been unsubscribed from SMS notifications.",
+            });
         } catch (err) {
-            let userFriendlyMsg =
-                err.message ||
-                "A system error occurred while updating subscription status. (Nagkaroon ng error sa sistema habang pinoproseso ang pag-update ng subscription.)";
-            setStatusMessage(`❌ ${userFriendlyMsg}`);
-            message.error(userFriendlyMsg);
+            showErrorNotification({
+                message: "Update Failed",
+                description:
+                    err.message ||
+                    "Failed to update subscription status. Please try again.",
+            });
         } finally {
             setSavingSubscription(false);
         }
     };
 
-    // ** Function for Saving Personal Details **
-    const handleSaveDetails = async (values) => {
-        if (!user) return;
-        setSavingDetails(true);
-        setStatusMessage(null);
+    // Loading state
+    if (loading) {
+        return (
+            <div
+                style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "rgba(255, 255, 255)",
+                    zIndex: 100,
+                }}>
+                <Spin size="large" tip="Loading profile..." />
+            </div>
+        );
+    }
 
-        try {
-            // Format and prepend +63 if contact number is present
-            const formattedNumber = formatPhoneNumber(values.contactNumber);
-            const contactNumberToSave = formattedNumber
-                ? `+63${formattedNumber}`
-                : null;
-
-            const { error: contactError } = await supabase
-                .from("contacts")
-                .update({
-                    first_name: values.firstName,
-                    last_name: values.lastName,
-                    contact_number: contactNumberToSave,
-                    place_id: values.place || null,
-                })
-                .eq("user_id", user.id);
-
-            if (contactError) throw contactError;
-
-            setStatusMessage(
-                "✅ Official Resident Record Updated Successfully. (Matagumpay na na-update ang talaan ng residente.)"
-            );
-            message.success("Profile updated in the Barangay database.");
-        } catch (err) {
-            let userFriendlyMsg = "";
-
-            // Custom error message for unique constraint violation on contact_number
-            if (
-                err.code === "23505" ||
-                (err.message &&
-                    err.message.includes("contacts_contact_number_key"))
-            ) {
-                userFriendlyMsg =
-                    "Contact number is already taken. (Ang contact number na ito ay ginagamit na ng iba.)";
-            } else {
-                userFriendlyMsg =
-                    err.message ||
-                    "A system error occurred while processing the detail update. (Nagkaroon ng error sa sistema habang pinoproseso ang pag-update ng detalye.)";
-            }
-
-            setStatusMessage(`❌ ${userFriendlyMsg}`);
-            message.error(userFriendlyMsg);
-        } finally {
-            setSavingDetails(false);
-        }
-    };
-
-    // ** Function for Saving Password **
-    const handleSavePassword = async (values) => {
-        setSavingPassword(true);
-        setStatusMessage(null);
-
-        try {
-            const { error: pwError } = await supabase.auth.updateUser({
-                password: values.newPassword,
-            });
-
-            if (pwError) throw pwError;
-
-            formPassword.resetFields();
-            setIsChangingPassword(false);
-
-            setStatusMessage(
-                "✅ Your password has been successfully updated! (Maaari ninyong ipagpatuloy ang inyong kasalukuyang session nang walang abala. Ang bagong password ay gagamitin lamang sa inyong susunod na pag-login.)"
-            );
-            message.success("Password successfully changed!");
-        } catch (err) {
-            const msg =
-                err.message ||
-                "An authentication error occurred while changing the password. (Nagkaroon ng error sa pagpapatunay habang pinapalitan ang password.)";
-            setStatusMessage(`❌ ${msg}`);
-            message.error(msg);
-
-            formPassword.resetFields();
-        } finally {
-            setSavingPassword(false);
-        }
-    };
-
-    const isError = useMemo(
-        () => statusMessage && statusMessage.startsWith("❌"),
-        [statusMessage]
-    );
-
-    // --- 4. RENDER MAIN CONTENT ---
     return (
         <Content
             style={{
-                padding: "40px 20px",
+                padding: isMobile ? 16 : 24,
                 maxWidth: THEME.MAX_WIDTH,
                 margin: "0 auto",
             }}>
-            <Title
-                level={1}
-                style={{ marginBottom: "15px", color: THEME.BLUE_AUTHORITY }}>
-                <UserOutlined style={{ marginRight: 10 }} />
-                Barangay Resident Account Management
-            </Title>
-            <Divider style={{ marginTop: 0, marginBottom: 30 }} />
-
-            {statusMessage && (
-                <Alert
-                    message={
-                        <Text
-                            strong
-                            style={{
-                                color: isError ? THEME.RED_ERROR : undefined,
-                            }}>
-                            {isError
-                                ? "Operation Failed"
-                                : "Operation Successful"}
-                        </Text>
-                    }
-                    description={statusMessage.replace(/^[✅❌]\s?/, "")}
-                    type={isError ? "error" : "success"}
-                    showIcon
-                    closable
-                    onClose={() => setStatusMessage(null)}
-                    motion={false}
+            <header style={{ marginBottom: THEME.SPACING_LG }}>
+                <Title
+                    level={isMobile ? 3 : 1}
                     style={{
-                        marginBottom: "30px",
-                        borderLeft: `5px solid ${
-                            isError ? THEME.RED_ERROR : THEME.GREEN_SUCCESS
-                        }`,
-                        padding: "15px 20px",
-                    }}
-                />
-            )}
+                        margin: 0,
+                        marginBottom: THEME.SPACING_XS,
+                        color: THEME.BLUE_AUTHORITY,
+                    }}>
+                    <UserOutlined style={{ marginRight: THEME.SPACING_XS }} />
+                    Account Settings
+                </Title>
+            </header>
 
-            <Row gutter={[30, 30]}>
-                {/* 1. Personal Details Form */}
-                <Col xs={24} lg={8}>
+            <Row gutter={[THEME.SPACING_MD, THEME.SPACING_MD]}>
+                {/* Personal Details Card */}
+                <Col xs={24} md={12} lg={8}>
                     <Card
                         title={
-                            <Title
-                                level={3}
-                                style={{
-                                    margin: 0,
-                                    color: THEME.BLUE_AUTHORITY,
-                                }}>
+                            <Space size={THEME.SPACING_XS}>
                                 <EnvironmentOutlined
-                                    style={{ marginRight: 8 }}
+                                    style={{ color: THEME.BLUE_AUTHORITY }}
                                 />
-                                Resident Identification Record
-                            </Title>
+                                <Text strong>Personal Information</Text>
+                            </Space>
                         }
-                        bordered={false}
                         style={{
+                            ...cardStyle,
+                            borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
                             height: "100%",
-                            boxShadow: THEME.CARD_SHADOW,
-                            borderTop: `5px solid ${THEME.BLUE_AUTHORITY}`,
                         }}>
-                        {loading ? (
-                            <Spin
-                                tip="Loading profile..."
-                                style={{
-                                    display: "block",
-                                    margin: "50px auto",
-                                }}
-                            />
-                        ) : (
-                            <Form
-                                {...FORM_LAYOUT}
-                                form={formDetails}
-                                onFinish={handleSaveDetails}
-                                layout="vertical">
-                                <Row gutter={24}>
-                                    <Col span={12}>
-                                        <Form.Item
-                                            label="First Name (Given Name)"
-                                            name="firstName"
-                                            rules={[
-                                                {
-                                                    required: true,
-                                                    message:
-                                                        "First Name is required for the record! (Pangalan ay kinakailangan sa rekord!)",
-                                                },
-                                            ]}>
-                                            <Input placeholder="e.g. Juan (Hal. Juan)" />
-                                        </Form.Item>
-                                    </Col>
-                                    <Col span={12}>
-                                        <Form.Item
-                                            label="Last Name (Surname)"
-                                            name="lastName"
-                                            rules={[
-                                                {
-                                                    required: true,
-                                                    message:
-                                                        "Last Name is required for the record! (Apelyido ay kinakailangan sa rekord!)",
-                                                },
-                                            ]}>
-                                            <Input placeholder="e.g. Dela Cruz (Hal. Dela Cruz)" />
-                                        </Form.Item>
-                                    </Col>
-                                </Row>
+                        <Space
+                            direction="vertical"
+                            size={THEME.SPACING_SM}
+                            style={{ width: "100%" }}>
+                            <FloatLabel value={profileData.firstName}>
+                                <label
+                                    style={{
+                                        fontWeight: 600,
+                                        color: THEME.BLUE_PRIMARY,
+                                    }}>
+                                    First Name
+                                </label>
+                                <Input
+                                    prefix={<UserOutlined />}
+                                    value={profileData.firstName}
+                                    onChange={(e) =>
+                                        setProfileData((prev) => ({
+                                            ...prev,
+                                            firstName: capitalizeWords(
+                                                e.target.value
+                                            ),
+                                        }))
+                                    }
+                                    style={{ height: inputHeight }}
+                                />
+                            </FloatLabel>
 
-                                <Form.Item
-                                    label="Primary Email Address (System Login ID)"
-                                    name="email"
-                                    tooltip="This is your permanent system login ID. It cannot be changed here. (Ito ang iyong permanenteng system login ID. Hindi ito mababago dito.)">
-                                    <Input
-                                        disabled
+                            <FloatLabel value={profileData.lastName}>
+                                <label
+                                    style={{
+                                        fontWeight: 600,
+                                        color: THEME.BLUE_PRIMARY,
+                                    }}>
+                                    Last Name
+                                </label>
+                                <Input
+                                    prefix={<UserOutlined />}
+                                    value={profileData.lastName}
+                                    onChange={(e) =>
+                                        setProfileData((prev) => ({
+                                            ...prev,
+                                            lastName: capitalizeWords(
+                                                e.target.value
+                                            ),
+                                        }))
+                                    }
+                                    style={{ height: inputHeight }}
+                                />
+                            </FloatLabel>
+
+                            <FloatLabel value={profileData.email}>
+                                <label
+                                    style={{
+                                        fontWeight: 600,
+                                        color: THEME.BLUE_PRIMARY,
+                                    }}>
+                                    Email Address
+                                </label>
+                                <Input
+                                    value={profileData.email}
+                                    disabled
+                                    prefix={<MailOutlined />}
+                                    style={{ height: inputHeight }}
+                                />
+                            </FloatLabel>
+
+                            <div>
+                                <FloatLabel
+                                    value={profileData.contactNumber}
+                                    status={
+                                        profileData.contactNumber &&
+                                        contactValidation.touched &&
+                                        !contactValidation.isValid &&
+                                        !contactValidation.checking
+                                            ? "error"
+                                            : profileData.contactNumber &&
+                                              contactValidation.touched &&
+                                              contactValidation.isValid
+                                            ? "success"
+                                            : undefined
+                                    }>
+                                    <label
                                         style={{
-                                            backgroundColor: "#f5f5f5",
-                                            color: "rgba(0, 0, 0, 0.65)",
-                                            cursor: "not-allowed",
-                                        }}
-                                        addonBefore={<UserOutlined />}
-                                    />
-                                </Form.Item>
-
-                                <Form.Item
-                                    label="Contact Number (For Barangay Updates)"
-                                    name="contactNumber"
-                                    rules={[
-                                        {
-                                            required: true,
-                                            message:
-                                                "Please input your 10-digit contact number! (Pakilagay ang inyong 10-digit contact number!)",
-                                        },
-                                        {
-                                            len: 10,
-                                            message:
-                                                "Contact number must be exactly 10 digits (excluding +63). (Ang contact number ay dapat 10 digits lang.)",
-                                        },
-                                        {
-                                            pattern: /^\d+$/,
-                                            message:
-                                                "Contact number must contain only digits. (Contact number ay dapat na mga numero lamang.)",
-                                        },
-                                        {
-                                            validator: (_, value) => {
-                                                if (!value)
-                                                    return Promise.resolve();
-                                                const suspiciousError =
-                                                    detectSuspiciousPattern(
-                                                        value
-                                                    );
-                                                if (suspiciousError) {
-                                                    return Promise.reject(
-                                                        new Error(
-                                                            `${suspiciousError} (Hindi pwedeng mahigit 3 magkaparehong o sunod-sunod na numero.)`
-                                                        )
-                                                    );
-                                                }
-                                                return Promise.resolve();
-                                            },
-                                        },
-                                    ]}>
+                                            fontWeight: 600,
+                                            color: THEME.BLUE_PRIMARY,
+                                        }}>
+                                        Contact Number
+                                    </label>
                                     <Input
-                                        addonBefore="+63"
+                                        prefix={
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                }}>
+                                                <PhoneOutlined
+                                                    style={{
+                                                        marginRight: "2px",
+                                                    }}
+                                                />
+                                                <span
+                                                    style={{
+                                                        userSelect: "none",
+                                                    }}>
+                                                    +63
+                                                </span>
+                                            </div>
+                                        }
                                         maxLength={10}
-                                        placeholder="e.g. 917xxxxxxx"
+                                        value={profileData.contactNumber}
                                         onChange={(e) => {
                                             const formatted = formatPhoneNumber(
                                                 e.target.value
                                             );
-                                            formDetails.setFieldValue(
-                                                "contactNumber",
-                                                formatted
-                                            );
+                                            setProfileData((prev) => ({
+                                                ...prev,
+                                                contactNumber: formatted,
+                                            }));
+                                        }}
+                                        style={{ height: inputHeight }}
+                                        styles={{
+                                            prefix: { marginRight: 0 },
                                         }}
                                     />
-                                </Form.Item>
-                                <div
+                                </FloatLabel>
+                                <InlineValidationText
+                                    isValid={contactValidation.isValid}
+                                    checking={contactValidation.checking}
+                                    touched={contactValidation.touched}
+                                    validText="Contact number is available"
+                                    invalidText={
+                                        contactValidation.exists
+                                            ? "This number is already registered"
+                                            : "Invalid contact number"
+                                    }
+                                />
+                            </div>
+
+                            <FloatLabel value={profileData.placeId}>
+                                <label
                                     style={{
-                                        marginTop: -20,
-                                        marginBottom: 24,
-                                    }}></div>
+                                        fontWeight: 600,
+                                        color: THEME.BLUE_PRIMARY,
+                                    }}>
+                                    Area
+                                </label>
 
-                                <Form.Item
-                                    label="Permanent Barangay Assignment"
-                                    name="place"
-                                    rules={[
-                                        {
-                                            required: true,
-                                            message:
-                                                "Please select your official Barangay. (Pumili ng inyong opisyal na Barangay.)",
-                                        },
-                                    ]}>
+                                <div style={{ position: "relative" }}>
+                                    {profileData.placeId && (
+                                        <HomeOutlined
+                                            style={{
+                                                position: "absolute",
+                                                left: 12,
+                                                top: "50%",
+                                                transform: "translateY(-50%)",
+                                                color: THEME.BLUE_PRIMARY,
+                                                pointerEvents: "none",
+                                                zIndex: 2,
+                                            }}
+                                        />
+                                    )}
                                     <Select
-                                        placeholder="Select Barangay (Pumili ng Barangay)"
-                                        allowClear
-                                        showSearch
-                                        filterOption={(input, option) =>
-                                            option.children
-                                                .toLowerCase()
-                                                .indexOf(input.toLowerCase()) >=
-                                            0
-                                        }>
-                                        {barangays.map((b) => (
-                                            <Option key={b.id} value={b.id}>
-                                                {b.name}
-                                            </Option>
-                                        ))}
-                                    </Select>
-                                </Form.Item>
-
-                                <Form.Item
-                                    style={{ marginBottom: 0, marginTop: 30 }}>
-                                    <Button
-                                        type="primary"
-                                        htmlType="submit"
-                                        loading={savingDetails}
-                                        icon={<EnvironmentOutlined />}
-                                        size="large"
+                                        value={profileData.placeId || undefined}
+                                        onChange={(value) =>
+                                            setProfileData((prev) => ({
+                                                ...prev,
+                                                placeId: value,
+                                            }))
+                                        }
                                         style={{
-                                            backgroundColor:
-                                                THEME.BLUE_PRIMARY_BUTTON,
-                                            borderColor:
-                                                THEME.BLUE_PRIMARY_BUTTON,
-                                            fontWeight: "bold",
                                             width: "100%",
-                                        }}>
-                                        {savingDetails
-                                            ? "Processing Update..."
-                                            : "Update Record"}
-                                    </Button>
-                                </Form.Item>
-                            </Form>
-                        )}
+                                            height: inputHeight,
+                                        }}
+                                        options={areas.map((a) => ({
+                                            label: a.name,
+                                            value: a.id,
+                                        }))}
+                                    />
+                                </div>
+                            </FloatLabel>
+
+                            <Button
+                                type="primary"
+                                block
+                                loading={savingDetails}
+                                onClick={showProfileUpdateConfirmation}
+                                disabled={
+                                    contactValidation.exists ||
+                                    contactValidation.checking
+                                }
+                                style={{
+                                    height: inputHeight,
+                                    fontWeight: 600,
+                                    marginTop: THEME.SPACING_SM,
+                                }}>
+                                Update Profile
+                            </Button>
+                        </Space>
                     </Card>
                 </Col>
 
-                {/* 2. Password Change Section */}
-                <Col xs={24} lg={8}>
+                {/* Password Card */}
+                <Col xs={24} md={12} lg={8}>
                     <Card
                         title={
-                            <Title
-                                level={3}
-                                style={{
-                                    margin: 0,
-                                    color: THEME.BLUE_AUTHORITY,
-                                }}>
-                                <SafetyOutlined style={{ marginRight: 8 }} />
-                                Authentication Security
-                            </Title>
+                            <Space size={THEME.SPACING_XS}>
+                                <SafetyOutlined
+                                    style={{ color: THEME.BLUE_AUTHORITY }}
+                                />
+                                <Text strong>Security</Text>
+                            </Space>
                         }
-                        bordered={false}
                         style={{
+                            ...cardStyle,
+                            borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
                             height: "100%",
-                            boxShadow: THEME.CARD_SHADOW,
-                            borderTop: `5px solid ${THEME.BLUE_AUTHORITY}`,
                         }}>
-                        <Alert
-                            message="Security Warning"
-                            description="Always ensure that you are the only one who knows your login credentials. Never share your new password with anyone. (Siguraduhin na kayo lamang ang nakakaalam ng inyong login credentials. Huwag kailanman ibahagi ang inyong bagong password sa kahit kanino.)"
-                            type="warning"
-                            showIcon
-                            motion={false}
-                            style={{ marginBottom: "25px" }}
-                        />
+                        <Space
+                            direction="vertical"
+                            size={THEME.SPACING_MD}
+                            style={{ width: "100%" }}>
+                            <Alert
+                                message={
+                                    hasDefaultPassword
+                                        ? "Action Required"
+                                        : "Security Recommendation"
+                                }
+                                description={
+                                    hasDefaultPassword
+                                        ? "Your account is currently using the default password set by the administrator. For your security, please change it to a personal password immediately."
+                                        : "Keep your account secure by using a strong password. If your password was initially set up by a Barangay Administrator, consider updating it to something more personal."
+                                }
+                                type={hasDefaultPassword ? "warning" : "info"}
+                                showIcon
+                                style={{ fontSize: 13 }}
+                            />
 
-                        {!isChangingPassword ? (
+                            <FloatLabel
+                                label="New Password"
+                                value={passwordData.newPassword}>
+                                <Input.Password
+                                    prefix={<LockOutlined />}
+                                    value={passwordData.newPassword}
+                                    onChange={(e) =>
+                                        setPasswordData((prev) => ({
+                                            ...prev,
+                                            newPassword: e.target.value,
+                                        }))
+                                    }
+                                    style={{ height: inputHeight }}
+                                />
+                            </FloatLabel>
+
+                            {passwordData.newPassword && (
+                                <>
+                                    <PasswordRequirements
+                                        checks={passwordValidation.checks}
+                                        showOnlyIncomplete={false}
+                                    />
+                                    <PasswordStrengthIndicator
+                                        strength={passwordValidation.strength}
+                                        showLabel={true}
+                                    />
+                                </>
+                            )}
+
+                            <div>
+                                <FloatLabel
+                                    label="Confirm Password"
+                                    value={passwordData.confirmPassword}
+                                    status={
+                                        passwordData.confirmPassword &&
+                                        !passwordValidation.passwordsMatch
+                                            ? "error"
+                                            : passwordData.confirmPassword &&
+                                              passwordValidation.passwordsMatch
+                                            ? "success"
+                                            : undefined
+                                    }>
+                                    <Input.Password
+                                        prefix={<LockOutlined />}
+                                        value={passwordData.confirmPassword}
+                                        onChange={(e) =>
+                                            setPasswordData((prev) => ({
+                                                ...prev,
+                                                confirmPassword: e.target.value,
+                                            }))
+                                        }
+                                        style={{ height: inputHeight }}
+                                    />
+                                </FloatLabel>
+                                {passwordData.confirmPassword && (
+                                    <InlineValidationText
+                                        isValid={
+                                            passwordValidation.passwordsMatch
+                                        }
+                                        checking={false}
+                                        validText="Passwords match"
+                                        invalidText="Passwords do not match"
+                                    />
+                                )}
+                            </div>
+
+                            <Button
+                                type="primary"
+                                block
+                                loading={savingPassword}
+                                onClick={showPasswordChangeConfirmation}
+                                icon={<LockOutlined />}
+                                disabled={
+                                    !passwordValidation.isValid ||
+                                    !passwordValidation.passwordsMatch
+                                }
+                                style={{
+                                    height: inputHeight,
+                                    fontWeight: 600,
+                                    marginTop: THEME.SPACING_SM,
+                                }}>
+                                Update Password
+                            </Button>
+                        </Space>
+                    </Card>
+                </Col>
+
+                {/* Subscription Card */}
+                <Col xs={24} md={12} lg={8}>
+                    <Card
+                        title={
                             <div
                                 style={{
                                     display: "flex",
                                     alignItems: "center",
-                                    justifyContent: "center",
-                                    padding: "10px 0",
+                                    justifyContent: "space-between",
+                                    width: "100%",
                                 }}>
-                                <Button
-                                    type="default"
-                                    onClick={() => {
-                                        formPassword.resetFields();
-                                        setIsChangingPassword(true);
-                                        setStatusMessage(null);
-                                    }}
-                                    icon={<LockOutlined />}
-                                    size="large"
-                                    style={{
-                                        fontWeight: "bold",
-                                        height: "40px",
-                                        color: THEME.BLUE_AUTHORITY,
-                                        borderColor: THEME.BLUE_AUTHORITY,
-                                        width: "100%",
-                                    }}>
-                                    Change Password
-                                </Button>
+                                <Space size={THEME.SPACING_XS} align="center">
+                                    <BellOutlined
+                                        style={{
+                                            color: isSubscribed
+                                                ? THEME.GREEN_SUCCESS
+                                                : THEME.RED_ERROR,
+                                        }}
+                                    />
+                                    <Text strong>Emergency Alerts</Text>
+                                </Space>
+
+                                <Badge
+                                    status={isSubscribed ? "success" : "error"}
+                                    text={isSubscribed ? "Active" : "Disabled"}
+                                />
                             </div>
-                        ) : (
-                            <Form
-                                {...FORM_LAYOUT}
-                                form={formPassword}
-                                onFinish={handleSavePassword}
-                                layout="vertical">
-                                <Form.Item
-                                    label="New Password"
-                                    name="newPassword"
-                                    rules={[
-                                        {
-                                            required: true,
-                                            message:
-                                                "A new password is required! (Ang bagong password ay kinakailangan!)",
-                                        },
-                                        {
-                                            min: 8,
-                                            message:
-                                                "Password must be at least 8 characters for security. (Ang password ay dapat hindi bababa sa 8 karakter.)",
-                                        },
-                                    ]}>
-                                    <Input.Password placeholder="Enter New Secure Password" />
-                                </Form.Item>
-
-                                <Form.Item
-                                    label="Confirm New Password"
-                                    name="confirmPassword"
-                                    dependencies={["newPassword"]}
-                                    rules={[
-                                        {
-                                            required: true,
-                                            message:
-                                                "Please confirm the new password! (Pakikumpirma ang bagong password!)",
-                                        },
-                                        ({ getFieldValue }) => ({
-                                            validator(_, value) {
-                                                if (
-                                                    !value ||
-                                                    getFieldValue(
-                                                        "newPassword"
-                                                    ) === value
-                                                ) {
-                                                    return Promise.resolve();
-                                                }
-                                                return Promise.reject(
-                                                    new Error(
-                                                        "The passwords do not match! (Ang mga password ay hindi magkatugma!)"
-                                                    )
-                                                );
-                                            },
-                                        }),
-                                    ]}>
-                                    <Input.Password placeholder="Re-enter New Password" />
-                                </Form.Item>
-
-                                <Form.Item
-                                    style={{ marginBottom: 0, marginTop: 20 }}>
-                                    <Space
-                                        direction="vertical"
-                                        style={{ width: "100%" }}>
-                                        <Button
-                                            type="primary"
-                                            htmlType="submit"
-                                            loading={savingPassword}
-                                            icon={<SafetyOutlined />}
-                                            size="large"
-                                            style={{
-                                                backgroundColor:
-                                                    THEME.BLUE_PRIMARY_BUTTON,
-                                                borderColor:
-                                                    THEME.BLUE_PRIMARY_BUTTON,
-                                                fontWeight: "bold",
-                                                width: "100%",
-                                            }}>
-                                            {savingPassword
-                                                ? "Securing Password..."
-                                                : "Save New Password"}
-                                        </Button>
-                                        <Button
-                                            type="default"
-                                            onClick={() => {
-                                                setIsChangingPassword(false);
-                                                formPassword.resetFields();
-                                                setStatusMessage(null);
-                                            }}
-                                            style={{ width: "100%" }}>
-                                            Cancel Change
-                                        </Button>
-                                    </Space>
-                                </Form.Item>
-                            </Form>
-                        )}
-                    </Card>
-                </Col>
-
-                {/* 3. Subscription Management Section */}
-                <Col xs={24} lg={8}>
-                    <Card
-                        title={
-                            <Title
-                                level={3}
-                                style={{
-                                    margin: 0,
-                                    color: THEME.BLUE_AUTHORITY,
-                                }}>
-                                <BellOutlined style={{ marginRight: 8 }} />
-                                Barangay Announcements
-                            </Title>
                         }
-                        bordered={false}
                         style={{
-                            height: "100%",
-                            boxShadow: THEME.CARD_SHADOW,
+                            ...cardStyle,
                             borderTop: `5px solid ${
                                 isSubscribed
                                     ? THEME.GREEN_SUCCESS
                                     : THEME.RED_ERROR
                             }`,
+                            borderColor: isSubscribed
+                                ? THEME.GREEN_SUCCESS
+                                : THEME.RED_ERROR, // ADD THIS
+                            height: "100%",
                         }}>
-                        <Alert
-                            message={
-                                isSubscribed
-                                    ? "Subscription Active"
-                                    : "Subscription Inactive"
-                            }
-                            description={
-                                isSubscribed
-                                    ? "You are currently subscribed to receive important updates and announcements from your Barangay. (Nakakatanggap kayo ng mahahalagang balita at anunsyo.)"
-                                    : "You are currently NOT subscribed to receive Barangay updates. Click below to subscribe. (Hindi kayo nakakatanggap ng mga anunsyo.)"
-                            }
-                            type={isSubscribed ? "success" : "error"}
-                            showIcon
-                            motion={false}
-                            style={{ marginBottom: "25px" }}
-                        />
+                        <Space
+                            direction="vertical"
+                            size={THEME.SPACING_MD}
+                            style={{ width: "100%" }}>
+                            <Alert
+                                message={
+                                    isSubscribed
+                                        ? "Notifications Active"
+                                        : "Action Required"
+                                }
+                                description={
+                                    isSubscribed
+                                        ? "You are currently receiving critical safety updates, disaster warnings, and barangay announcements via SMS."
+                                        : "You are currently opted out. You will not receive urgent SMS alerts regarding floods, fires, or community emergencies."
+                                }
+                                type={isSubscribed ? "success" : "error"}
+                                showIcon
+                            />
 
-                        <Button
-                            type={isSubscribed ? "default" : "primary"}
-                            onClick={handleToggleSubscription}
-                            loading={savingSubscription}
-                            icon={<BellOutlined />}
-                            size="large"
-                            danger={isSubscribed}
-                            style={{
-                                width: "100%",
-                                fontWeight: "bold",
-                                ...(isSubscribed
-                                    ? {
-                                          color: THEME.RED_ERROR,
-                                          borderColor: THEME.RED_ERROR,
-                                      }
-                                    : {
-                                          backgroundColor: THEME.GREEN_SUCCESS,
-                                          borderColor: THEME.GREEN_SUCCESS,
-                                      }),
-                            }}>
-                            {savingSubscription
-                                ? "Updating..."
-                                : isSubscribed
-                                ? "Unsubscribe"
-                                : "Subscribe"}
-                        </Button>
+                            <Button
+                                type={isSubscribed ? "default" : "primary"}
+                                danger={isSubscribed}
+                                block
+                                loading={savingSubscription}
+                                onClick={showSubscriptionConfirmation}
+                                icon={<BellOutlined />}
+                                className={!isSubscribed ? "green-button" : ""}
+                                style={{
+                                    height: inputHeight,
+                                    fontWeight: 600,
+                                    marginTop: THEME.SPACING_SM,
+                                }}>
+                                {isSubscribed
+                                    ? "Turn Off Alerts"
+                                    : "Turn On Alerts"}
+                            </Button>
+                        </Space>
                     </Card>
                 </Col>
             </Row>
