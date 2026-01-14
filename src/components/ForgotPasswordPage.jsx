@@ -126,6 +126,7 @@ const ForgotPasswordPage = () => {
                     style={{ width: "100%" }}>
                     <FloatLabel label="Registered Email Address" value={email}>
                         <Input
+                            type="email"
                             prefix={<MailOutlined />}
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}

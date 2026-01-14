@@ -216,9 +216,9 @@ const DefaultPasswordModal = ({ isOpen, onClose, isMobile }) => {
             footer={null}
             width={isMobile ? "100%" : 500}
             centered
-            destroyOnClose>
+            destroyOnHidden>
             <Card
-                bordered={false}
+                variant={false}
                 style={{
                     borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
                     marginTop: 16,
@@ -574,9 +574,9 @@ const ThresholdSettingsModal = ({
             footer={null}
             width={isMobile ? "100%" : 600}
             centered
-            destroyOnClose>
+            destroyOnHidden>
             <Card
-                bordered={false}
+                variant={false}
                 style={{
                     borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
                     marginTop: 16,
@@ -1034,7 +1034,7 @@ const DashboardPage = () => {
                     backgroundColor: "rgba(255, 255, 255, 0.9)",
                     zIndex: 100,
                 }}>
-                <Spin size="large" tip="Loading dashboard..." />
+                <Spin size="large" />
             </div>
         );
     }

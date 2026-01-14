@@ -831,7 +831,7 @@ const UserManagement = () => {
                     backgroundColor: "rgba(255, 255, 255)",
                     zIndex: 100,
                 }}>
-                <Spin size="large" tip="Loading contact management..." />
+                <Spin size="large" />
             </div>
         );
     }
@@ -1017,7 +1017,6 @@ const UserManagement = () => {
         },
     ];
 
-// UserManagement.jsx second half
     return (
         <div style={{ padding: isMobile ? 16 : 24 }}>
             <Card
@@ -1780,8 +1779,7 @@ const UserManagement = () => {
                                 block
                                 onClick={() => {
                                     const link = document.createElement("a");
-                                    link.href =
-                                        "/safe_contact_list.xlsx";
+                                    link.href = "/safe_contact_list.xlsx";
                                     link.download = "safe_contact_list.xlsx";
                                     link.click();
                                 }}

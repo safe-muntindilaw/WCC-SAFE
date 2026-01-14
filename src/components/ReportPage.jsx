@@ -511,7 +511,7 @@ const ReportPage = () => {
                     backgroundColor: "rgba(255, 255, 255)",
                     zIndex: 100,
                 }}>
-                <Spin size="large" tip="Loading water level data..." />
+                <Spin size="large" />
             </div>
         );
     }
@@ -531,7 +531,7 @@ const ReportPage = () => {
                         marginBottom: 16,
                         border: "none",
                     }}
-                    bodyStyle={{ padding: isMobile ? 16 : 20 }}>
+                    styles={{ body: { padding: isMobile ? 16 : 20 } }}>
                     <Row
                         align="middle"
                         justify="space-between"
@@ -575,7 +575,7 @@ const ReportPage = () => {
                         ...cardStyle,
                         borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
                     }}
-                    bodyStyle={{ padding: isMobile ? 16 : 20 }}
+                    styles={{ body: { padding: isMobile ? 16 : 20 } }}
                     title={
                         isMobile && (
                             <Row justify="space-between" align="middle">
@@ -964,7 +964,7 @@ const ReportPage = () => {
                                             allowClear={false}
                                             style={{
                                                 width: "100%",
-                                                height: 40,
+                                                height: 32,
                                             }}
                                         />
                                     </div>
@@ -983,7 +983,7 @@ const ReportPage = () => {
                                             onChange={setMonthView}
                                             style={{
                                                 width: "100%",
-                                                height: 40,
+                                                height: 32,
                                             }}>
                                             <Option value="day">Daily</Option>
                                             <Option value="week">Weekly</Option>
@@ -1066,6 +1066,7 @@ const ReportPage = () => {
                                     display: "flex",
                                     justifyContent: "center",
                                     marginTop: 8,
+                                    width: "auto",
                                 }}>
                                 <Button
                                     shape="circle"

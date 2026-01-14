@@ -1,24 +1,23 @@
-// notifications.jsx
+import { App } from "antd";
+import React from "react";
 
-import { notification } from "antd";
+let notificationInstance = null;
 
-// Global configuration for notifications
-notification.config({
-    placement: "topRight",
-    duration: 3,
-    maxCount: 3,
-    // Ensures notifications appear on top of modals/drawers
-    getContainer: () => document.body,
-});
+export const NotificationSetter = () => {
+    const { notification } = App.useApp();
+    notificationInstance = notification;
+    return null;
+};
 
-// Helper to keep code DRY since zIndex and basic structure are repeated
 const openNotification = (type, content, duration, description = "") => {
-    notification[type]({
-        message: content,
-        description: description,
-        duration: duration,
-        style: { zIndex: 9999 },
-    });
+    if (notificationInstance) {
+        notificationInstance[type]({
+            message: content,
+            description: description,
+            duration: duration,
+            style: { zIndex: 9999 },
+        });
+    }
 };
 
 export const showSuccess = (content, duration = 3) => {
@@ -37,67 +36,67 @@ export const showInfo = (content, duration = 3) => {
     openNotification("info", content, duration);
 };
 
-// Note: Notifications don't have a built-in 'loading' spinner icon like message does.
-// We use the 'info' type with a loading-style message.
 export const showLoading = (content = "Loading...", duration = 0) => {
     const key = `loading-${Date.now()}`;
-    notification.info({
-        key,
-        message: content,
-        duration,
-        style: { zIndex: 9999 },
-        // You can add an icon property here if you want a custom spinner
-    });
-    return key; // Return key so it can be manually closed via notification.destroy(key)
+    if (notificationInstance) {
+        notificationInstance.info({
+            key,
+            message: content,
+            duration,
+            style: { zIndex: 9999 },
+        });
+    }
+    return key;
 };
 
 export const showSuccessNotification = ({
-    message: msg,
+    message,
     description,
     duration = 4.5,
 }) => {
-    openNotification("success", msg, duration, description);
+    openNotification("success", message, duration, description);
 };
 
 export const showErrorNotification = ({
-    message: msg,
+    message,
     description,
-    duration = 0, // Errors often stay until closed
+    duration = 0,
 }) => {
-    openNotification("error", msg, duration, description);
+    openNotification("error", message, duration, description);
 };
 
 export const showWarningNotification = ({
-    message: msg,
+    message,
     description,
     duration = 4.5,
 }) => {
-    openNotification("warning", msg, duration, description);
+    openNotification("warning", message, duration, description);
 };
 
 export const showInfoNotification = ({
-    message: msg,
+    message,
     description,
     duration = 4.5,
 }) => {
-    openNotification("info", msg, duration, description);
+    openNotification("info", message, duration, description);
 };
 
 export const showValidationErrors = (errors) => {
     const errorList = Array.isArray(errors) ? errors : [errors];
-
-    notification.error({
-        message: "Validation Error",
-        description: (
-            <ul style={{ margin: 0, paddingLeft: 20 }}>
-                {errorList.map((error, index) => (
-                    <li key={index}>{error}</li>
-                ))}
-            </ul>
-        ),
-        duration: 0,
-        style: { zIndex: 9999 },
-    });
+    if (notificationInstance) {
+        notificationInstance.error({
+            message: "Validation Error",
+            description: (
+                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    {errorList.map((error, index) => (
+                        <li key={index}>{error}</li>
+                    ))}
+                </ul>
+            ),
+            duration: 0,
+            style: { zIndex: 9999 },
+        });
+    }
 };
 
 export const showBatchOperationResult = ({
@@ -106,7 +105,6 @@ export const showBatchOperationResult = ({
     operation = "Operation",
 }) => {
     const total = success + failed;
-
     if (failed === 0) {
         showSuccessNotification({
             message: `${operation} Successful`,

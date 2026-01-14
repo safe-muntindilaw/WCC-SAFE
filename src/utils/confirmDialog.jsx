@@ -1,10 +1,11 @@
-// confirmDialog.jsx
-import { Modal, Typography } from "antd";
+import { App, Typography } from "antd";
 import { ExclamationCircleFilled, InfoCircleFilled } from "@ant-design/icons";
 
 const { Text } = Typography;
 
 export const useConfirmDialog = () => {
+    const { modal } = App.useApp();
+
     const confirm = ({
         title,
         content,
@@ -14,7 +15,7 @@ export const useConfirmDialog = () => {
         cancelText = "Cancel",
         danger = false,
     }) => {
-        Modal.confirm({
+        modal.confirm({
             icon: null,
             title: null,
             width: 480,
@@ -24,7 +25,6 @@ export const useConfirmDialog = () => {
             },
             className: "custom-full-width-modal",
             content: (
-                /* -24px cancels the default AntD padding to go edge-to-edge */
                 <div style={{ margin: "-24px -24px 0 -24px" }}>
                     <style>
                         {`
@@ -36,14 +36,13 @@ export const useConfirmDialog = () => {
                         `}
                     </style>
 
-                    {/* Header: Full width + Vertical Centering */}
                     <div
                         style={{
                             display: "flex",
-                            alignItems: "center", // This handles vertical centering
+                            alignItems: "center",
                             gap: "12px",
                             padding: "0 24px",
-                            height: "72px", // Fixed height for a consistent "Header Bar" feel
+                            height: "72px",
                             background: danger ? "#FFF1F0" : "#F0F7FF",
                             borderBottom: `1px solid ${
                                 danger ? "#FFCCC7" : "#BAE7FF"
@@ -75,7 +74,6 @@ export const useConfirmDialog = () => {
                         </div>
                     </div>
 
-                    {/* Body Section */}
                     <div style={{ padding: "24px 24px 10px 24px" }}>
                         <Text
                             style={{

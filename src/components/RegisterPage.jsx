@@ -321,6 +321,7 @@ const RegisterPage = ({ onSuccess }) => {
                                     : undefined
                             }>
                             <Input
+                                type="email"
                                 prefix={<MailOutlined />}
                                 name="email"
                                 value={formData.email}
@@ -537,7 +538,7 @@ const RegisterPage = ({ onSuccess }) => {
                             <Text type="secondary" style={{ fontSize: "14px" }}>
                                 I agree to the{" "}
                                 <Link
-                                    primary
+                                    type="primary"
                                     onClick={(e) => {
                                         e.preventDefault();
                                         setIsModalVisible(true);

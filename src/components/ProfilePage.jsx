@@ -500,7 +500,7 @@ const ProfilePage = () => {
                     backgroundColor: "rgba(255, 255, 255)",
                     zIndex: 100,
                 }}>
-                <Spin size="large" tip="Loading profile..." />
+                <Spin size="large" />
             </div>
         );
     }

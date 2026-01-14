@@ -90,13 +90,19 @@ const LoginPage = () => {
         return (
             <div
                 style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
                     display: "flex",
-                    alignItems: "center",
+                    flexDirection: "column",
                     justifyContent: "center",
-                    height: "100vh",
-                    backgroundColor: THEME.BACKGROUND_LIGHT,
+                    alignItems: "center",
+                    backgroundColor: "rgba(255, 255, 255)",
+                    zIndex: 100,
                 }}>
-                <Spin size="large" tip="Checking authentication..." />
+                <Spin size="large" />
             </div>
         );
     }

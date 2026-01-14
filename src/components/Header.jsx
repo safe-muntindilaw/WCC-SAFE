@@ -27,7 +27,7 @@ const AppHeader = () => {
     // Generate initials from name or email
     const getInitials = (emailOrName) => {
         if (!emailOrName) return "U";
-        const name = emailOrName.split("@")[0]; // use part before @
+        const name = emailOrName.split("@")[0];
         const parts = name.split(".");
         if (parts.length >= 2) {
             return parts[0][0].toUpperCase() + parts[1][0].toUpperCase();

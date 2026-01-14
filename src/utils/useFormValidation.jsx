@@ -136,7 +136,6 @@ export const useContactValidation = (
             return;
         }
 
-        // Only proceed with validation if the value has actually changed from original
         const hasChanged = cleanedCurrent !== cleanedOriginal;
 
         // Don't validate if editing and hasn't been touched yet
@@ -239,7 +238,7 @@ export const usePasswordValidation = (password, confirmPassword = "") => {
         setPasswordValidation({
             checks,
             isValid,
-            passwordsMatch: confirmPassword ? passwordsMatch : true, // Don't show error if confirm is empty
+            passwordsMatch: confirmPassword ? passwordsMatch : true,
             strength,
         });
     }, [password, confirmPassword]);
