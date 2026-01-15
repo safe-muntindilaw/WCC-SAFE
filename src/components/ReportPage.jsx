@@ -77,6 +77,8 @@ const MONTH_ORDER = [
 ];
 const SENSOR_MAX = 4.5;
 
+// Convert sensor distance readings to water level for chart display
+// Sensor reads: High distance = Low water (safe), Low distance = High water (critical)
 const convertToChartValue = (sensorReading) => SENSOR_MAX - sensorReading;
 
 const getStatusColor = (statusName) => {
@@ -460,30 +462,69 @@ const ReportPage = () => {
 
     const renderThresholdReferences = () => {
         if (!thresholds.length) return null;
-        return thresholds.map((threshold, index) => {
+        
+        console.log('Rendering thresholds:', thresholds);
+        
+        // Create inverted thresholds for water level display
+        // Convert sensor distances to water levels and reverse order
+        const waterLevelThresholds = thresholds.map(threshold => ({
+            ...threshold,
+            // Convert sensor distances to water levels (invert)
+            displayMin: convertToChartValue(threshold.max_level), // max sensor distance = min water level
+            displayMax: convertToChartValue(threshold.min_level), // min sensor distance = max water level
+        })).reverse(); // Reverse so L3 (critical) is at top
+        
+        return waterLevelThresholds.map((threshold, index) => {
             const color = getStatusColor(threshold.name);
-            const isTopThreshold = index === thresholds.length - 1;
+            const isTopThreshold = index === waterLevelThresholds.length - 1;
+            const isBottomThreshold = index === 0;
+            
+            console.log(`Water Level Threshold ${threshold.name}:`, {
+                index,
+                originalMin: threshold.min_level,
+                originalMax: threshold.max_level,
+                displayMin: threshold.displayMin,
+                displayMax: threshold.displayMax,
+                color,
+            });
+            
             return (
                 <React.Fragment key={threshold.id}>
+                    {/* Colored zone for this threshold level */}
                     <ReferenceArea
-                        y1={threshold.min_level}
-                        y2={
-                            isTopThreshold
-                                ? getYAxisDomain[1]
-                                : threshold.max_level
-                        }
+                        y1={threshold.displayMin}
+                        y2={threshold.displayMax}
                         fill={color}
                         opacity={0.08}
                     />
-                    {index < thresholds.length - 1 && (
+                    
+                    {/* Top boundary line with label */}
+                    {!isTopThreshold && (
                         <ReferenceLine
-                            y={threshold.max_level}
+                            y={threshold.displayMax}
+                            stroke={getStatusColor(waterLevelThresholds[index + 1].name)}
+                            strokeDasharray="5 5"
+                            strokeWidth={2}
+                            label={{
+                                value: `${waterLevelThresholds[index + 1].name} (${threshold.displayMax.toFixed(2)}m)`,
+                                position: "insideTopLeft",
+                                fill: getStatusColor(waterLevelThresholds[index + 1].name),
+                                fontSize: isMobile ? 10 : 12,
+                                fontWeight: 600,
+                            }}
+                        />
+                    )}
+                    
+                    {/* Bottom boundary line with label - always at y=0 for L0 */}
+                    {isBottomThreshold && (
+                        <ReferenceLine
+                            y={0}
                             stroke={color}
                             strokeDasharray="5 5"
                             strokeWidth={2}
                             label={{
-                                value: `${threshold.name} (${threshold.max_level}m)`,
-                                position: "insideTopLeft",
+                                value: `${threshold.name} (0m)`,
+                                position: "insideBottomLeft",
                                 fill: color,
                                 fontSize: isMobile ? 10 : 12,
                                 fontWeight: 600,
@@ -833,8 +874,9 @@ const ReportPage = () => {
                                     />
                                     <YAxis
                                         domain={getYAxisDomain}
+                                        ticks={[0, 1, 2, 3, 4, 4.5]}
                                         label={{
-                                            // value: "Level (m)",
+                                            value: "Water Level (m)",
                                             angle: -90,
                                             position: "insideLeft",
                                             style: {
