@@ -42,10 +42,10 @@ const WaterAlertNotifier = () => {
                     body: `Water level has reached ${level}m!`,
                     icon: "/logo.png",
                     badge: "/logo.png",
+                    // Vibrate Pattern: 200ms vibrate, 100ms pause, 200ms vibrate
+                    vibrate: [200, 100, 200],
                     tag: "water-alert",
                     data: "/",
-                    // Vibrate Pattern: 200ms vibrate, 100ms pause, 200ms vibrate
-                    vibrate: [500, 500],
                 });
             }
         }
