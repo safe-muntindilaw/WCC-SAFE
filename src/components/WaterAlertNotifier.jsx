@@ -43,7 +43,7 @@ const WaterAlertNotifier = () => {
                     icon: "/logo.png",
                     badge: "/logo.png",
                     // Vibrate Pattern: 200ms vibrate, 100ms pause, 200ms vibrate
-                    vibrate: [200, 100, 200],
+                    vibrate: [200],
                     tag: "water-alert",
                     data: "/",
                 });
