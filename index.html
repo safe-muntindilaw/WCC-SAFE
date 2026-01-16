@@ -156,6 +156,12 @@
         <script>
             function dismissSplash() {
                 const splash = document.getElementById("splash-screen");
+
+                if ("vibrate" in navigator) {
+                    window.navigator.vibrate(10);
+                    console.log("Vibration API unlocked via user gesture");
+                }
+
                 splash.classList.add("fade-out");
                 sessionStorage.setItem("splashDismissed", "true");
                 setTimeout(() => {

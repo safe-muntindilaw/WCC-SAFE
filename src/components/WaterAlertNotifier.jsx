@@ -27,11 +27,18 @@ const WaterAlertNotifier = () => {
                 ]);
             }
 
+            if (
+                document.visibilityState === "visible" &&
+                "vibrate" in navigator
+            ) {
+                window.navigator.vibrate([800, 200, 800, 200, 800]);
+            }
+
             // 2. Speech Synthesis logic
             const msg = new SpeechSynthesisUtterance();
-            msg.text = "WARNING! WARNING!";
+            msg.text = "WARNING! WARNING!"`Water level has reached ${level}m!`;
             msg.pitch = 0.7;
-            msg.rate = 0.3;
+            msg.rate = 0.4;
             msg.volume = 1.0;
 
             window.speechSynthesis.speak(msg);
