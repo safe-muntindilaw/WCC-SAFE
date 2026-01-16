@@ -36,7 +36,7 @@ const WaterAlertNotifier = () => {
 
             // 2. Speech Synthesis logic
             const msg = new SpeechSynthesisUtterance();
-            msg.text = "WARNING! WARNING!"`Water level has reached ${level}m!`;
+            msg.text = `WARNING! WARNING! Water level has reached ${level} meters!`;
             msg.pitch = 0.7;
             msg.rate = 0.4;
             msg.volume = 1.0;
