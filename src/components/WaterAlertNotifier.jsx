@@ -3,7 +3,6 @@ import { supabase } from "@/globals";
 
 const WaterAlertNotifier = () => {
     useEffect(() => {
-        // 1. Register SW and Request Permissions
         const setupNotifications = async () => {
             if (!("serviceWorker" in navigator) || !("Notification" in window))
                 return;
@@ -20,7 +19,6 @@ const WaterAlertNotifier = () => {
 
         setupNotifications();
 
-        // --- NEW: Function to handle the "Button" effects (Vibrate + Speech) ---
         const triggerAlertEffects = () => {
             // 1. Vibration logic
             if ("vibrate" in navigator) {
@@ -48,10 +46,8 @@ const WaterAlertNotifier = () => {
                 (payload) => {
                     const { water_level } = payload.new;
 
-                    // Trigger the notification
                     sendLocalNotification(water_level);
 
-                    // Trigger the physical effects (Vibrate + Speech)
                     triggerAlertEffects();
                 }
             )
@@ -65,9 +61,9 @@ const WaterAlertNotifier = () => {
                     body: `Water level has reached ${level}m!`,
                     icon: "/logo.png",
                     badge: "/logo.png",
-                    // Note: This vibrate property is for the notification system
-                    vibrate: [800, 200, 800],
+                    vibrate: [800, 200, 800, 200, 800, 200, 800, 200, 800],
                     tag: "water-alert",
+                    renotify: true,
                     data: "/",
                 });
             }
