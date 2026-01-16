@@ -162,6 +162,17 @@
                     console.log("Vibration API unlocked via user gesture");
                 }
 
+                // Prime Audio
+                const audioUnlock = new Audio("/siren.mp3");
+                audioUnlock.volume = 0;
+                audioUnlock
+                    .play()
+                    .then(() => audioUnlock.pause())
+                    .catch(() => {});
+
+                // Prime Speech
+                window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+
                 splash.classList.add("fade-out");
                 sessionStorage.setItem("splashDismissed", "true");
                 setTimeout(() => {
