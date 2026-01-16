@@ -10,7 +10,6 @@ const WaterAlertNotifier = () => {
 
             try {
                 await navigator.serviceWorker.register("/sw.js");
-
                 if (Notification.permission === "default") {
                     await Notification.requestPermission();
                 }
@@ -21,6 +20,25 @@ const WaterAlertNotifier = () => {
 
         setupNotifications();
 
+        // --- NEW: Function to handle the "Button" effects (Vibrate + Speech) ---
+        const triggerAlertEffects = () => {
+            // 1. Vibration logic
+            if ("vibrate" in navigator) {
+                window.navigator.vibrate([
+                    800, 200, 800, 200, 800, 200, 800, 200, 800,
+                ]);
+            }
+
+            // 2. Speech Synthesis logic
+            const msg = new SpeechSynthesisUtterance();
+            msg.text = "WARNING! WARNING!";
+            msg.pitch = 0.7;
+            msg.rate = 0.3;
+            msg.volume = 1.0;
+
+            window.speechSynthesis.speak(msg);
+        };
+
         // 2. Setup Supabase Realtime
         const channel = supabase
             .channel("water_alerts_room")
@@ -29,7 +47,12 @@ const WaterAlertNotifier = () => {
                 { event: "INSERT", schema: "public", table: "water_alerts" },
                 (payload) => {
                     const { water_level } = payload.new;
+
+                    // Trigger the notification
                     sendLocalNotification(water_level);
+
+                    // Trigger the physical effects (Vibrate + Speech)
+                    triggerAlertEffects();
                 }
             )
             .subscribe();
@@ -42,8 +65,8 @@ const WaterAlertNotifier = () => {
                     body: `Water level has reached ${level}m!`,
                     icon: "/logo.png",
                     badge: "/logo.png",
-                    // Vibrate Pattern: 200ms vibrate, 100ms pause, 200ms vibrate
-                    vibrate: [200],
+                    // Note: This vibrate property is for the notification system
+                    vibrate: [800, 200, 800],
                     tag: "water-alert",
                     data: "/",
                 });
