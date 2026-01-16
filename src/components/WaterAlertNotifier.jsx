@@ -19,32 +19,24 @@ const WaterAlertNotifier = () => {
 
         setupNotifications();
 
-        const triggerAlertEffects = () => {
-            // 1. Vibration logic
+        const triggerAlertEffects = (level) => {
             if ("vibrate" in navigator) {
-                window.navigator.vibrate([
-                    800, 200, 800, 200, 800, 200, 800, 200, 800,
-                ]);
+                window.navigator.vibrate([1000, 200, 1000, 200, 1000]);
             }
 
-            if (
-                document.visibilityState === "visible" &&
-                "vibrate" in navigator
-            ) {
-                window.navigator.vibrate([800, 200, 800, 200, 800]);
+            if ("speechSynthesis" in window) {
+                window.speechSynthesis.cancel();
+
+                const msg = new SpeechSynthesisUtterance();
+                msg.text = `WARNING! WARNING! Water level has reached ${level} meters!`;
+                msg.pitch = 1.0;
+                msg.rate = 0.9;
+                msg.volume = 1.0;
+
+                window.speechSynthesis.speak(msg);
             }
-
-            // 2. Speech Synthesis logic
-            const msg = new SpeechSynthesisUtterance();
-            msg.text = "WARNING! WARNING! Water level is rising!";
-            msg.pitch = 0.7;
-            msg.rate = 0.4;
-            msg.volume = 1.0;
-
-            window.speechSynthesis.speak(msg);
         };
 
-        // 2. Setup Supabase Realtime
         const channel = supabase
             .channel("water_alerts_room")
             .on(
@@ -52,10 +44,8 @@ const WaterAlertNotifier = () => {
                 { event: "INSERT", schema: "public", table: "water_alerts" },
                 (payload) => {
                     const { water_level } = payload.new;
-
                     sendLocalNotification(water_level);
-
-                    triggerAlertEffects();
+                    triggerAlertEffects(water_level);
                 }
             )
             .subscribe();
@@ -68,7 +58,7 @@ const WaterAlertNotifier = () => {
                     body: `Water level has reached ${level}m!`,
                     icon: "/logo.png",
                     badge: "/logo.png",
-                    vibrate: [800, 200, 800, 200, 800, 200, 800, 200, 800],
+                    vibrate: [1000, 200, 1000, 200, 1000],
                     tag: "water-alert",
                     renotify: true,
                     data: "/",
