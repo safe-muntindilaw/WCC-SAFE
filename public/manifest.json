@@ -26,6 +26,10 @@
     ],
     "start_url": "/",
     "display": "standalone",
+    "orientation": "portrait",
     "theme_color": "#0056a0",
-    "background_color": "#0056a0"
+    "background_color": "#0a3d62",
+    "scope": "/",
+    "display_override": ["window-controls-overlay", "minimal-ui"],
+    "categories": ["utilities", "public safety"]
 }
