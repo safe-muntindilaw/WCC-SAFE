@@ -983,11 +983,6 @@ const ReportPage = () => {
                                     fontSize: isMobile ? 12 : 14,
                                 }}>
                                 Real-time monitoring and historical data
-                                {isFetchingData && (
-                                    <span style={{ marginLeft: 8 }}>
-                                        <LoadingOutlined spin /> Fetching...
-                                    </span>
-                                )}
                             </Text>
                         </Space>
                     </Col>
