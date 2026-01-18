@@ -26,7 +26,7 @@ import {
     PhoneOutlined,
 } from "@ant-design/icons";
 import { FloatLabel } from "@/utils/FloatLabel";
-import { THEME, cardStyle } from "@/utils/theme";
+import { THEME, cardStyleAdaptive } from "@/utils/theme";
 import {
     cleanName,
     capitalizeWords,
@@ -85,12 +85,12 @@ const ProfilePage = () => {
         profileData.contactNumber,
         true,
         user?.id,
-        originalContactNumber
+        originalContactNumber,
     );
 
     const passwordValidation = usePasswordValidation(
         passwordData.newPassword,
-        passwordData.confirmPassword
+        passwordData.confirmPassword,
     );
 
     // Add CSS for green button
@@ -154,7 +154,7 @@ const ProfilePage = () => {
                     supabase
                         .from("contacts")
                         .select(
-                            "first_name, last_name, email, contact_number, place_id, subscribed, password_changed"
+                            "first_name, last_name, email, contact_number, place_id, subscribed, password_changed",
                         )
                         .eq("user_id", user.id)
                         .maybeSingle(),
@@ -167,7 +167,7 @@ const ProfilePage = () => {
 
                 if (contactData) {
                     const formattedNumber = formatPhoneNumber(
-                        contactData.contact_number?.replace("+63", "") || ""
+                        contactData.contact_number?.replace("+63", "") || "",
                     );
                     setProfileData({
                         firstName: contactData.first_name || "",
@@ -229,7 +229,7 @@ const ProfilePage = () => {
 
         if (contactValidation.exists) {
             errors.push(
-                "Contact number is already registered to another account"
+                "Contact number is already registered to another account",
             );
         }
 
@@ -251,10 +251,10 @@ const ProfilePage = () => {
 
         const selectedArea = areas.find((a) => a.id === profileData.placeId);
         const cleanedFirstName = capitalizeWords(
-            cleanName(profileData.firstName)
+            cleanName(profileData.firstName),
         );
         const cleanedLastName = capitalizeWords(
-            cleanName(profileData.lastName)
+            cleanName(profileData.lastName),
         );
 
         confirm({
@@ -296,10 +296,10 @@ const ProfilePage = () => {
 
         try {
             const cleanedFirstName = capitalizeWords(
-                cleanName(profileData.firstName)
+                cleanName(profileData.firstName),
             );
             const cleanedLastName = capitalizeWords(
-                cleanName(profileData.lastName)
+                cleanName(profileData.lastName),
             );
             const formattedNumber = `+63${profileData.contactNumber}`;
 
@@ -407,7 +407,7 @@ const ProfilePage = () => {
             if (updateError) {
                 console.error(
                     "Failed to update password_changed flag:",
-                    updateError
+                    updateError,
                 );
             }
 
@@ -436,12 +436,14 @@ const ProfilePage = () => {
     const showSubscriptionConfirmation = () => {
         const newStatus = !isSubscribed;
         confirm({
-            title: newStatus
-                ? "Enable SMS Notifications?"
-                : "Disable SMS Notifications?",
-            content: newStatus
-                ? "Stay informed. You will receive real-time emergency alerts and important community updates directly to your phone."
-                : "Are you sure? By unsubscribing, you may miss critical safety alerts and time-sensitive announcements.",
+            title:
+                newStatus ?
+                    "Enable SMS Notifications?"
+                :   "Disable SMS Notifications?",
+            content:
+                newStatus ?
+                    "Stay informed. You will receive real-time emergency alerts and important community updates directly to your phone."
+                :   "Are you sure? By unsubscribing, you may miss critical safety alerts and time-sensitive announcements.",
             okText: newStatus ? "Enable Updates" : "Unsubscribe",
             cancelText: "Keep as is",
             danger: !newStatus,
@@ -467,9 +469,10 @@ const ProfilePage = () => {
 
             showSuccessNotification({
                 message: newStatus ? "Alerts Enabled" : "Alerts Disabled",
-                description: newStatus
-                    ? "You will now receive emergency alerts and important announcements via SMS."
-                    : "You have been unsubscribed from SMS notifications.",
+                description:
+                    newStatus ?
+                        "You will now receive emergency alerts and important announcements via SMS."
+                    :   "You have been unsubscribed from SMS notifications.",
             });
         } catch (err) {
             showErrorNotification({
@@ -538,8 +541,7 @@ const ProfilePage = () => {
                             </Space>
                         }
                         style={{
-                            ...cardStyle,
-                            borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
+                            ...cardStyleAdaptive,
                             height: "100%",
                         }}>
                         <Space
@@ -561,7 +563,7 @@ const ProfilePage = () => {
                                         setProfileData((prev) => ({
                                             ...prev,
                                             firstName: capitalizeWords(
-                                                e.target.value
+                                                e.target.value,
                                             ),
                                         }))
                                     }
@@ -584,7 +586,7 @@ const ProfilePage = () => {
                                         setProfileData((prev) => ({
                                             ...prev,
                                             lastName: capitalizeWords(
-                                                e.target.value
+                                                e.target.value,
                                             ),
                                         }))
                                     }
@@ -612,16 +614,20 @@ const ProfilePage = () => {
                                 <FloatLabel
                                     value={profileData.contactNumber}
                                     status={
-                                        profileData.contactNumber &&
-                                        contactValidation.touched &&
-                                        !contactValidation.isValid &&
-                                        !contactValidation.checking
-                                            ? "error"
-                                            : profileData.contactNumber &&
-                                              contactValidation.touched &&
-                                              contactValidation.isValid
-                                            ? "success"
-                                            : undefined
+                                        (
+                                            profileData.contactNumber &&
+                                            contactValidation.touched &&
+                                            !contactValidation.isValid &&
+                                            !contactValidation.checking
+                                        ) ?
+                                            "error"
+                                        : (
+                                            profileData.contactNumber &&
+                                            contactValidation.touched &&
+                                            contactValidation.isValid
+                                        ) ?
+                                            "success"
+                                        :   undefined
                                     }>
                                     <label
                                         style={{
@@ -654,7 +660,7 @@ const ProfilePage = () => {
                                         value={profileData.contactNumber}
                                         onChange={(e) => {
                                             const formatted = formatPhoneNumber(
-                                                e.target.value
+                                                e.target.value,
                                             );
                                             setProfileData((prev) => ({
                                                 ...prev,
@@ -673,9 +679,9 @@ const ProfilePage = () => {
                                     touched={contactValidation.touched}
                                     validText="Contact number is available"
                                     invalidText={
-                                        contactValidation.exists
-                                            ? "This number is already registered"
-                                            : "Invalid contact number"
+                                        contactValidation.exists ?
+                                            "This number is already registered"
+                                        :   "Invalid contact number"
                                     }
                                 />
                             </div>
@@ -755,8 +761,7 @@ const ProfilePage = () => {
                             </Space>
                         }
                         style={{
-                            ...cardStyle,
-                            borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
+                            ...cardStyleAdaptive,
                             height: "100%",
                         }}>
                         <Space
@@ -765,14 +770,14 @@ const ProfilePage = () => {
                             style={{ width: "100%" }}>
                             <Alert
                                 message={
-                                    hasDefaultPassword
-                                        ? "Action Required"
-                                        : "Security Recommendation"
+                                    hasDefaultPassword ? "Action Required" : (
+                                        "Security Recommendation"
+                                    )
                                 }
                                 description={
-                                    hasDefaultPassword
-                                        ? "Your account is currently using the default password set by the administrator. For your security, please change it to a personal password immediately."
-                                        : "Keep your account secure by using a strong password. If your password was initially set up by a Barangay Administrator, consider updating it to something more personal."
+                                    hasDefaultPassword ?
+                                        "Your account is currently using the default password set by the administrator. For your security, please change it to a personal password immediately."
+                                    :   "Keep your account secure by using a strong password. If your password was initially set up by a Barangay Administrator, consider updating it to something more personal."
                                 }
                                 type={hasDefaultPassword ? "warning" : "info"}
                                 showIcon
@@ -813,13 +818,17 @@ const ProfilePage = () => {
                                     label="Confirm Password"
                                     value={passwordData.confirmPassword}
                                     status={
-                                        passwordData.confirmPassword &&
-                                        !passwordValidation.passwordsMatch
-                                            ? "error"
-                                            : passwordData.confirmPassword &&
-                                              passwordValidation.passwordsMatch
-                                            ? "success"
-                                            : undefined
+                                        (
+                                            passwordData.confirmPassword &&
+                                            !passwordValidation.passwordsMatch
+                                        ) ?
+                                            "error"
+                                        : (
+                                            passwordData.confirmPassword &&
+                                            passwordValidation.passwordsMatch
+                                        ) ?
+                                            "success"
+                                        :   undefined
                                     }>
                                     <Input.Password
                                         prefix={<LockOutlined />}
@@ -880,9 +889,10 @@ const ProfilePage = () => {
                                 <Space size={THEME.SPACING_XS} align="center">
                                     <BellOutlined
                                         style={{
-                                            color: isSubscribed
-                                                ? THEME.GREEN_SUCCESS
-                                                : THEME.RED_ERROR,
+                                            color:
+                                                isSubscribed ?
+                                                    THEME.GREEN_SUCCESS
+                                                :   THEME.RED_ERROR,
                                         }}
                                     />
                                     <Text strong>Emergency Alerts</Text>
@@ -895,15 +905,11 @@ const ProfilePage = () => {
                             </div>
                         }
                         style={{
-                            ...cardStyle,
-                            borderTop: `5px solid ${
-                                isSubscribed
-                                    ? THEME.GREEN_SUCCESS
-                                    : THEME.RED_ERROR
-                            }`,
-                            borderColor: isSubscribed
-                                ? THEME.GREEN_SUCCESS
-                                : THEME.RED_ERROR, // ADD THIS
+                            ...cardStyleAdaptive,
+                            borderColor:
+                                isSubscribed ?
+                                    THEME.GREEN_SUCCESS
+                                :   THEME.RED_ERROR, // ADD THIS
                             height: "100%",
                         }}>
                         <Space
@@ -912,14 +918,14 @@ const ProfilePage = () => {
                             style={{ width: "100%" }}>
                             <Alert
                                 message={
-                                    isSubscribed
-                                        ? "Notifications Active"
-                                        : "Action Required"
+                                    isSubscribed ?
+                                        "Notifications Active"
+                                    :   "Action Required"
                                 }
                                 description={
-                                    isSubscribed
-                                        ? "You are currently receiving critical safety updates, disaster warnings, and barangay announcements via SMS."
-                                        : "You are currently opted out. You will not receive urgent SMS alerts regarding floods, fires, or community emergencies."
+                                    isSubscribed ?
+                                        "You are currently receiving critical safety updates, disaster warnings, and barangay announcements via SMS."
+                                    :   "You are currently opted out. You will not receive urgent SMS alerts regarding floods, fires, or community emergencies."
                                 }
                                 type={isSubscribed ? "success" : "error"}
                                 showIcon
@@ -938,9 +944,9 @@ const ProfilePage = () => {
                                     fontWeight: 600,
                                     marginTop: THEME.SPACING_SM,
                                 }}>
-                                {isSubscribed
-                                    ? "Turn Off Alerts"
-                                    : "Turn On Alerts"}
+                                {isSubscribed ?
+                                    "Turn Off Alerts"
+                                :   "Turn On Alerts"}
                             </Button>
                         </Space>
                     </Card>

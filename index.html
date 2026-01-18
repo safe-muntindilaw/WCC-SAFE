@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
@@ -121,14 +121,16 @@
                 opacity: 0;
                 pointer-events: none;
                 transform: scale(1.05);
-                transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+                transition:
+                    opacity 0.8s ease-out,
+                    transform 0.8s ease-out;
             }
         </style>
 
         <script>
             if (sessionStorage.getItem("splashDismissed")) {
                 document.write(
-                    "<style>#splash-screen { display: none !important; }</style>"
+                    "<style>#splash-screen { display: none !important; }</style>",
                 );
             }
         </script>
@@ -159,7 +161,7 @@
 
                 if ("vibrate" in navigator) {
                     window.navigator.vibrate(10);
-                    console.log("Vibration API unlocked via user gesture");
+                    // console.log("Vibration API unlocked via user gesture");
                 }
 
                 // Prime Audio
@@ -178,45 +180,6 @@
                 setTimeout(() => {
                     splash.style.display = "none";
                 }, 800);
-            }
-
-            const logo = document.getElementById("logo-container");
-            const bg = document.getElementById("bg-glow");
-            let lastUpdate = 0;
-
-            window.addEventListener("deviceorientation", (event) => {
-                const now = Date.now();
-                if (now - lastUpdate < 16) return;
-                lastUpdate = now;
-
-                const y = event.beta;
-                const x = event.gamma;
-
-                if (x !== null && y !== null) {
-                    const moveX = Math.max(-15, Math.min(15, x / 4));
-                    const moveY = Math.max(-15, Math.min(15, (y - 45) / 4));
-
-                    requestAnimationFrame(() => {
-                        logo.style.transform = `translate3d(${moveX}px, ${moveY}px, 0)`;
-                        bg.style.transform = `translate3d(${moveX * -0.4}px, ${
-                            moveY * -0.4
-                        }px, 0)`;
-                    });
-                }
-            });
-
-            if (
-                typeof DeviceOrientationEvent.requestPermission === "function"
-            ) {
-                document.body.addEventListener(
-                    "click",
-                    () => {
-                        DeviceOrientationEvent.requestPermission().catch(
-                            () => {}
-                        );
-                    },
-                    { once: true }
-                );
             }
         </script>
     </body>

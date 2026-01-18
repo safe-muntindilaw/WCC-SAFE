@@ -1,4 +1,4 @@
-// UserManagement.jsx
+// UserManagement.jsx - Optimized with Enhanced Loading States
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/globals";
 import * as XLSX from "xlsx";
@@ -38,8 +38,9 @@ import {
     HomeOutlined,
     CloseOutlined,
     IdcardOutlined,
+    LoadingOutlined,
 } from "@ant-design/icons";
-import { THEME, cardStyle } from "@/utils/theme";
+import { THEME, cardStyleAdaptive } from "@/utils/theme";
 import { FloatLabel } from "@/utils/FloatLabel";
 import {
     cleanName,
@@ -107,6 +108,7 @@ const UserManagement = () => {
     const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
 
     const [defaultPassword, setDefaultPassword] = useState("");
+    const [isFetchingData, setIsFetchingData] = useState(false);
 
     const { confirm } = useConfirmDialog();
     const { isMobile } = useResponsive();
@@ -120,14 +122,14 @@ const UserManagement = () => {
     const emailValidation = useEmailValidation(
         formData.email,
         isEditing,
-        originalEmail
+        originalEmail,
     );
 
     const contactValidation = useContactValidation(
         formData.contact_number,
         isEditing,
         formData.user_id,
-        originalContactNumber // This is now the formatted 10-digit version
+        originalContactNumber, // This is now the formatted 10-digit version
     );
 
     useEffect(() => {
@@ -155,18 +157,19 @@ const UserManagement = () => {
     }, []);
 
     const availableRoles = useMemo(() => {
-        return currentUserRole === "Official"
-            ? CONTACT_ROLES.filter((role) => role !== "Admin")
-            : CONTACT_ROLES;
+        return currentUserRole === "Official" ?
+                CONTACT_ROLES.filter((role) => role !== "Admin")
+            :   CONTACT_ROLES;
     }, [currentUserRole]);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
+        setIsFetchingData(true);
         try {
             let usersQuery = supabase
                 .from("contacts")
                 .select(
-                    "user_id, first_name, last_name, email, role, contact_number, place_id, places(name)"
+                    "user_id, first_name, last_name, email, role, contact_number, place_id, places(name)",
                 )
                 .order("created_at", { ascending: false });
 
@@ -209,6 +212,7 @@ const UserManagement = () => {
             showError(`Failed to fetch data: ${error.message}`);
         } finally {
             setLoading(false);
+            setIsFetchingData(false);
         }
     }, [currentUserRole]);
 
@@ -224,7 +228,7 @@ const UserManagement = () => {
             formData,
             availableRoles,
             emailValidation.exists,
-            contactValidation.exists
+            contactValidation.exists,
         );
     }, [
         formData,
@@ -241,9 +245,8 @@ const UserManagement = () => {
 
         // Check if email or contact has changed in edit mode
         const emailChanged = isEditing ? email !== originalEmail : true;
-        const contactChanged = isEditing
-            ? contact_number !== originalContactNumber
-            : true;
+        const contactChanged =
+            isEditing ? contact_number !== originalContactNumber : true;
 
         // Base validations
         const baseValid =
@@ -257,13 +260,16 @@ const UserManagement = () => {
 
         // If editing and fields haven't changed, skip their validation
         if (isEditing) {
-            const emailValid = emailChanged
-                ? emailValidation.isValid === true && !emailValidation.checking
-                : true;
-            const contactValid = contactChanged
-                ? contactValidation.isValid === true &&
-                  !contactValidation.checking
-                : true;
+            const emailValid =
+                emailChanged ?
+                    emailValidation.isValid === true &&
+                    !emailValidation.checking
+                :   true;
+            const contactValid =
+                contactChanged ?
+                    contactValidation.isValid === true &&
+                    !contactValidation.checking
+                :   true;
 
             return baseValid && emailValid && contactValid;
         }
@@ -313,7 +319,7 @@ const UserManagement = () => {
     const handleSubmit = async () => {
         if (!defaultPassword) {
             showError(
-                "System configuration is still loading. Please wait a moment."
+                "System configuration is still loading. Please wait a moment.",
             );
             return;
         }
@@ -456,7 +462,7 @@ const UserManagement = () => {
                     showSuccess("Contact deleted successfully");
                     await fetchData();
                     setSelectedUsers((prev) =>
-                        prev.filter((id) => id !== user_id)
+                        prev.filter((id) => id !== user_id),
                     );
                 } catch (err) {
                     showError(`Deletion failed: ${err.message}`);
@@ -488,7 +494,7 @@ const UserManagement = () => {
                     email: row["Email"] || "",
                     role: row["Role"] || "",
                     contact_number: formatPhoneNumber(
-                        row["Contact Number"] || ""
+                        row["Contact Number"] || "",
                     ),
                     place_name: row["Place"] || row["Area"] || "",
                     place_id: "",
@@ -512,7 +518,7 @@ const UserManagement = () => {
 
                 const validationErrors = validateUserForm(
                     contact,
-                    availableRoles
+                    availableRoles,
                 );
                 if (Array.isArray(validationErrors))
                     errors.push(...validationErrors);
@@ -521,10 +527,10 @@ const UserManagement = () => {
             });
 
             const validContacts = validationResults.filter(
-                (r) => r.errors.length === 0
+                (r) => r.errors.length === 0,
             );
             const invalidContacts = validationResults.filter(
-                (r) => r.errors.length > 0
+                (r) => r.errors.length > 0,
             );
 
             if (invalidContacts.length > 0) {
@@ -532,8 +538,8 @@ const UserManagement = () => {
                     .map(
                         (c) =>
                             `Row ${c.row} (${c.data.email}): ${c.errors.join(
-                                ", "
-                            )}`
+                                ", ",
+                            )}`,
                     )
                     .join("\n");
 
@@ -558,23 +564,23 @@ const UserManagement = () => {
             if (error) throw error;
 
             const existingEmailMap = new Map(
-                (existingContacts || []).map((c) => [c.email, c])
+                (existingContacts || []).map((c) => [c.email, c]),
             );
             const newContacts = validContacts.filter(
-                (c) => !existingEmailMap.has(c.data.email)
+                (c) => !existingEmailMap.has(c.data.email),
             );
             const updateContacts = validContacts.filter((c) =>
-                existingEmailMap.has(c.data.email)
+                existingEmailMap.has(c.data.email),
             );
 
             const confirmMessage = [];
             if (newContacts.length > 0)
                 confirmMessage.push(
-                    `Create ${newContacts.length} new contact(s)`
+                    `Create ${newContacts.length} new contact(s)`,
                 );
             if (updateContacts.length > 0)
                 confirmMessage.push(
-                    `Update ${updateContacts.length} existing contact(s)`
+                    `Update ${updateContacts.length} existing contact(s)`,
                 );
 
             confirm({
@@ -600,7 +606,7 @@ const UserManagement = () => {
 
                                 await callEdgeFunction(
                                     "register-batch-users",
-                                    batchPayload
+                                    batchPayload,
                                 );
                                 successCount += newContacts.length;
                             } catch (err) {
@@ -614,17 +620,17 @@ const UserManagement = () => {
                                 try {
                                     const existingContact =
                                         existingEmailMap.get(
-                                            contact.data.email
+                                            contact.data.email,
                                         );
                                     const { error: updateError } =
                                         await supabase
                                             .from("contacts")
                                             .update({
                                                 first_name: cleanName(
-                                                    contact.data.first_name
+                                                    contact.data.first_name,
                                                 ),
                                                 last_name: cleanName(
-                                                    contact.data.last_name
+                                                    contact.data.last_name,
                                                 ),
                                                 role: contact.data.role,
                                                 contact_number: `+63${contact.data.contact_number}`,
@@ -632,7 +638,7 @@ const UserManagement = () => {
                                             })
                                             .eq(
                                                 "user_id",
-                                                existingContact.user_id
+                                                existingContact.user_id,
                                             );
 
                                     if (updateError) throw updateError;
@@ -641,7 +647,7 @@ const UserManagement = () => {
                                     console.error(
                                         "Update error for",
                                         contact.data.email,
-                                        err
+                                        err,
                                     );
                                     failedCount++;
                                 }
@@ -696,7 +702,7 @@ const UserManagement = () => {
                     if (error) throw error;
 
                     showSuccess(
-                        `${selectedUsers.length} contacts deleted successfully`
+                        `${selectedUsers.length} contacts deleted successfully`,
                     );
                     setSelectedUsers([]);
                     await fetchData();
@@ -720,7 +726,7 @@ const UserManagement = () => {
                 (u) =>
                     u.first_name.toLowerCase().includes(lowerQuery) ||
                     u.last_name.toLowerCase().includes(lowerQuery) ||
-                    u.email.toLowerCase().includes(lowerQuery)
+                    u.email.toLowerCase().includes(lowerQuery),
             );
         }
         if (placeFilter)
@@ -733,9 +739,9 @@ const UserManagement = () => {
         setSortConfig((prev) => ({
             key: columnKey,
             direction:
-                prev.key === columnKey && prev.direction === "asc"
-                    ? "desc"
-                    : "asc",
+                prev.key === columnKey && prev.direction === "asc" ?
+                    "desc"
+                :   "asc",
         }));
     };
 
@@ -770,7 +776,7 @@ const UserManagement = () => {
 
     const totalPages = Math.max(
         1,
-        Math.ceil(sortedUsers.length / itemsPerPage)
+        Math.ceil(sortedUsers.length / itemsPerPage),
     );
 
     useEffect(() => {
@@ -788,29 +794,27 @@ const UserManagement = () => {
 
     const toggleUserSelect = (id) =>
         setSelectedUsers((prev) =>
-            prev.includes(id) ? prev.filter((u) => u !== id) : [...prev, id]
+            prev.includes(id) ? prev.filter((u) => u !== id) : [...prev, id],
         );
 
     const toggleSelectAll = () => {
         const pageIds = paginatedUsers.map((u) => u.user_id);
         const allSelectedOnPage = pageIds.every((id) =>
-            selectedUsers.includes(id)
+            selectedUsers.includes(id),
         );
 
         setSelectedUsers((prev) =>
-            allSelectedOnPage
-                ? prev.filter((id) => !pageIds.includes(id))
-                : Array.from(new Set([...prev, ...pageIds]))
+            allSelectedOnPage ?
+                prev.filter((id) => !pageIds.includes(id))
+            :   Array.from(new Set([...prev, ...pageIds])),
         );
     };
 
     const getSortIcon = (key) => {
         if (sortConfig.key === key) {
-            return sortConfig.direction === "asc" ? (
-                <SortAscendingOutlined />
-            ) : (
-                <SortDescendingOutlined />
-            );
+            return sortConfig.direction === "asc" ?
+                    <SortAscendingOutlined />
+                :   <SortDescendingOutlined />;
         }
         return <SwapOutlined />;
     };
@@ -844,7 +848,7 @@ const UserManagement = () => {
                     checked={
                         paginatedUsers.length > 0 &&
                         paginatedUsers.every((u) =>
-                            selectedUsers.includes(u.user_id)
+                            selectedUsers.includes(u.user_id),
                         )
                     }
                 />
@@ -898,76 +902,76 @@ const UserManagement = () => {
                 </div>
             ),
         },
-        ...(!isMobile
-            ? [
-                  {
-                      title: "Email",
-                      dataIndex: "email",
-                      key: "email",
-                      ellipsis: true,
-                      render: (text) => (
-                          <Text style={{ fontSize: 14 }}>{text}</Text>
-                      ),
-                  },
-                  {
-                      title: (
-                          <Space size={4}>
-                              <span>Role</span>
-                              <Button
-                                  type="text"
-                                  size="small"
-                                  icon={getSortIcon("role")}
-                                  onClick={() => handleSort("role")}
-                                  style={{ padding: "0 4px" }}
-                              />
-                          </Space>
-                      ),
-                      dataIndex: "role",
-                      key: "role",
-                      width: 120,
-                      render: (role) => (
-                          <Tag
-                              style={{
-                                  fontSize: 14,
-                                  border: `1px solid ${getRoleColor(role)}`,
-                                  color: getRoleColor(role),
-                                  backgroundColor: "transparent",
-                              }}>
-                              {role}
-                          </Tag>
-                      ),
-                  },
-                  {
-                      title: (
-                          <Space size={4}>
-                              <span>Place</span>
-                              <Button
-                                  type="text"
-                                  size="small"
-                                  icon={getSortIcon("place")}
-                                  onClick={() => handleSort("place")}
-                                  style={{ padding: "0 4px" }}
-                              />
-                          </Space>
-                      ),
-                      dataIndex: ["places", "name"],
-                      key: "place",
-                      render: (_, record) => (
-                          <Text style={{ fontSize: 14 }}>
-                              {record.places?.name || "—"}
-                          </Text>
-                      ),
-                  },
-                  {
-                      title: "Contact",
-                      dataIndex: "contact_number",
-                      key: "contact",
-                      render: (text) => (
-                          <Text style={{ fontSize: 14 }}>{text}</Text>
-                      ),
-                  },
-              ]
-            : []),
+        ...(!isMobile ?
+            [
+                {
+                    title: "Email",
+                    dataIndex: "email",
+                    key: "email",
+                    ellipsis: true,
+                    render: (text) => (
+                        <Text style={{ fontSize: 14 }}>{text}</Text>
+                    ),
+                },
+                {
+                    title: (
+                        <Space size={4}>
+                            <span>Role</span>
+                            <Button
+                                type="text"
+                                size="small"
+                                icon={getSortIcon("role")}
+                                onClick={() => handleSort("role")}
+                                style={{ padding: "0 4px" }}
+                            />
+                        </Space>
+                    ),
+                    dataIndex: "role",
+                    key: "role",
+                    width: 120,
+                    render: (role) => (
+                        <Tag
+                            style={{
+                                fontSize: 14,
+                                border: `1px solid ${getRoleColor(role)}`,
+                                color: getRoleColor(role),
+                                backgroundColor: "transparent",
+                            }}>
+                            {role}
+                        </Tag>
+                    ),
+                },
+                {
+                    title: (
+                        <Space size={4}>
+                            <span>Place</span>
+                            <Button
+                                type="text"
+                                size="small"
+                                icon={getSortIcon("place")}
+                                onClick={() => handleSort("place")}
+                                style={{ padding: "0 4px" }}
+                            />
+                        </Space>
+                    ),
+                    dataIndex: ["places", "name"],
+                    key: "place",
+                    render: (_, record) => (
+                        <Text style={{ fontSize: 14 }}>
+                            {record.places?.name || "—"}
+                        </Text>
+                    ),
+                },
+                {
+                    title: "Contact",
+                    dataIndex: "contact_number",
+                    key: "contact",
+                    render: (text) => (
+                        <Text style={{ fontSize: 14 }}>{text}</Text>
+                    ),
+                },
+            ]
+        :   []),
         {
             title: "Actions",
             key: "actions",
@@ -975,7 +979,7 @@ const UserManagement = () => {
             width: isMobile ? 60 : 180,
             render: (_, record) => (
                 <Space size={8}>
-                    {isMobile ? (
+                    {isMobile ?
                         <>
                             <Tooltip title="Edit">
                                 <Button
@@ -994,8 +998,7 @@ const UserManagement = () => {
                                 />
                             </Tooltip>
                         </>
-                    ) : (
-                        <>
+                    :   <>
                             <Button
                                 type="primary"
                                 size="small"
@@ -1011,7 +1014,7 @@ const UserManagement = () => {
                                 Delete
                             </Button>
                         </>
-                    )}
+                    }
                 </Space>
             ),
         },
@@ -1021,8 +1024,7 @@ const UserManagement = () => {
         <div style={{ padding: isMobile ? 16 : 24 }}>
             <Card
                 style={{
-                    ...cardStyle,
-                    borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
+                    ...cardStyleAdaptive,
                     minHeight: isMobile ? "50vh" : "65vh",
                 }}>
                 <Title
@@ -1036,7 +1038,7 @@ const UserManagement = () => {
                     direction="vertical"
                     size="middle"
                     style={{ width: "100%" }}>
-                    {isMobile ? (
+                    {isMobile ?
                         <>
                             <div style={{ display: "flex", gap: 8 }}>
                                 <Input
@@ -1084,8 +1086,7 @@ const UserManagement = () => {
                                 </Button>
                             )}
                         </>
-                    ) : (
-                        <div
+                    :   <div
                             style={{
                                 display: "flex",
                                 gap: 12,
@@ -1154,12 +1155,12 @@ const UserManagement = () => {
                                 Batch Upload
                             </Button>
                         </div>
-                    )}
+                    }
                 </Space>
 
                 <Divider style={{ margin: "16px 0 0 0" }} />
 
-                {sortedUsers.length === 0 ? (
+                {isFetchingData ?
                     <div
                         style={{
                             display: "flex",
@@ -1167,7 +1168,21 @@ const UserManagement = () => {
                             alignItems: "center",
                             justifyContent: "center",
                             minHeight: isMobile ? "50vh" : "65vh",
-                            // padding: isMobile ? "32px 16px" : "48px 24px",
+                            gap: 12,
+                        }}>
+                        <Spin size="large" />
+                        <Text type="secondary" style={{ fontSize: 13 }}>
+                            Loading contacts...
+                        </Text>
+                    </div>
+                : sortedUsers.length === 0 ?
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            minHeight: isMobile ? "50vh" : "65vh",
                             textAlign: "center",
                         }}>
                         <UserOutlined
@@ -1190,9 +1205,10 @@ const UserManagement = () => {
                                 display: "block",
                                 marginBottom: 24,
                             }}>
-                            {searchQuery || selectedRole || placeFilter
-                                ? "No contacts match your current filters. Try adjusting your search criteria."
-                                : "Get started by adding your first contact using the button above."}
+                            {searchQuery || selectedRole || placeFilter ?
+                                "No contacts match your current filters. Try adjusting your search criteria."
+                            :   "Get started by adding your first contact using the button above."
+                            }
                         </Text>
                         {(searchQuery || selectedRole || placeFilter) && (
                             <Button
@@ -1207,8 +1223,7 @@ const UserManagement = () => {
                             </Button>
                         )}
                     </div>
-                ) : (
-                    <div
+                :   <div
                         style={{
                             display: "flex",
                             flexDirection: "column",
@@ -1253,13 +1268,13 @@ const UserManagement = () => {
                             />
                         </div>
                     </div>
-                )}
+                }
             </Card>
 
             {/* Mobile Filter Drawer */}
             <Drawer
                 style={{
-                    borderRadius: "0 0 50vw 50vw",
+                    borderRadius: "0 0 10vw 10vw",
                     borderBottom: `4px solid ${THEME.BLUE_PRIMARY}`,
                 }}
                 placement="top"
@@ -1274,9 +1289,10 @@ const UserManagement = () => {
                 <Card
                     variant={false}
                     style={{
+                        ...cardStyleAdaptive,
                         height: "100%",
                         borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
-                        borderRadius: "0 0 50vw 50vw",
+                        borderRadius: "0 0 10vw 10vw",
                         backgroundColor: "rgba(255, 255, 255, 0.9)",
                     }}>
                     <Space
@@ -1332,15 +1348,15 @@ const UserManagement = () => {
                                         onClick={() => handleSort(key)}
                                         icon={getSortIcon(key)}
                                         type={
-                                            sortConfig.key === key
-                                                ? "primary"
-                                                : "default"
+                                            sortConfig.key === key ?
+                                                "primary"
+                                            :   "default"
                                         }
                                         style={{
                                             flex:
-                                                index === 2
-                                                    ? "0 1 60%"
-                                                    : "1 1 calc(50% - 12px)",
+                                                index === 2 ? "0 1 60%" : (
+                                                    "1 1 calc(50% - 12px)"
+                                                ),
                                             height: 32,
                                             borderRadius: 6,
                                             minWidth: "120px",
@@ -1373,14 +1389,29 @@ const UserManagement = () => {
 
                         <div
                             style={{
-                                display: "flex",
-                                justifyContent: "center",
+                                position: "fixed",
+                                left: "50%",
+                                top: "75vh",
+                                transform: "translate(-50%, -50%)",
+                                zIndex: 10000,
+                                filter: "drop-shadow(0px 4px 12px rgba(0, 0, 0, 0.2))",
+                                pointerEvents: "auto",
                             }}>
                             <Button
                                 shape="circle"
                                 icon={<CloseOutlined />}
                                 onClick={() => setFilterDrawerVisible(false)}
-                                style={{ width: 40, height: 40 }}
+                                style={{
+                                    width: 50,
+                                    height: 50,
+                                    backgroundColor: "#fff",
+                                    border: `2px solid ${THEME.BLUE_PRIMARY}`,
+                                    color: THEME.BLUE_PRIMARY,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: "22px",
+                                }}
                             />
                         </div>
                     </Space>
@@ -1427,7 +1458,7 @@ const UserManagement = () => {
                                     setFormData((prev) => ({
                                         ...prev,
                                         first_name: capitalizeWords(
-                                            e.target.value
+                                            e.target.value,
                                         ),
                                     }))
                                 }
@@ -1446,7 +1477,7 @@ const UserManagement = () => {
                                     setFormData((prev) => ({
                                         ...prev,
                                         last_name: capitalizeWords(
-                                            e.target.value
+                                            e.target.value,
                                         ),
                                     }))
                                 }
@@ -1460,16 +1491,20 @@ const UserManagement = () => {
                                 value={formData.email}
                                 hasPrefix
                                 status={
-                                    formData.email &&
-                                    emailValidation.touched &&
-                                    !emailValidation.isValid &&
-                                    !emailValidation.checking
-                                        ? "error"
-                                        : formData.email &&
-                                          emailValidation.touched &&
-                                          emailValidation.isValid
-                                        ? "success"
-                                        : undefined
+                                    (
+                                        formData.email &&
+                                        emailValidation.touched &&
+                                        !emailValidation.isValid &&
+                                        !emailValidation.checking
+                                    ) ?
+                                        "error"
+                                    : (
+                                        formData.email &&
+                                        emailValidation.touched &&
+                                        emailValidation.isValid
+                                    ) ?
+                                        "success"
+                                    :   undefined
                                 }>
                                 <Input
                                     prefix={<MailOutlined />}
@@ -1490,9 +1525,9 @@ const UserManagement = () => {
                                 touched={emailValidation.touched}
                                 validText="Email is available"
                                 invalidText={
-                                    emailValidation.exists
-                                        ? "Email already registered"
-                                        : "Invalid email format"
+                                    emailValidation.exists ?
+                                        "Email already registered"
+                                    :   "Invalid email format"
                                 }
                             />
                         </div>
@@ -1503,16 +1538,20 @@ const UserManagement = () => {
                                 value={formData.contact_number}
                                 hasPrefix
                                 status={
-                                    formData.contact_number &&
-                                    contactValidation.touched &&
-                                    !contactValidation.isValid &&
-                                    !contactValidation.checking
-                                        ? "error"
-                                        : formData.contact_number &&
-                                          contactValidation.touched &&
-                                          contactValidation.isValid
-                                        ? "success"
-                                        : undefined
+                                    (
+                                        formData.contact_number &&
+                                        contactValidation.touched &&
+                                        !contactValidation.isValid &&
+                                        !contactValidation.checking
+                                    ) ?
+                                        "error"
+                                    : (
+                                        formData.contact_number &&
+                                        contactValidation.touched &&
+                                        contactValidation.isValid
+                                    ) ?
+                                        "success"
+                                    :   undefined
                                 }>
                                 <Input
                                     prefix={
@@ -1534,7 +1573,7 @@ const UserManagement = () => {
                                             contact_number:
                                                 e.target.value.replace(
                                                     /\D/g,
-                                                    ""
+                                                    "",
                                                 ),
                                         }))
                                     }
@@ -1548,9 +1587,9 @@ const UserManagement = () => {
                                 touched={contactValidation.touched}
                                 validText="Contact number is available"
                                 invalidText={
-                                    contactValidation.exists
-                                        ? "Contact number already registered"
-                                        : "Invalid contact number"
+                                    contactValidation.exists ?
+                                        "Contact number already registered"
+                                    :   "Invalid contact number"
                                 }
                             />
                         </div>
@@ -1626,11 +1665,11 @@ const UserManagement = () => {
                                     height: inputHeight,
                                     borderRadius: 6,
                                 }}>
-                                {loading
-                                    ? "Processing..."
-                                    : isEditing
-                                    ? "Save Changes"
-                                    : "Add Contact"}
+                                {loading ?
+                                    "Processing..."
+                                : isEditing ?
+                                    "Save Changes"
+                                :   "Add Contact"}
                             </Button>
                         </div>
                     </Space>
@@ -1817,9 +1856,9 @@ const UserManagement = () => {
                                     height: inputHeight,
                                     borderRadius: 6,
                                 }}>
-                                {batchLoading
-                                    ? "Processing..."
-                                    : "Upload & Process"}
+                                {batchLoading ?
+                                    "Processing..."
+                                :   "Upload & Process"}
                             </Button>
                         </Space>
                     </Space>

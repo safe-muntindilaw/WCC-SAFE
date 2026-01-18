@@ -5,7 +5,7 @@ import { supabase } from "@/globals";
 import { Card, Typography, Input, Button, Space, Spin } from "antd";
 import { FloatLabel } from "@/utils/FloatLabel";
 import { UserOutlined, LockOutlined, LoginOutlined } from "@ant-design/icons";
-import { THEME, cardStyle } from "@/utils/theme";
+import { THEME, cardStyleAdaptive } from "@/utils/theme";
 import { showSuccess, showError } from "@/utils/notifications";
 import {
     useResponsive,
@@ -64,7 +64,7 @@ const LoginPage = () => {
             if (updateError) {
                 console.error(
                     "Failed to update login status:",
-                    updateError.message
+                    updateError.message,
                 );
             }
 
@@ -73,7 +73,7 @@ const LoginPage = () => {
         } catch (err) {
             console.error("Login error:", err);
             showError(
-                err.message || "Login failed. Please check your credentials"
+                err.message || "Login failed. Please check your credentials",
             );
         } finally {
             setLoading(false);
@@ -119,10 +119,9 @@ const LoginPage = () => {
             }}>
             <Card
                 style={{
-                    ...cardStyle,
+                    ...cardStyleAdaptive,
                     maxWidth: 450,
                     width: "100%",
-                    borderTop: `6px solid ${THEME.BLUE_PRIMARY}`,
                 }}>
                 <div
                     style={{

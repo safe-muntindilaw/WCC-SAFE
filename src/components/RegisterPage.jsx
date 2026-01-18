@@ -23,7 +23,7 @@ import {
     HomeOutlined,
     InfoCircleOutlined,
 } from "@ant-design/icons";
-import { THEME, cardStyle } from "@/utils/theme";
+import { THEME, cardStyleAdaptive } from "@/utils/theme";
 import { capitalizeWords, cleanName } from "@/utils/validation";
 import {
     showSuccessNotification,
@@ -105,11 +105,11 @@ const RegisterPage = ({ onSuccess }) => {
     const contactValidation = useContactValidation(
         formData.contactNumber,
         false,
-        null
+        null,
     );
     const passwordValidation = usePasswordValidation(
         formData.password,
-        formData.confirmPassword
+        formData.confirmPassword,
     );
 
     // Fetch Places on Mount
@@ -246,10 +246,9 @@ const RegisterPage = ({ onSuccess }) => {
             }}>
             <Card
                 style={{
-                    ...cardStyle,
-                    maxWidth: 500,
+                    ...cardStyleAdaptive,
+                    maxWidth: 450,
                     width: "100%",
-                    borderTop: `6px solid ${THEME.BLUE_PRIMARY}`,
                 }}>
                 <div
                     style={{
@@ -309,16 +308,20 @@ const RegisterPage = ({ onSuccess }) => {
                             label="Email Address (Gmail only)"
                             value={formData.email}
                             status={
-                                formData.email &&
-                                emailValidation.touched &&
-                                !emailValidation.isValid &&
-                                !emailValidation.checking
-                                    ? "error"
-                                    : formData.email &&
-                                      emailValidation.touched &&
-                                      emailValidation.isValid
-                                    ? "success"
-                                    : undefined
+                                (
+                                    formData.email &&
+                                    emailValidation.touched &&
+                                    !emailValidation.isValid &&
+                                    !emailValidation.checking
+                                ) ?
+                                    "error"
+                                : (
+                                    formData.email &&
+                                    emailValidation.touched &&
+                                    emailValidation.isValid
+                                ) ?
+                                    "success"
+                                :   undefined
                             }>
                             <Input
                                 type="email"
@@ -335,9 +338,9 @@ const RegisterPage = ({ onSuccess }) => {
                             touched={emailValidation.touched}
                             validText="Email is available"
                             invalidText={
-                                emailValidation.exists
-                                    ? "Email already taken"
-                                    : "Invalid email format"
+                                emailValidation.exists ?
+                                    "Email already taken"
+                                :   "Invalid email format"
                             }
                         />
                     </div>
@@ -349,16 +352,20 @@ const RegisterPage = ({ onSuccess }) => {
                                     label="Contact Number"
                                     value={formData.contactNumber}
                                     status={
-                                        formData.contactNumber &&
-                                        contactValidation.touched &&
-                                        !contactValidation.isValid &&
-                                        !contactValidation.checking
-                                            ? "error"
-                                            : formData.contactNumber &&
-                                              contactValidation.touched &&
-                                              contactValidation.isValid
-                                            ? "success"
-                                            : undefined
+                                        (
+                                            formData.contactNumber &&
+                                            contactValidation.touched &&
+                                            !contactValidation.isValid &&
+                                            !contactValidation.checking
+                                        ) ?
+                                            "error"
+                                        : (
+                                            formData.contactNumber &&
+                                            contactValidation.touched &&
+                                            contactValidation.isValid
+                                        ) ?
+                                            "success"
+                                        :   undefined
                                     }>
                                     <Input
                                         prefix={
@@ -401,9 +408,9 @@ const RegisterPage = ({ onSuccess }) => {
                                     touched={contactValidation.touched}
                                     validText="Contact number is available"
                                     invalidText={
-                                        contactValidation.exists
-                                            ? "Number already taken"
-                                            : "Invalid contact number"
+                                        contactValidation.exists ?
+                                            "Number already taken"
+                                        :   "Invalid contact number"
                                     }
                                 />
                             </div>
@@ -464,13 +471,17 @@ const RegisterPage = ({ onSuccess }) => {
                                     label="Confirm Password"
                                     value={formData.confirmPassword}
                                     status={
-                                        formData.confirmPassword &&
-                                        !passwordValidation.passwordsMatch
-                                            ? "error"
-                                            : formData.confirmPassword &&
-                                              passwordValidation.passwordsMatch
-                                            ? "success"
-                                            : undefined
+                                        (
+                                            formData.confirmPassword &&
+                                            !passwordValidation.passwordsMatch
+                                        ) ?
+                                            "error"
+                                        : (
+                                            formData.confirmPassword &&
+                                            passwordValidation.passwordsMatch
+                                        ) ?
+                                            "success"
+                                        :   undefined
                                     }>
                                     <Input.Password
                                         prefix={<LockOutlined />}

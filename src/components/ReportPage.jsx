@@ -1,5 +1,11 @@
-// ReportPage.jsx - Refactored Clean Layout
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+// ReportPage.jsx - Optimized Modern Chart Design with Enhanced Loading States
+import React, {
+    useEffect,
+    useState,
+    useCallback,
+    useMemo,
+    useRef,
+} from "react";
 import {
     LineChart,
     Line,
@@ -27,6 +33,8 @@ import {
     Drawer,
     ConfigProvider,
     Flex,
+    Badge,
+    Skeleton,
 } from "antd";
 import {
     ReloadOutlined,
@@ -34,12 +42,16 @@ import {
     LineChartOutlined,
     FilterOutlined,
     CloseOutlined,
+    RiseOutlined,
+    FallOutlined,
+    DotChartOutlined,
+    LoadingOutlined,
 } from "@ant-design/icons";
 import { supabase } from "@/globals";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
-import { THEME, cardStyle } from "@/utils/theme";
-import { showError, showWarning, showInfo } from "@/utils/notifications";
+import { THEME, cardStyleAdaptive } from "@/utils/theme";
+import { showError, showWarning } from "@/utils/notifications";
 import { useResponsive } from "@/utils/useResponsive";
 
 dayjs.extend(isoWeek);
@@ -48,17 +60,15 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 const ACCENT_COLOR = THEME.ACCENT_YELLOW;
-const COLORS = [
-    "#FF6B6B",
-    "#4ECDC4",
-    "#45B7D1",
-    "#FFA07A",
-    "#98D8C8",
-    "#F7DC6F",
-    "#BB8FCE",
-    "#85C1E2",
-    "#F8B195",
-    "#6C5CE7",
+const GRADIENT_COLORS = [
+    { start: "#667eea", end: "#764ba2" },
+    { start: "#f093fb", end: "#f5576c" },
+    { start: "#4facfe", end: "#00f2fe" },
+    { start: "#43e97b", end: "#38f9d7" },
+    { start: "#fa709a", end: "#fee140" },
+    { start: "#30cfd0", end: "#330867" },
+    { start: "#a8edea", end: "#fed6e3" },
+    { start: "#ff9a9e", end: "#fecfef" },
 ];
 
 const MONTH_ORDER = [
@@ -75,11 +85,6 @@ const MONTH_ORDER = [
     "Nov",
     "Dec",
 ];
-const SENSOR_MAX = 4.5;
-
-// Convert sensor distance readings to water level for chart display
-// Sensor reads: High distance = Low water (safe), Low distance = High water (critical)
-const convertToChartValue = (sensorReading) => SENSOR_MAX - sensorReading;
 
 const getStatusColor = (statusName) => {
     const colors = {
@@ -91,13 +96,12 @@ const getStatusColor = (statusName) => {
     return colors[statusName] || THEME.BLUE_AUTHORITY;
 };
 
-const averageBy = (readings, keyFn, convertFn) => {
+// Memoized averaging functions
+const averageBy = (readings, keyFn) => {
     const grouped = readings.reduce((acc, r) => {
         const key = keyFn(r);
         acc[key] ??= { sum: 0, count: 0 };
-        const actualLevel = convertFn
-            ? convertFn(r.water_level)
-            : r.water_level;
+        const actualLevel = parseFloat(r.converted_water_level);
         acc[key].sum += actualLevel;
         acc[key].count++;
         return acc;
@@ -108,15 +112,14 @@ const averageBy = (readings, keyFn, convertFn) => {
     }));
 };
 
-const averageByDay = (readings, convertFn) =>
-    averageBy(readings, (r) => dayjs(r.created_at).format("ddd"), convertFn);
-const averageByDayOfMonth = (readings, convertFn) =>
-    averageBy(readings, (r) => dayjs(r.created_at).format("MMM DD"), convertFn);
-const averageByWeek = (readings, convertFn) =>
+const averageByDay = (readings) =>
+    averageBy(readings, (r) => dayjs(r.created_at).format("ddd"));
+const averageByDayOfMonth = (readings) =>
+    averageBy(readings, (r) => dayjs(r.created_at).format("MMM DD"));
+const averageByWeek = (readings) =>
     averageBy(
         readings,
         (r) => `Week ${Math.ceil(dayjs(r.created_at).date() / 7)}`,
-        convertFn
     );
 
 const RefreshButton = ({ refreshing, onRefresh }) => (
@@ -129,6 +132,69 @@ const RefreshButton = ({ refreshing, onRefresh }) => (
         style={{ color: "white", borderColor: "white" }}
     />
 );
+
+// Memoized CustomTooltip component
+const CustomTooltip = React.memo(({ active, payload, label }) => {
+    if (!active || !payload || !payload.length) return null;
+
+    return (
+        <div
+            style={{
+                backgroundColor: "rgba(255, 255, 255, 0.98)",
+                border: "none",
+                borderRadius: 12,
+                padding: "12px 16px",
+                boxShadow:
+                    "0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0,0,0,0.08)",
+            }}>
+            <Text
+                strong
+                style={{
+                    display: "block",
+                    marginBottom: 8,
+                    fontSize: 13,
+                    color: "#1f2937",
+                }}>
+                {label}
+            </Text>
+            {payload.map((entry, index) => (
+                <div
+                    key={index}
+                    style={{
+                        marginBottom: index < payload.length - 1 ? 4 : 0,
+                    }}>
+                    <Space size={8}>
+                        <div
+                            style={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: 3,
+                                backgroundColor: entry.color,
+                            }}
+                        />
+                        <Text
+                            style={{
+                                color: "#4b5563",
+                                fontSize: 12,
+                                fontWeight: 500,
+                            }}>
+                            {entry.name}:{" "}
+                            <span
+                                style={{
+                                    color: entry.color,
+                                    fontWeight: 700,
+                                }}>
+                                {entry.value}m
+                            </span>
+                        </Text>
+                    </Space>
+                </div>
+            ))}
+        </div>
+    );
+});
+
+CustomTooltip.displayName = "CustomTooltip";
 
 const ReportPage = () => {
     const [reportType, setReportType] = useState("today");
@@ -144,24 +210,44 @@ const ReportPage = () => {
     const [lineKeys, setLineKeys] = useState([]);
     const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
     const [thresholds, setThresholds] = useState([]);
+    const [maxRange, setMaxRange] = useState(4.5);
+    const [isFetchingData, setIsFetchingData] = useState(false); // New state for data fetching
     const { isMobile } = useResponsive();
+
+    // Use ref to prevent refresh indicator on realtime updates
+    const isRealtimeUpdate = useRef(false);
+
+    // Badge toggle state for mobile
+    const [showPrediction, setShowPrediction] = useState(false);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setShowPrediction((prev) => !prev);
+        }, 3000);
+        return () => clearInterval(interval);
+    }, []);
 
     const fetchThresholds = useCallback(async () => {
         try {
             const { data: thresholdData, error } = await supabase
                 .from("water_thresholds")
                 .select("*")
-                .order("min_level", { ascending: true });
+                .order("converted_min_level", { ascending: true });
             if (error) throw error;
+
+            const firstThreshold = thresholdData?.[0];
+            if (firstThreshold?.max_range) {
+                setMaxRange(parseFloat(firstThreshold.max_range));
+            }
+
             const sortedThresholds = (thresholdData || []).map((t) => ({
                 ...t,
-                min_level: parseFloat(t.min_level),
-                max_level: parseFloat(t.max_level),
+                converted_min_level: parseFloat(t.converted_min_level),
+                converted_max_level: parseFloat(t.converted_max_level),
             }));
             setThresholds(sortedThresholds);
             return sortedThresholds;
         } catch (error) {
-            console.error("Error fetching thresholds:", error);
             showWarning("Failed to load thresholds");
             return [];
         }
@@ -169,18 +255,20 @@ const ReportPage = () => {
 
     const fetchReadings = useCallback(async (start, end) => {
         try {
+            setIsFetchingData(true); // Set fetching state
             const { data: readings, error } = await supabase
                 .from("sensor_readings")
-                .select("water_level, created_at")
+                .select("converted_water_level, created_at")
                 .gte("created_at", start.toISOString())
                 .lt("created_at", end.toISOString())
                 .order("created_at", { ascending: true });
             if (error) throw error;
             return readings || [];
         } catch (error) {
-            console.error("Error fetching readings:", error);
             showError("Failed to fetch sensor data");
             return [];
+        } finally {
+            setIsFetchingData(false); // Clear fetching state
         }
     }, []);
 
@@ -211,9 +299,9 @@ const ReportPage = () => {
                     .endOf("isoWeek")
                     .format("MMM DD, YYYY")}`;
             case "monthly":
-                return monthView === "week"
-                    ? "Weekly Averages"
-                    : "Daily Averages";
+                return monthView === "week" ? "Weekly Averages" : (
+                        "Daily Averages"
+                    );
             case "annually":
                 return "Monthly Averages Comparison";
             default:
@@ -223,11 +311,18 @@ const ReportPage = () => {
 
     const fetchSensorData = useCallback(
         async (isRefresh = false) => {
-            if (isRefresh) setRefreshing(true);
-            else setLoading(true);
+            // Show appropriate loading states
+            if (isRefresh && !isRealtimeUpdate.current) {
+                setRefreshing(true);
+            } else if (!isRefresh) {
+                setLoading(true);
+            }
 
+            // Always clear data when starting to fetch
             setData([]);
             setLineKeys([]);
+            setIsFetchingData(true);
+
             const today = dayjs();
             let chartData = [];
             let keys = [];
@@ -246,8 +341,8 @@ const ReportPage = () => {
 
                         chartData = readings.map((r) => ({
                             date: dayjs(r.created_at).format("HH:mm"),
-                            "Water Level": +convertToChartValue(
-                                r.water_level
+                            "Water Level": +parseFloat(
+                                r.converted_water_level,
                             ).toFixed(2),
                         }));
                         keys = ["Water Level"];
@@ -256,26 +351,23 @@ const ReportPage = () => {
                     case "weekly": {
                         const readings = await fetchReadings(
                             today.startOf("isoWeek"),
-                            today.endOf("isoWeek")
+                            today.endOf("isoWeek"),
                         );
 
-                        chartData = averageByDay(readings, convertToChartValue);
+                        chartData = averageByDay(readings);
                         keys = ["Water Level"];
                         break;
                     }
                     case "monthly": {
                         const readings = await fetchReadings(
                             selectedMonth.startOf("month"),
-                            selectedMonth.endOf("month")
+                            selectedMonth.endOf("month"),
                         );
 
                         chartData =
-                            monthView === "week"
-                                ? averageByWeek(readings, convertToChartValue)
-                                : averageByDayOfMonth(
-                                      readings,
-                                      convertToChartValue
-                                  );
+                            monthView === "week" ?
+                                averageByWeek(readings)
+                            :   averageByDayOfMonth(readings);
                         keys = ["Water Level"];
                         break;
                     }
@@ -294,10 +386,9 @@ const ReportPage = () => {
                                 {
                                     start_date: start.toISOString(),
                                     end_date: end.toISOString(),
-                                }
+                                },
                             );
                             if (error) {
-                                console.error(`RPC error for ${year}:`, error);
                                 showError(`Failed to load data for ${year}`);
                                 continue;
                             }
@@ -306,18 +397,18 @@ const ReportPage = () => {
                             (rpcData || []).forEach((row, i) => {
                                 const [yr, mon] = row.month_label.split("-");
                                 const month = dayjs(`${yr}-${mon}-01`).format(
-                                    "MMM"
+                                    "MMM",
                                 );
                                 merged[i] ??= { date: month };
-                                merged[i][lineKey] = +convertToChartValue(
-                                    row.avg_level
+                                merged[i][lineKey] = +parseFloat(
+                                    row.avg_converted_level || row.avg_level,
                                 ).toFixed(2);
                             });
                         }
                         chartData = merged.sort(
                             (a, b) =>
                                 MONTH_ORDER.indexOf(a.date) -
-                                MONTH_ORDER.indexOf(b.date)
+                                MONTH_ORDER.indexOf(b.date),
                         );
                         keys = currentKeys;
                         break;
@@ -329,12 +420,13 @@ const ReportPage = () => {
                 setData(chartData);
                 setLineKeys(keys);
             } catch (err) {
-                console.error("Fetch error:", err);
                 showError("Failed to load report data");
             } finally {
                 setLoading(false);
                 setRefreshing(false);
+                setIsFetchingData(false);
                 setInitialLoadDone(true);
+                isRealtimeUpdate.current = false;
             }
         },
         [
@@ -345,7 +437,7 @@ const ReportPage = () => {
             fetchReadings,
             thresholds,
             fetchThresholds,
-        ]
+        ],
     );
 
     useEffect(() => {
@@ -363,9 +455,11 @@ const ReportPage = () => {
                 "postgres_changes",
                 { event: "*", schema: "public", table: "sensor_readings" },
                 () => {
-                    if (reportType === "today" || reportType === "weekly")
+                    if (reportType === "today" || reportType === "weekly") {
+                        isRealtimeUpdate.current = true;
                         fetchSensorData(true);
-                }
+                    }
+                },
             )
             .subscribe();
         return () => {
@@ -378,163 +472,290 @@ const ReportPage = () => {
         setSelectedMonth(dayjs());
     }, []);
 
-    const resetAnnual = () => {
+    const resetAnnual = useCallback(() => {
         setSelectedYears([dayjs().year().toString()]);
-    };
+    }, []);
 
     const getYAxisDomain = useMemo(() => {
-        const FIXED_MAX = SENSOR_MAX;
+        const FIXED_MAX = maxRange;
         const MIN_DOMAIN = 0;
         if (!data.length) return [MIN_DOMAIN, FIXED_MAX];
         const values = data.flatMap((d) =>
             Object.entries(d)
                 .filter(([k]) => k !== "date")
-                .map(([, v]) => v)
+                .map(([, v]) => v),
         );
         const actualMin = Math.min(...values, 0);
         return [Math.max(MIN_DOMAIN, Math.floor(actualMin * 0.9)), FIXED_MAX];
-    }, [data]);
+    }, [data, maxRange]);
 
-    const renderChartLines = () => {
+    const yAxisTicks = useMemo(() => {
+        if (!thresholds.length) return undefined;
+
+        // Create unique ticks by filtering out duplicates
+        const tickSet = new Set();
+        const ticks = [];
+
+        // Add threshold min levels
+        thresholds.forEach((t) => {
+            const value = Number(t.converted_min_level.toFixed(2));
+            if (!tickSet.has(value)) {
+                tickSet.add(value);
+                ticks.push(value);
+            }
+        });
+
+        // Add max range if not already present
+        const maxValue = Number(maxRange.toFixed(2));
+        if (!tickSet.has(maxValue)) {
+            tickSet.add(maxValue);
+            ticks.push(maxValue);
+        }
+
+        // Sort ticks in ascending order
+        return ticks.sort((a, b) => a - b);
+    }, [thresholds, maxRange]);
+
+    // Optimized stats calculation with useMemo
+    const dataStats = useMemo(() => {
+        if (!data.length) return null;
+
+        const values = data.flatMap((d) =>
+            Object.entries(d)
+                .filter(([k]) => k !== "date")
+                .map(([, v]) => v),
+        );
+
+        const max = Math.max(...values);
+        const min = Math.min(...values);
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        const trend =
+            data.length > 1 ?
+                (data[data.length - 1]["Water Level"] ||
+                    Object.values(data[data.length - 1])[1]) -
+                (data[0]["Water Level"] || Object.values(data[0])[1])
+            :   0;
+
+        // Advanced prediction algorithm
+        let prediction = avg;
+
+        if (data.length > 3) {
+            const currentLevel =
+                data[data.length - 1]["Water Level"] ||
+                Object.values(data[data.length - 1])[1];
+
+            // Calculate exponential weighted moving average (more weight to recent data)
+            const alpha = 0.3; // Smoothing factor (0.2-0.3 works well for water levels)
+            let ewma = values[0];
+            for (let i = 1; i < values.length; i++) {
+                ewma = alpha * values[i] + (1 - alpha) * ewma;
+            }
+
+            // Calculate momentum (rate of change acceleration)
+            const recentValues = values.slice(-Math.min(5, values.length));
+            const momentum =
+                recentValues.length > 1 ?
+                    (recentValues[recentValues.length - 1] - recentValues[0]) /
+                    recentValues.length
+                :   0;
+
+            // Calculate volatility (standard deviation of recent changes)
+            const changes = [];
+            for (let i = 1; i < values.length; i++) {
+                changes.push(values[i] - values[i - 1]);
+            }
+            const volatility =
+                changes.length > 0 ?
+                    Math.sqrt(
+                        changes.reduce(
+                            (sum, change) => sum + change * change,
+                            0,
+                        ) / changes.length,
+                    )
+                :   0;
+
+            // Weighted prediction combining multiple factors
+            // 40% EWMA, 30% current + momentum, 20% trend-adjusted, 10% average
+            const ewmaComponent = 0.4 * ewma;
+            const momentumComponent = 0.3 * (currentLevel + momentum * 2);
+            const trendComponent =
+                0.2 * (currentLevel + (trend / data.length) * 3);
+            const avgComponent = 0.1 * avg;
+
+            prediction =
+                ewmaComponent +
+                momentumComponent +
+                trendComponent +
+                avgComponent;
+
+            // Apply dampening if volatility is high (less confident prediction)
+            if (volatility > 0.1) {
+                prediction = 0.7 * prediction + 0.3 * currentLevel;
+            }
+
+            // For daily view, consider time-of-day patterns
+            if (reportType === "today" && data.length > 10) {
+                const now = dayjs();
+                const currentHour = now.hour();
+
+                // Find similar time periods in the data
+                const similarTimeReadings = data
+                    .filter((d) => {
+                        const dataHour = parseInt(d.date.split(":")[0]);
+                        return Math.abs(dataHour - currentHour) <= 1;
+                    })
+                    .map((d) => d["Water Level"]);
+
+                if (similarTimeReadings.length > 0) {
+                    const timeBasedAvg =
+                        similarTimeReadings.reduce((a, b) => a + b, 0) /
+                        similarTimeReadings.length;
+                    // Blend time-based pattern (30%) with trend-based prediction (70%)
+                    prediction = 0.7 * prediction + 0.3 * timeBasedAvg;
+                }
+            }
+
+            // For weekly/monthly views, apply seasonal dampening
+            if (reportType === "weekly" || reportType === "monthly") {
+                // More conservative prediction for longer timeframes
+                prediction = 0.6 * prediction + 0.4 * ewma;
+            }
+        } else {
+            // Not enough data for sophisticated prediction, use simple extrapolation
+            const currentLevel =
+                data[data.length - 1]["Water Level"] ||
+                Object.values(data[data.length - 1])[1];
+            prediction = currentLevel + trend * 0.5;
+        }
+
+        // Clamp prediction to valid range with safety margins
+        prediction = Math.max(0, Math.min(maxRange * 0.95, prediction));
+
+        return { max, min, avg, trend, prediction };
+    }, [data, maxRange, reportType]);
+
+    // Memoized chart lines rendering
+    const renderChartLines = useCallback(() => {
         const isAnnual = reportType === "annually";
         const currentYear = dayjs().year().toString();
         let colorIndex = 0;
         const keysToRender =
-            lineKeys.length > 0
-                ? lineKeys
-                : Object.keys(data[0] || {}).filter((k) => k !== "date");
-        return keysToRender.map((key) => {
+            lineKeys.length > 0 ?
+                lineKeys
+            :   Object.keys(data[0] || {}).filter((k) => k !== "date");
+
+        return keysToRender.map((key, idx) => {
             let color = ACCENT_COLOR;
+            let gradientId = `gradient-${idx}`;
+            let gradient = { start: ACCENT_COLOR, end: ACCENT_COLOR };
+
             if (isAnnual) {
-                color =
-                    key === currentYear
-                        ? ACCENT_COLOR
-                        : COLORS[colorIndex++ % COLORS.length];
+                gradient =
+                    key === currentYear ?
+                        { start: ACCENT_COLOR, end: ACCENT_COLOR }
+                    :   GRADIENT_COLORS[colorIndex % GRADIENT_COLORS.length];
+                color = gradient.start;
+                colorIndex++;
             }
+
             return (
-                <Line
-                    key={key}
-                    type="monotone"
-                    dataKey={key}
-                    stroke={color}
-                    strokeWidth={isAnnual ? 3 : 2.5}
-                    dot={{ r: isAnnual ? 5 : reportType === "today" ? 0 : 4 }}
-                    activeDot={{ r: 8 }}
-                />
+                <React.Fragment key={key}>
+                    {isAnnual && (
+                        <defs>
+                            <linearGradient
+                                id={gradientId}
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1">
+                                <stop
+                                    offset="5%"
+                                    stopColor={gradient.start}
+                                    stopOpacity={0.8}
+                                />
+                                <stop
+                                    offset="95%"
+                                    stopColor={gradient.end}
+                                    stopOpacity={0.1}
+                                />
+                            </linearGradient>
+                        </defs>
+                    )}
+                    <Line
+                        key={key}
+                        type="monotone"
+                        dataKey={key}
+                        stroke={color}
+                        strokeWidth={
+                            isAnnual ? 3
+                            : reportType === "today" ?
+                                2
+                            :   3
+                        }
+                        dot={
+                            reportType === "today" ? false : (
+                                {
+                                    r: isAnnual ? 6 : 5,
+                                    fill: color,
+                                    strokeWidth: 2,
+                                    stroke: "#fff",
+                                }
+                            )
+                        }
+                        activeDot={{
+                            r: 8,
+                            fill: color,
+                            strokeWidth: 3,
+                            stroke: "#fff",
+                            filter: "drop-shadow(0px 2px 4px rgba(0,0,0,0.2))",
+                        }}
+                        isAnimationActive={false}
+                    />
+                </React.Fragment>
             );
         });
-    };
+    }, [reportType, lineKeys, data]);
 
-    const showLegend = reportType === "annually" && data.length > 0;
-
-    const CustomTooltip = ({ active, payload, label }) => {
-        if (active && payload && payload.length) {
-            return (
-                <div
-                    style={{
-                        backgroundColor: "rgba(255, 255, 255, 0.98)",
-                        border: `2px solid ${THEME.BLUE_PRIMARY}`,
-                        borderRadius: 8,
-                        padding: "10px 14px",
-                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                    }}>
-                    <Text
-                        strong
-                        style={{
-                            display: "block",
-                            marginBottom: 6,
-                            fontSize: 13,
-                        }}>
-                        {label}
-                    </Text>
-                    {payload.map((entry, index) => (
-                        <div key={index}>
-                            <Text style={{ color: entry.color, fontSize: 12 }}>
-                                {entry.name}: {entry.value}m
-                            </Text>
-                        </div>
-                    ))}
-                </div>
-            );
-        }
-        return null;
-    };
-
-    const renderThresholdReferences = () => {
+    // Memoized threshold references
+    const renderThresholdReferences = useCallback(() => {
         if (!thresholds.length) return null;
-        
-        console.log('Rendering thresholds:', thresholds);
-        
-        // Create inverted thresholds for water level display
-        // Convert sensor distances to water levels and reverse order
-        const waterLevelThresholds = thresholds.map(threshold => ({
-            ...threshold,
-            // Convert sensor distances to water levels (invert)
-            displayMin: convertToChartValue(threshold.max_level), // max sensor distance = min water level
-            displayMax: convertToChartValue(threshold.min_level), // min sensor distance = max water level
-        })).reverse(); // Reverse so L3 (critical) is at top
-        
-        return waterLevelThresholds.map((threshold, index) => {
+
+        const sortedThresholds = [...thresholds].sort(
+            (a, b) => a.converted_min_level - b.converted_min_level,
+        );
+
+        return sortedThresholds.map((threshold, index) => {
             const color = getStatusColor(threshold.name);
-            const isTopThreshold = index === waterLevelThresholds.length - 1;
             const isBottomThreshold = index === 0;
-            
-            console.log(`Water Level Threshold ${threshold.name}:`, {
-                index,
-                originalMin: threshold.min_level,
-                originalMax: threshold.max_level,
-                displayMin: threshold.displayMin,
-                displayMax: threshold.displayMax,
-                color,
-            });
-            
+
             return (
                 <React.Fragment key={threshold.id}>
-                    {/* Colored zone for this threshold level */}
                     <ReferenceArea
-                        y1={threshold.displayMin}
-                        y2={threshold.displayMax}
+                        y1={threshold.converted_min_level}
+                        y2={threshold.converted_max_level}
                         fill={color}
-                        opacity={0.08}
+                        fillOpacity={0.06}
+                        stroke="none"
                     />
-                    
-                    {/* Top boundary line with label */}
-                    {!isTopThreshold && (
+
+                    {!isBottomThreshold && (
                         <ReferenceLine
-                            y={threshold.displayMax}
-                            stroke={getStatusColor(waterLevelThresholds[index + 1].name)}
-                            strokeDasharray="5 5"
-                            strokeWidth={2}
-                            label={{
-                                value: `${waterLevelThresholds[index + 1].name} (${threshold.displayMax.toFixed(2)}m)`,
-                                position: "insideTopLeft",
-                                fill: getStatusColor(waterLevelThresholds[index + 1].name),
-                                fontSize: isMobile ? 10 : 12,
-                                fontWeight: 600,
-                            }}
-                        />
-                    )}
-                    
-                    {/* Bottom boundary line with label - always at y=0 for L0 */}
-                    {isBottomThreshold && (
-                        <ReferenceLine
-                            y={0}
+                            y={threshold.converted_min_level}
                             stroke={color}
                             strokeDasharray="5 5"
-                            strokeWidth={2}
-                            label={{
-                                value: `${threshold.name} (0m)`,
-                                position: "insideBottomLeft",
-                                fill: color,
-                                fontSize: isMobile ? 10 : 12,
-                                fontWeight: 600,
-                            }}
+                            strokeWidth={1.5}
+                            strokeOpacity={0.7}
                         />
                     )}
                 </React.Fragment>
             );
         });
-    };
+    }, [thresholds]);
+
+    const showLegend = reportType === "annually" && data.length > 0;
+
+    // Show timestamp only for weekly, monthly, and annually
+    const showTimestamp = reportType !== "today";
 
     if (initialLoadDone === false) {
         return (
@@ -562,12 +783,11 @@ const ReportPage = () => {
             <div
                 style={{
                     padding: isMobile ? 16 : 24,
-                    // minHeight: "100vh",
                 }}>
                 {/* Header Card */}
                 <Card
                     style={{
-                        ...cardStyle,
+                        ...cardStyleAdaptive,
                         background: THEME.BLUE_PRIMARY,
                         marginBottom: 16,
                         border: "none",
@@ -592,10 +812,15 @@ const ReportPage = () => {
                                 </Title>
                                 <Text
                                     style={{
-                                        color: "rgba(255, 255, 255, 0.85)",
+                                        color: "rgba(255, 255, 255, 0.9)",
                                         fontSize: isMobile ? 12 : 14,
                                     }}>
                                     Real-time monitoring and historical data
+                                    {isFetchingData && (
+                                        <span style={{ marginLeft: 8 }}>
+                                            <LoadingOutlined spin /> Fetching...
+                                        </span>
+                                    )}
                                 </Text>
                             </Space>
                         </Col>
@@ -613,32 +838,48 @@ const ReportPage = () => {
                 {/* Chart Section */}
                 <Card
                     style={{
-                        ...cardStyle,
-                        borderTop: `5px solid ${THEME.BLUE_PRIMARY}`,
+                        ...cardStyleAdaptive,
                     }}
                     styles={{ body: { padding: isMobile ? 16 : 20 } }}
                     title={
                         isMobile && (
                             <Row justify="space-between" align="middle">
                                 <Col>
-                                    <Text strong style={{ fontSize: 14 }}>
-                                        {reportType === "today" && "Today"}
-                                        {reportType === "weekly" && "Weekly"}
-                                        {reportType === "monthly" && "Monthly"}
-                                        {reportType === "annually" && "Annual"}
-                                    </Text>
+                                    {isFetchingData ?
+                                        <Space size={4}>
+                                            <LoadingOutlined spin />
+                                            <span>Loading...</span>
+                                        </Space>
+                                    : dataStats ?
+                                        showPrediction ?
+                                            <Space size={4}>
+                                                <span>
+                                                    Prediction:{" "}
+                                                    {dataStats.prediction.toFixed(
+                                                        2,
+                                                    )}
+                                                    m
+                                                </span>
+                                            </Space>
+                                        :   <Space size={4}>
+                                                {dataStats.trend >= 0 ?
+                                                    <RiseOutlined />
+                                                :   <FallOutlined />}
+                                                <span>
+                                                    Trend:{" "}
+                                                    {dataStats.trend >= 0 ?
+                                                        "+"
+                                                    :   ""}
+                                                    {dataStats.trend.toFixed(2)}
+                                                    m
+                                                </span>
+                                            </Space>
+
+                                    :   null}
                                 </Col>
                                 <Col>
                                     <Space size={8}>
-                                        <Text
-                                            type="secondary"
-                                            style={{
-                                                padding: 0,
-                                            }}>
-                                            Filter
-                                        </Text>
                                         <Button
-                                            label="pwet"
                                             type="text"
                                             icon={<FilterOutlined />}
                                             onClick={() =>
@@ -652,13 +893,18 @@ const ReportPage = () => {
                                             type="text"
                                             icon={
                                                 <ReloadOutlined
-                                                    spin={refreshing}
+                                                    spin={
+                                                        refreshing ||
+                                                        isFetchingData
+                                                    }
                                                 />
                                             }
                                             onClick={() =>
                                                 fetchSensorData(true)
                                             }
-                                            loading={refreshing}
+                                            loading={
+                                                refreshing || isFetchingData
+                                            }
                                             style={{
                                                 color: THEME.BLUE_PRIMARY,
                                             }}
@@ -675,24 +921,40 @@ const ReportPage = () => {
                                 width: "100%",
                                 display: "flex",
                                 justifyContent: "center",
-                                marginBottom: 20,
+                                marginBottom: 24,
                             }}>
                             <Radio.Group
                                 value={reportType}
                                 onChange={(e) => setReportType(e.target.value)}
                                 buttonStyle="solid"
-                                size="middle"
-                                style={{ display: "flex", gap: 6 }}>
-                                <Radio.Button value="today">
-                                    <CalendarOutlined /> Today
+                                size="large"
+                                disabled={isFetchingData}
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                                    borderRadius: 8,
+                                    padding: 4,
+                                    background: "white",
+                                }}>
+                                <Radio.Button
+                                    value="today"
+                                    style={{ borderRadius: 6 }}>
+                                    Today
                                 </Radio.Button>
-                                <Radio.Button value="weekly">
+                                <Radio.Button
+                                    value="weekly"
+                                    style={{ borderRadius: 6 }}>
                                     Weekly
                                 </Radio.Button>
-                                <Radio.Button value="monthly">
+                                <Radio.Button
+                                    value="monthly"
+                                    style={{ borderRadius: 6 }}>
                                     Monthly
                                 </Radio.Button>
-                                <Radio.Button value="annually">
+                                <Radio.Button
+                                    value="annually"
+                                    style={{ borderRadius: 6 }}>
                                     Annual
                                 </Radio.Button>
                             </Radio.Group>
@@ -706,7 +968,7 @@ const ReportPage = () => {
                             style={{
                                 width: "100%",
                                 justifyContent: "center",
-                                marginBottom: 20,
+                                marginBottom: 24,
                                 flexWrap: "wrap",
                             }}>
                             <Space size="small">
@@ -716,7 +978,9 @@ const ReportPage = () => {
                                     value={selectedMonth}
                                     onChange={setSelectedMonth}
                                     allowClear={false}
-                                    size="middle"
+                                    disabled={isFetchingData}
+                                    size="large"
+                                    style={{ borderRadius: 8 }}
                                 />
                             </Space>
                             <Space size="small">
@@ -724,8 +988,9 @@ const ReportPage = () => {
                                 <Select
                                     value={monthView}
                                     onChange={setMonthView}
-                                    size="middle"
-                                    style={{ width: 100 }}>
+                                    disabled={isFetchingData}
+                                    size="large"
+                                    style={{ width: 120, borderRadius: 8 }}>
                                     <Option value="day">Daily</Option>
                                     <Option value="week">Weekly</Option>
                                 </Select>
@@ -733,7 +998,9 @@ const ReportPage = () => {
                             <Button
                                 onClick={resetMonthly}
                                 icon={<ReloadOutlined />}
-                                size="middle">
+                                disabled={isFetchingData}
+                                size="large"
+                                style={{ borderRadius: 8 }}>
                                 Reset
                             </Button>
                         </Space>
@@ -746,7 +1013,7 @@ const ReportPage = () => {
                             style={{
                                 width: "100%",
                                 justifyContent: "center",
-                                marginBottom: 20,
+                                marginBottom: 24,
                                 flexWrap: "wrap",
                             }}>
                             <Space size="small">
@@ -756,8 +1023,9 @@ const ReportPage = () => {
                                     value={selectedYears}
                                     onChange={setSelectedYears}
                                     placeholder="Select years"
-                                    size="middle"
-                                    style={{ minWidth: 200 }}
+                                    disabled={isFetchingData}
+                                    size="large"
+                                    style={{ minWidth: 220, borderRadius: 8 }}
                                     maxTagCount={3}>
                                     {Array.from({ length: 10 }, (_, i) => {
                                         const year = (
@@ -774,139 +1042,272 @@ const ReportPage = () => {
                             <Button
                                 onClick={resetAnnual}
                                 icon={<ReloadOutlined />}
-                                size="middle">
+                                disabled={isFetchingData}
+                                size="large"
+                                style={{ borderRadius: 8 }}>
                                 Reset
                             </Button>
                         </Space>
                     )}
 
                     {/* Chart Title */}
-                    <div style={{ textAlign: "center", marginBottom: 16 }}>
+                    <div style={{ textAlign: "center", marginBottom: 20 }}>
                         <Title
-                            level={isMobile ? 5 : 4}
+                            level={isMobile ? 5 : 3}
                             style={{
                                 margin: 0,
-                                color: THEME.BLUE_AUTHORITY,
-                                fontWeight: 700,
+                                background: `linear-gradient(135deg, ${THEME.BLUE_AUTHORITY} 0%, ${THEME.BLUE_PRIMARY} 100%)`,
+                                WebkitBackgroundClip: "text",
+                                WebkitTextFillColor: "transparent",
+                                fontWeight: 800,
                             }}>
                             {chartTitle}
                         </Title>
-                        <Text
-                            type="secondary"
-                            style={{
-                                fontSize: isMobile ? 12 : 13,
-                                display: "block",
-                                marginTop: 2,
-                            }}>
-                            {chartSubtitle}
-                        </Text>
+                        {showTimestamp && (
+                            <Text
+                                type="secondary"
+                                style={{
+                                    fontSize: isMobile ? 12 : 14,
+                                    display: "block",
+                                    marginTop: 4,
+                                    fontWeight: 500,
+                                }}>
+                                {chartSubtitle}
+                            </Text>
+                        )}
                     </div>
 
                     {/* Chart Container */}
-                    <div
-                        style={{ width: "100%", marginTop: isMobile ? 8 : 16 }}>
-                        {loading ? (
-                            <div
-                                style={{
-                                    height: isMobile ? 450 : 500,
-                                    display: "flex",
-                                    justifyContent: "center",
-                                    alignItems: "center",
-                                    flexDirection: "column",
-                                    gap: 12,
+                    {loading || isFetchingData ?
+                        <div
+                            style={{
+                                height: isMobile ? 310 : 300,
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                flexDirection: "column",
+                                gap: 12,
+                            }}>
+                            <Spin size="large" />
+                            <Text type="secondary" style={{ fontSize: 13 }}>
+                                {isFetchingData ?
+                                    "Fetching data from database..."
+                                :   "Loading chart..."}
+                            </Text>
+                        </div>
+                    : data.length === 0 ?
+                        <div
+                            style={{
+                                height: isMobile ? 310 : 300,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                            }}>
+                            <Empty
+                                description={
+                                    <Space direction="vertical" size={2}>
+                                        <Text type="secondary">
+                                            No data found
+                                        </Text>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 12 }}>
+                                            Try a different time period
+                                        </Text>
+                                    </Space>
+                                }
+                            />
+                        </div>
+                    :   <ResponsiveContainer
+                            width="100%"
+                            height={isMobile ? 310 : 300}>
+                            <LineChart
+                                style={{ aspectRatio: 1.618 }}
+                                data={data}
+                                margin={{
+                                    top: isMobile ? 0 : 30,
+                                    right: isMobile ? 20 : 60,
+                                    left: isMobile ? -35 : 0,
+                                    bottom: isMobile ? 0 : 0,
                                 }}>
-                                <Spin size="large" />
-                                <Text type="secondary" style={{ fontSize: 13 }}>
-                                    Loading data...
-                                </Text>
-                            </div>
-                        ) : data.length === 0 ? (
-                            <div
-                                style={{
-                                    height: isMobile ? 310 : 500,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                }}>
-                                <Empty
-                                    description={
-                                        <Space direction="vertical" size={2}>
-                                            <Text type="secondary">
-                                                No data found
-                                            </Text>
-                                            <Text
-                                                type="secondary"
-                                                style={{ fontSize: 12 }}>
-                                                Try a different time period
-                                            </Text>
-                                        </Space>
+                                <defs>
+                                    <linearGradient
+                                        id="colorGradient"
+                                        x1="0"
+                                        y1="0"
+                                        x2="0"
+                                        y2="1">
+                                        <stop
+                                            offset="5%"
+                                            stopColor={ACCENT_COLOR}
+                                            stopOpacity={0.3}
+                                        />
+                                        <stop
+                                            offset="95%"
+                                            stopColor={ACCENT_COLOR}
+                                            stopOpacity={0.05}
+                                        />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    stroke="#e5e7eb"
+                                    vertical={false}
+                                />
+                                {renderThresholdReferences()}
+                                <XAxis
+                                    label={{
+                                        value: "Water Level (m)",
+                                        position: "insideBottom",
+                                        style: {
+                                            fontSize: isMobile ? 11 : 13,
+                                            fontWeight: 600,
+                                            fill: THEME.BLUE_AUTHORITY,
+                                            textAnchor: "middle",
+                                        },
+                                    }}
+                                    dataKey="date"
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={isMobile ? 60 : 70}
+                                    interval={isMobile ? "preserveStartEnd" : 0}
+                                    tick={
+                                        reportType === "today" ? false : (
+                                            {
+                                                fontSize: isMobile ? 10 : 12,
+                                                fill: "#6b7280",
+                                            }
+                                        )
+                                    }
+                                    axisLine={{ stroke: "#d1d5db" }}
+                                    tickLine={
+                                        reportType === "today" ? false : (
+                                            { stroke: "#d1d5db" }
+                                        )
                                     }
                                 />
-                            </div>
-                        ) : (
-                            <ResponsiveContainer
-                                width="100%"
-                                height={isMobile ? 310 : 500}>
-                                <LineChart
-                                    data={data}
-                                    margin={{
-                                        // top: 60,
-                                        right: isMobile ? 20 : 20,
-                                        left: isMobile ? -40 : -30,
-                                        bottom: isMobile ? 0 : 0,
-                                    }}>
-                                    <CartesianGrid
-                                        strokeDasharray="3 3"
-                                        stroke="#E8E8E8"
-                                    />
-                                    {renderThresholdReferences()}
-                                    <XAxis
-                                        dataKey="date"
-                                        angle={-45}
-                                        textAnchor="end"
-                                        height={isMobile ? 60 : 70}
-                                        interval={
-                                            isMobile ? "preserveStartEnd" : 0
-                                        }
-                                        tick={{
-                                            fontSize: isMobile ? 10 : 12,
+                                <YAxis
+                                    domain={getYAxisDomain}
+                                    ticks={[
+                                        ...new Set([
+                                            ...thresholds.map(
+                                                (t) => t.converted_min_level,
+                                            ),
+                                            maxRange,
+                                        ]),
+                                    ].sort((a, b) => a - b)}
+                                    tick={{
+                                        fontSize: isMobile ? 10 : 12,
+                                        fill: "#6b7280",
+                                    }}
+                                    axisLine={{ stroke: "#d1d5db" }}
+                                    tickLine={{ stroke: "#d1d5db" }}
+                                />
+                                <Tooltip content={<CustomTooltip />} />
+                                {showLegend && (
+                                    <Legend
+                                        verticalAlign="top"
+                                        height={50}
+                                        wrapperStyle={{
+                                            fontSize: 13,
+                                            fontWeight: 500,
+                                            paddingTop: 10,
                                         }}
                                     />
-                                    <YAxis
-                                        domain={getYAxisDomain}
-                                        ticks={[0, 1, 2, 3, 4, 4.5]}
-                                        label={{
-                                            value: "Water Level (m)",
-                                            angle: -90,
-                                            position: "insideLeft",
-                                            style: {
-                                                fontSize: isMobile ? 11 : 13,
-                                                fontWeight: 600,
-                                            },
-                                        }}
-                                        tick={{
-                                            fontSize: isMobile ? 10 : 12,
-                                        }}
-                                    />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    {showLegend && (
-                                        <Legend
-                                            verticalAlign="top"
-                                            height={50}
-                                            wrapperStyle={{ fontSize: 12 }}
-                                        />
-                                    )}
-                                    {renderChartLines()}
-                                </LineChart>
-                            </ResponsiveContainer>
-                        )}
-                    </div>
+                                )}
+                                {renderChartLines()}
+                            </LineChart>
+                        </ResponsiveContainer>
+                    }
+
+                    {/* Legend Section - Desktop Only */}
+                    {!isMobile && thresholds.length > 0 && dataStats && (
+                        <div style={{ marginTop: 20 }}>
+                            <Space
+                                size={[16, 8]}
+                                wrap
+                                style={{
+                                    width: "100%",
+                                    justifyContent: "center",
+                                    display: "flex",
+                                }}>
+                                {/* Stats Only - No Thresholds */}
+                                <Badge
+                                    color="#667eea"
+                                    text={
+                                        <Text
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: 500,
+                                            }}>
+                                            Peak: {dataStats.max.toFixed(2)}m
+                                        </Text>
+                                    }
+                                />
+                                <Badge
+                                    color="#4facfe"
+                                    text={
+                                        <Text
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: 500,
+                                            }}>
+                                            Lowest: {dataStats.min.toFixed(2)}m
+                                        </Text>
+                                    }
+                                />
+                                <Badge
+                                    color="#43e97b"
+                                    text={
+                                        <Text
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: 500,
+                                            }}>
+                                            Average: {dataStats.avg.toFixed(2)}m
+                                        </Text>
+                                    }
+                                />
+                                <Badge
+                                    color={
+                                        dataStats.trend >= 0 ?
+                                            "#fa709a"
+                                        :   "#330867"
+                                    }
+                                    text={
+                                        <Text
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: 500,
+                                            }}>
+                                            Trend:{" "}
+                                            {dataStats.trend >= 0 ? "+" : ""}
+                                            {dataStats.trend.toFixed(2)}m
+                                        </Text>
+                                    }
+                                />
+                                <Badge
+                                    color="#8b5cf6"
+                                    text={
+                                        <Text
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: 500,
+                                            }}>
+                                            Prediction:{" "}
+                                            {dataStats.prediction.toFixed(2)}m
+                                        </Text>
+                                    }
+                                />
+                            </Space>
+                        </div>
+                    )}
                 </Card>
 
                 {/* Mobile Filter Drawer */}
                 <Drawer
                     style={{
-                        borderRadius: "0 0 50vw 50vw",
+                        borderRadius: "0 0 10vw 10vw",
                         borderBottom: `4px solid ${THEME.BLUE_PRIMARY}`,
                     }}
                     placement="top"
@@ -921,10 +1322,11 @@ const ReportPage = () => {
                     <Card
                         variant={false}
                         style={{
+                            ...cardStyleAdaptive,
                             height: "100%",
                             borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
-                            borderRadius: "0 0 50vw 50vw",
                             backgroundColor: "rgba(255, 255, 255, 0.9)",
+                            borderRadius: "0 0 10vw 10vw",
                         }}>
                         <Space
                             direction="vertical"
@@ -948,6 +1350,7 @@ const ReportPage = () => {
                                     }
                                     buttonStyle="solid"
                                     size="middle"
+                                    disabled={isFetchingData}
                                     style={{ width: "100%", display: "flex" }}>
                                     <Radio.Button
                                         value="today"
@@ -1004,6 +1407,7 @@ const ReportPage = () => {
                                             value={selectedMonth}
                                             onChange={setSelectedMonth}
                                             allowClear={false}
+                                            disabled={isFetchingData}
                                             style={{
                                                 width: "100%",
                                                 height: 32,
@@ -1023,6 +1427,7 @@ const ReportPage = () => {
                                         <Select
                                             value={monthView}
                                             onChange={setMonthView}
+                                            disabled={isFetchingData}
                                             style={{
                                                 width: "100%",
                                                 height: 32,
@@ -1035,6 +1440,7 @@ const ReportPage = () => {
                                         <Button
                                             onClick={resetMonthly}
                                             icon={<ReloadOutlined />}
+                                            disabled={isFetchingData}
                                             style={{
                                                 borderRadius: 6,
                                                 width: "45%",
@@ -1066,6 +1472,7 @@ const ReportPage = () => {
                                             value={selectedYears}
                                             onChange={setSelectedYears}
                                             placeholder="Select years"
+                                            disabled={isFetchingData}
                                             style={{
                                                 width: "100%",
                                                 minHeight: 40,
@@ -1084,7 +1491,7 @@ const ReportPage = () => {
                                                             {year}
                                                         </Option>
                                                     );
-                                                }
+                                                },
                                             )}
                                         </Select>
                                     </div>
@@ -1092,6 +1499,7 @@ const ReportPage = () => {
                                         <Button
                                             onClick={resetAnnual}
                                             icon={<ReloadOutlined />}
+                                            disabled={isFetchingData}
                                             style={{
                                                 borderRadius: 6,
                                                 width: "45%",
@@ -1102,25 +1510,35 @@ const ReportPage = () => {
                                     </Flex>
                                 </Space>
                             )}
-
-                            <div
-                                style={{
-                                    display: "flex",
-                                    justifyContent: "center",
-                                    marginTop: 8,
-                                    width: "auto",
-                                }}>
-                                <Button
-                                    shape="circle"
-                                    icon={<CloseOutlined />}
-                                    onClick={() =>
-                                        setFilterDrawerVisible(false)
-                                    }
-                                    style={{ width: 40, height: 40 }}
-                                />
-                            </div>
                         </Space>
                     </Card>
+                    <div
+                        style={{
+                            position: "fixed",
+                            left: "50%",
+                            top: "75vh",
+                            transform: "translate(-50%, -50%)",
+                            zIndex: 10000,
+                            filter: "drop-shadow(0px 4px 12px rgba(0, 0, 0, 0.2))",
+                            pointerEvents: "auto",
+                        }}>
+                        <Button
+                            shape="circle"
+                            icon={<CloseOutlined />}
+                            onClick={() => setFilterDrawerVisible(false)}
+                            style={{
+                                width: 50,
+                                height: 50,
+                                backgroundColor: "#fff",
+                                border: `2px solid ${THEME.BLUE_PRIMARY}`,
+                                color: THEME.BLUE_PRIMARY,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: "22px",
+                            }}
+                        />
+                    </div>
                 </Drawer>
             </div>
         </ConfigProvider>

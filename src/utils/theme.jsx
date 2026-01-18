@@ -5,11 +5,11 @@ export const THEME = {
     BLUE_PRIMARY: "#0056a0",
     BLUE_AUTHORITY: "#0A3D62",
     BLUE_HOVER: "#004480",
-    
+
     // Accent Colors
     ACCENT_YELLOW: "#ffc72c",
     ACCENT_COLOR: "#f8b701",
-    
+
     // Status Colors
     GREEN_SAFE: "#52C41A",
     YELLOW_NORMAL: "#fde321",
@@ -45,21 +45,14 @@ export const THEME = {
     BREAKPOINT_DESKTOP: 1200,
 };
 
-export const cardStyle = {
-    borderRadius: THEME.BORDER_RADIUS,
-    boxShadow: THEME.CARD_SHADOW,
-    transition: "transform 0.3s ease, box-shadow 0.3s ease",
-    background: THEME.CARD_BG,
-    border: `0.25px solid ${THEME.BLUE_PRIMARY}`,
-    borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
-};
 export const cardStyleAdaptive = {
     borderRadius: THEME.BORDER_RADIUS,
     boxShadow: THEME.CARD_SHADOW,
     transition: "transform 0.3s ease, box-shadow 0.3s ease",
     background: THEME.CARD_BG,
-    borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
-    border: `0.25px`,
+    borderStyle: "solid",
+    borderWidth: "4px 1px 1px 1px",
+    borderColor: THEME.BLUE_PRIMARY,
 };
 
 export const primaryButtonStyle = {

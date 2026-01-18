@@ -1,4 +1,5 @@
-// DashboardPage.jsx - Enhanced Version
+// DashboardPage.jsx - Enhanced Version with Consistent Modals
+import { theme } from 'antd';
 import { useEffect, useState, useMemo, useCallback } from "react";
 import {
     Card,
@@ -32,12 +33,10 @@ import {
     LockOutlined,
     EyeInvisibleOutlined,
     EyeTwoTone,
-    KeyOutlined,
-    TrophyOutlined,
     FallOutlined,
 } from "@ant-design/icons";
 import { supabase } from "@/globals";
-import { THEME, cardStyle, cardStyleAdaptive } from "@/utils/theme";
+import { THEME, cardStyleAdaptive } from "@/utils/theme";
 import { showSuccess, showError, showWarning } from "@/utils/notifications";
 import { useResponsive } from "@/utils/useResponsive";
 import { useConfirmDialog } from "@/utils/confirmDialog";
@@ -55,6 +54,7 @@ const ROLE_CONFIG = {
         canViewRoleCounts: true,
         canViewReadings: false,
         canEditDefaultPassword: true,
+        canEditMaxRange: true,
         showThresholds: true,
         dashboardTitle: "Admin Dashboard",
         sectionTitle: "System Management",
@@ -64,6 +64,7 @@ const ROLE_CONFIG = {
         canViewRoleCounts: true,
         canViewReadings: true,
         canEditDefaultPassword: false,
+        canEditMaxRange: false,
         showThresholds: true,
         dashboardTitle: "Official's Dashboard",
         sectionTitle: "Live Data Overview & Monitoring",
@@ -73,6 +74,7 @@ const ROLE_CONFIG = {
         canViewRoleCounts: false,
         canViewReadings: true,
         canEditDefaultPassword: false,
+        canEditMaxRange: false,
         showThresholds: false,
         dashboardTitle: "Water Level Monitor",
         sectionTitle: "Current Water Level Status",
@@ -133,6 +135,126 @@ const useAuth = () => {
     }, []);
 
     return { userRole, loading };
+};
+
+/* =========================
+   COMPONENT: BaseModal (Reusable Modal Wrapper)
+========================= */
+const BaseModal = ({
+    isOpen,
+    onClose,
+    title,
+    icon,
+    children,
+    isMobile,
+    width = 500,
+}) => {
+    return (
+        <Modal
+            title={
+                <Title level={4} style={{ margin: 0 }}>
+                    {icon && <span style={{ marginRight: 8 }}>{icon}</span>}
+                    {title}
+                </Title>
+            }
+            open={isOpen}
+            onCancel={onClose}
+            footer={null}
+            width={isMobile ? "100%" : width}
+            centered
+            destroyOnHidden>
+            <Card
+                variant={false}
+                style={{
+                    borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
+                    marginTop: 16,
+                }}
+                styles={{ body: { padding: isMobile ? 16 : 24 } }}>
+                {children}
+            </Card>
+        </Modal>
+    );
+};
+
+/* =========================
+   COMPONENT: ModalActions
+========================= */
+const ModalActions = ({
+    onCancel,
+    onSave,
+    loading,
+    isMobile,
+    saveText = "Save",
+    disabled = false,
+}) => {
+    return (
+        <Flex justify="end" gap={12}>
+            <Button
+                danger
+                style={{
+                    height: isMobile ? 32 : 40,
+                    borderRadius: 6,
+                    width: "100%",
+                }}
+                onClick={onCancel}
+                disabled={loading}>
+                Cancel
+            </Button>
+            <Button
+                type="primary"
+                onClick={onSave}
+                loading={loading}
+                disabled={disabled}
+                style={{
+                    height: isMobile ? 32 : 40,
+                    borderRadius: 6,
+                    width: "100%",
+                }}>
+                {loading ? "Saving..." : saveText}
+            </Button>
+        </Flex>
+    );
+};
+
+/* =========================
+   COMPONENT: InfoAlert (Reusable Info Card)
+========================= */
+const InfoAlert = ({ title, items, type = "info" }) => {
+    const backgrounds = {
+        info: { bg: "#e6f7ff", border: "#91d5ff" },
+        warning: { bg: "#fff7e6", border: "#ffd591" },
+    };
+
+    const colors = backgrounds[type] || backgrounds.info;
+
+    return (
+        <Card
+            size="small"
+            style={{
+                background: colors.bg,
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+            }}>
+            <Space direction="vertical" size={4}>
+                <Text strong style={{ fontSize: 13 }}>
+                    {title}
+                </Text>
+                {items && (
+                    <ul
+                        style={{
+                            margin: 0,
+                            paddingLeft: 18,
+                            fontSize: 13,
+                            color: "#595959",
+                        }}>
+                        {items.map((item, idx) => (
+                            <li key={idx}>{item}</li>
+                        ))}
+                    </ul>
+                )}
+            </Space>
+        </Card>
+    );
 };
 
 /* =========================
@@ -204,89 +326,203 @@ const DefaultPasswordModal = ({ isOpen, onClose, isMobile }) => {
     };
 
     return (
-        <Modal
-            title={
-                <Title level={4} style={{ margin: 0 }}>
-                    <LockOutlined style={{ marginRight: 8 }} />
-                    Default Password Settings
-                </Title>
-            }
-            open={isOpen}
-            onCancel={onClose}
-            footer={null}
-            width={isMobile ? "100%" : 500}
-            centered
-            destroyOnHidden>
-            <Card
-                variant={false}
-                style={{
-                    borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
-                    marginTop: 16,
-                }}
-                styles={{ body: { padding: isMobile ? 16 : 24 } }}>
-                <Space direction="vertical" style={{ width: "100%" }}>
-                    <Alert
-                        message="Important"
-                        description="This password will be assigned to all newly created user accounts. Users should change it immediately after their first login."
-                        type="warning"
-                        showIcon
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Default Password Settings"
+            icon={<LockOutlined />}
+            isMobile={isMobile}>
+            <Space direction="vertical" style={{ width: "100%" }} size={16}>
+                <Alert
+                    message="Important"
+                    description="This password will be assigned to all newly created user accounts. Users should change it immediately after their first login."
+                    type="warning"
+                    showIcon
+                />
+
+                {currentPassword && (
+                    <InfoAlert
+                        title="Current Default Password:"
+                        items={[`Password: ${currentPassword}`]}
                     />
+                )}
 
-                    <Form form={form} layout="vertical">
-                        <Form.Item
-                            name="password"
-                            label="Default Password"
-                            rules={[
-                                {
-                                    required: true,
-                                    message: "Please enter a default password!",
-                                },
-                                {
-                                    min: 6,
-                                    message:
-                                        "Password must be at least 6 characters!",
-                                },
-                            ]}>
-                            <Input.Password
-                                placeholder="Enter default password"
-                                iconRender={(visible) =>
-                                    visible ? (
-                                        <EyeTwoTone />
-                                    ) : (
-                                        <EyeInvisibleOutlined />
-                                    )
-                                }
-                            />
-                        </Form.Item>
-                    </Form>
+                <Form form={form} layout="vertical">
+                    <Form.Item
+                        name="password"
+                        label="Default Password"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Please enter a default password!",
+                            },
+                            {
+                                min: 6,
+                                message:
+                                    "Password must be at least 6 characters!",
+                            },
+                        ]}>
+                        <Input.Password
+                            placeholder="Enter default password"
+                            iconRender={(visible) =>
+                                visible ?
+                                    <EyeTwoTone />
+                                :   <EyeInvisibleOutlined />
+                            }
+                        />
+                    </Form.Item>
+                </Form>
 
-                    <Flex justify="end" gap={12}>
-                        <Button
-                            danger
-                            style={{
-                                height: isMobile ? 32 : 40,
-                                borderRadius: 6,
-                                width: "100%",
-                            }}
-                            onClick={onClose}
-                            disabled={loading}>
-                            Cancel
-                        </Button>
-                        <Button
-                            type="primary"
-                            onClick={handleSave}
-                            loading={loading}
-                            style={{
-                                height: isMobile ? 32 : 40,
-                                borderRadius: 6,
-                                width: "100%",
-                            }}>
-                            Update
-                        </Button>
-                    </Flex>
-                </Space>
-            </Card>
-        </Modal>
+                <ModalActions
+                    onCancel={onClose}
+                    onSave={handleSave}
+                    // loading={loading}
+                    isMobile={isMobile}
+                    saveText="Update"
+                />
+            </Space>
+        </BaseModal>
+    );
+};
+
+/* =========================
+   COMPONENT: MaxRangeModal
+========================= */
+const MaxRangeModal = ({ isOpen, onClose, isMobile, onUpdate }) => {
+    const [form] = Form.useForm();
+    const [loading, setLoading] = useState(false);
+    const [currentMaxRange, setCurrentMaxRange] = useState(null);
+    const { confirm } = useConfirmDialog();
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchCurrentMaxRange();
+        }
+    }, [isOpen]);
+
+    const fetchCurrentMaxRange = async () => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from("water_thresholds")
+                .select("max_range")
+                .limit(1)
+                .single();
+
+            if (error) throw error;
+
+            const maxRange = data?.max_range || 4.5;
+            setCurrentMaxRange(maxRange);
+            form.setFieldsValue({ max_range: maxRange });
+        } catch (err) {
+            console.error(err);
+            showError("Failed to load max sensor range");
+            setCurrentMaxRange(4.5);
+            form.setFieldsValue({ max_range: 4.5 });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        try {
+            const values = await form.validateFields();
+
+            confirm({
+                title: "Update Max Sensor Range",
+                content: `Are you sure you want to change the max sensor range to ${values.max_range}m? This will recalculate all threshold conversions.`,
+                onOk: async () => {
+                    setLoading(true);
+                    try {
+                        const { error } = await supabase
+                            .from("water_thresholds")
+                            .update({ max_range: values.max_range })
+                            .neq("id", 0);
+
+                        if (error) throw error;
+
+                        showSuccess("Max sensor range updated successfully");
+                        setCurrentMaxRange(values.max_range);
+                        onUpdate?.();
+                        onClose();
+                    } catch (err) {
+                        console.error(err);
+                        showError("Failed to update max sensor range");
+                    } finally {
+                        setLoading(false);
+                    }
+                },
+            });
+        } catch (err) {
+            console.log("Validation Failed:", err);
+        }
+    };
+
+    return (
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Max Sensor Range Settings"
+            icon={<SettingOutlined />}
+            isMobile={isMobile}>
+            <Space direction="vertical" style={{ width: "100%" }} size={16}>
+                <Alert
+                    message="Important"
+                    description="This value represents the maximum range of your water level sensor in meters. Changing this will automatically recalculate all threshold conversions."
+                    type="warning"
+                    showIcon
+                />
+
+                {currentMaxRange !== null && (
+                    <InfoAlert
+                        title="Current Max Range:"
+                        items={[
+                            `Max Range: ${currentMaxRange}m`,
+                            "This is the total height your sensor can measure",
+                        ]}
+                    />
+                )}
+
+                <Form form={form} layout="vertical">
+                    <Form.Item
+                        name="max_range"
+                        label="Max Sensor Range (meters)"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Please enter max sensor range!",
+                            },
+                            {
+                                type: "number",
+                                min: 0.1,
+                                message: "Range must be greater than 0!",
+                            },
+                            {
+                                type: "number",
+                                max: 100,
+                                message: "Range seems too high!",
+                            },
+                        ]}>
+                        <InputNumber
+                            min={0.1}
+                            max={100}
+                            step={0.01}
+                            style={{ width: "100%" }}
+                            addonAfter="m"
+                            placeholder="Enter max sensor range"
+                        />
+                    </Form.Item>
+                </Form>
+
+                <ModalActions
+                    onCancel={onClose}
+                    onSave={handleSave}
+                    // loading={loading}
+                    isMobile={isMobile}
+                    saveText="Update"
+                />
+            </Space>
+        </BaseModal>
     );
 };
 
@@ -405,7 +641,7 @@ const ThresholdSettingsModal = ({
                         showError("Failed to update SMS templates");
                     } else {
                         showWarning(
-                            `Updated ${successCount} template(s), ${failCount} failed`
+                            `Updated ${successCount} template(s), ${failCount} failed`,
                         );
                         await fetchSmsTemplates();
                     }
@@ -418,29 +654,13 @@ const ThresholdSettingsModal = ({
 
     const thresholdTab = (
         <Space direction="vertical" size={16} style={{ width: "100%" }}>
-            <Card
-                size="small"
-                style={{
-                    background: "#e6f7ff",
-                    border: "1px solid #91d5ff",
-                    borderRadius: 8,
-                }}>
-                <Space direction="vertical" size={4}>
-                    <Text strong style={{ fontSize: 13 }}>
-                        Threshold Settings:
-                    </Text>
-                    <ul
-                        style={{
-                            margin: 0,
-                            paddingLeft: 18,
-                            fontSize: 13,
-                            color: "#595959",
-                        }}>
-                        <li>Minimum level must be less than maximum level</li>
-                        <li>Values are measured in meters (m)</li>
-                    </ul>
-                </Space>
-            </Card>
+            <InfoAlert
+                title="Threshold Settings:"
+                items={[
+                    "Minimum level must be less than maximum level",
+                    "Values are measured in meters (m)",
+                ]}
+            />
 
             <Form form={form} layout="vertical">
                 <Form.Item
@@ -475,7 +695,7 @@ const ThresholdSettingsModal = ({
                                 )
                                     return Promise.resolve();
                                 return Promise.reject(
-                                    new Error("Max must be >= Min!")
+                                    new Error("Max must be >= Min!"),
                                 );
                             },
                         }),
@@ -493,47 +713,24 @@ const ThresholdSettingsModal = ({
 
     const smsTab = (
         <Space direction="vertical" size={16} style={{ width: "100%" }}>
-            <Card
-                size="small"
-                style={{
-                    background: "#e6f7ff",
-                    border: "1px solid #91d5ff",
-                    borderRadius: 8,
-                }}>
-                <Space direction="vertical" size={4}>
-                    <Text strong style={{ fontSize: 13 }}>
-                        SMS Template Guidelines:
-                    </Text>
-                    <ul
-                        style={{
-                            margin: 0,
-                            paddingLeft: 18,
-                            fontSize: 13,
-                            color: "#595959",
-                        }}>
-                        <li>Keep messages clear and concise</li>
-                        <li>Include relevant water level information</li>
-                        <li>Add emergency contact if needed</li>
-                        <li>Use {"{water_level}"} to display dynamic data</li>
-                    </ul>
-                </Space>
-            </Card>
+            <InfoAlert
+                title="SMS Template Guidelines:"
+                items={[
+                    "Keep messages clear and concise",
+                    "Include relevant water level information",
+                    "Add emergency contact if needed",
+                    "Use {converted_water_level} to display dynamic data",
+                ]}
+            />
 
-            {smsTemplates.length === 0 ? (
-                <Card
-                    size="small"
-                    style={{
-                        background: "#fff7e6",
-                        border: "1px solid #ffd591",
-                        borderRadius: 8,
-                    }}>
-                    <Text style={{ fontSize: 13, color: "#ad6800" }}>
-                        No SMS template found for {record.name}. Please create
-                        one in the database.
-                    </Text>
-                </Card>
-            ) : (
-                <Form form={form} layout="vertical">
+            {smsTemplates.length === 0 ?
+                <Alert
+                    message="No SMS Template Found"
+                    description={`No SMS template found for ${record.name}. Please create one in the database.`}
+                    type="warning"
+                    showIcon
+                />
+            :   <Form form={form} layout="vertical">
                     {smsTemplates.map((template) => (
                         <Form.Item
                             key={template.id}
@@ -557,94 +754,53 @@ const ThresholdSettingsModal = ({
                         </Form.Item>
                     ))}
                 </Form>
-            )}
+            }
         </Space>
     );
 
     return (
-        <Modal
-            title={
-                <Title level={4} style={{ margin: 0 }}>
-                    <SettingOutlined style={{ marginRight: 8 }} />
-                    Settings: {record.name}
-                </Title>
-            }
-            open={isOpen}
-            onCancel={onClose}
-            footer={null}
-            width={isMobile ? "100%" : 600}
-            centered
-            destroyOnHidden>
-            <Card
-                variant={false}
-                style={{
-                    borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
-                    marginTop: 16,
-                }}
-                styles={{ body: { padding: isMobile ? 16 : 24 } }}>
-                <Space direction="vertical" size={24} style={{ width: "100%" }}>
-                    <Tabs
-                        activeKey={activeTab}
-                        onChange={setActiveTab}
-                        items={[
-                            {
-                                key: "threshold",
-                                label: (
-                                    <span>
-                                        <AlertOutlined /> Threshold
-                                    </span>
-                                ),
-                                children: thresholdTab,
-                            },
-                            {
-                                key: "sms",
-                                label: (
-                                    <span>
-                                        <MessageOutlined /> SMS Template
-                                    </span>
-                                ),
-                                children: smsTab,
-                            },
-                        ]}
-                    />
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={`Settings: ${record.name}`}
+            icon={<SettingOutlined />}
+            isMobile={isMobile}>
+            <Space direction="vertical" size={24} style={{ width: "100%" }}>
+                <Tabs
+                    activeKey={activeTab}
+                    onChange={setActiveTab}
+                    items={[
+                        {
+                            key: "threshold",
+                            label: (
+                                <span>
+                                    <AlertOutlined /> Threshold
+                                </span>
+                            ),
+                            children: thresholdTab,
+                        },
+                        {
+                            key: "sms",
+                            label: (
+                                <span>
+                                    <MessageOutlined /> SMS Template
+                                </span>
+                            ),
+                            children: smsTab,
+                        },
+                    ]}
+                />
 
-                    <Flex justify="grow" gap={12}>
-                        <Button
-                            danger
-                            style={{
-                                height: isMobile ? 32 : 40,
-                                borderRadius: 6,
-                                width: "100%",
-                            }}
-                            onClick={onClose}
-                            disabled={isSaving || saving}>
-                            Cancel
-                        </Button>
-
-                        <Button
-                            type="primary"
-                            onClick={handleSaveAll}
-                            loading={isSaving || saving}
-                            disabled={
-                                activeTab === "sms" && smsTemplates.length === 0
-                            }
-                            style={{
-                                height: isMobile ? 32 : 40,
-                                borderRadius: 6,
-                                width: "100%",
-                            }}>
-                            {isSaving || saving
-                                ? "Saving..."
-                                : `Save ${
-                                      activeTab === "threshold"
-                                          ? "Threshold"
-                                          : "Template"
-                                  }`}
-                        </Button>
-                    </Flex>
-                </Space>
-            </Card>
-        </Modal>
+                <ModalActions
+                    onCancel={onClose}
+                    onSave={handleSaveAll}
+                    loading={isSaving || saving}
+                    isMobile={isMobile}
+                    saveText={`Save ${activeTab === "threshold" ? "Threshold" : "Template"}`}
+                    disabled={activeTab === "sms" && smsTemplates.length === 0}
+                />
+            </Space>
+        </BaseModal>
     );
 };
 
@@ -662,13 +818,11 @@ const CardContainer = ({
     <Card
         style={{
             ...cardStyleAdaptive,
-            border: `1px solid ${color}`,
-            borderTopWidth: 4,
+            borderColor: color,
         }}>
-        {loading ? (
+        {loading ?
             <Spin />
-        ) : (
-            <>
+        :   <>
                 <Statistic
                     title={title}
                     value={value ?? "N/A"}
@@ -681,7 +835,7 @@ const CardContainer = ({
                     </Text>
                 )}
             </>
-        )}
+        }
     </Card>
 );
 
@@ -716,22 +870,25 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
                         <Card
                             style={{
                                 ...cardStyleAdaptive,
-                                border: `1px solid ${status.color}`,
-                                borderTopWidth: "4px",
+                                borderColor: status.color,
                             }}>
                             <Space
                                 direction="vertical"
                                 style={{ width: "100%" }}
                                 size="middle">
-                                <Text
-                                    strong
-                                    style={{
-                                        fontSize: 24,
-                                        color: status.color,
-                                    }}>
-                                    <AlertOutlined /> {t.name} THRESHOLD
-                                </Text>
-                                <Text type="secondary">{status.desc}</Text>
+                                <Flex justify="center" gap={16}>
+                                    <Text
+                                        strong
+                                        style={{
+                                            fontSize: 24,
+                                            color: status.color,
+                                        }}>
+                                        <AlertOutlined /> {t.name} THRESHOLD
+                                    </Text>
+                                </Flex>
+                                <Flex justify="center" gap={16}>
+                                    <Text type="secondary">{status.desc}</Text>
+                                </Flex>
                                 <Flex justify="center" gap={16}>
                                     <Text>
                                         Min: {t.min_level}
@@ -766,6 +923,7 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
    COMPONENT: DashboardPage
 ========================= */
 const DashboardPage = () => {
+    const { token } = theme.useToken();
     const { userRole, loading: isAuthLoading } = useAuth();
     const { isMobile } = useResponsive();
 
@@ -782,6 +940,7 @@ const DashboardPage = () => {
     const [editingRecord, setEditingRecord] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [isMaxRangeModalOpen, setIsMaxRangeModalOpen] = useState(false);
 
     const roleConfig = userRole ? ROLE_CONFIG[userRole] : null;
 
@@ -827,7 +986,7 @@ const DashboardPage = () => {
 
             const { data, error } = await supabase
                 .from("sensor_readings")
-                .select("water_level, created_at")
+                .select("converted_water_level, created_at")
                 .gte("created_at", todayStartISO)
                 .order("created_at", { ascending: false });
 
@@ -845,7 +1004,8 @@ const DashboardPage = () => {
         try {
             const { data, error } = await supabase
                 .from("water_thresholds")
-                .select("*")
+                .select("*, converted_min_level, converted_max_level")
+                .in("name", ["L0", "L1", "L2", "L3"])
                 .order("name");
 
             if (error) throw error;
@@ -854,6 +1014,12 @@ const DashboardPage = () => {
                 ...t,
                 min_level: parseFloat(t.min_level).toFixed(2),
                 max_level: parseFloat(t.max_level).toFixed(2),
+                converted_min_level: parseFloat(
+                    t.converted_min_level || 0,
+                ).toFixed(2),
+                converted_max_level: parseFloat(
+                    t.converted_max_level || 0,
+                ).toFixed(2),
             }));
 
             setThresholds(formattedThresholds);
@@ -890,7 +1056,7 @@ const DashboardPage = () => {
                 setRefreshing(false);
             }
         },
-        [roleConfig, fetchThresholds, fetchRoleCounts, fetchTodayReadings]
+        [roleConfig, fetchThresholds, fetchRoleCounts, fetchTodayReadings],
     );
 
     useEffect(() => {
@@ -937,7 +1103,6 @@ const DashboardPage = () => {
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
-        setEditingRecord(null);
     };
 
     const handleOpenPasswordModal = () => {
@@ -948,6 +1113,18 @@ const DashboardPage = () => {
         setIsPasswordModalOpen(false);
     };
 
+    const handleOpenMaxRangeModal = () => {
+        setIsMaxRangeModalOpen(true);
+    };
+
+    const handleCloseMaxRangeModal = () => {
+        setIsMaxRangeModalOpen(false);
+    };
+
+    const handleMaxRangeUpdate = async () => {
+        await fetchThresholds();
+    };
+
     /* =========================
      HELPER: Get threshold for water level
   ========================== */
@@ -955,14 +1132,16 @@ const DashboardPage = () => {
         (level) => {
             if (!thresholds.length) return "default";
             const parsedLevel = parseFloat(level);
+
             const threshold = thresholds.find((t) => {
-                const min = parseFloat(t.min_level);
-                const max = parseFloat(t.max_level);
+                const min = parseFloat(t.converted_min_level || t.min_level);
+                const max = parseFloat(t.converted_max_level || t.max_level);
                 return parsedLevel >= min && parsedLevel <= max;
             });
+
             return threshold?.name || "default";
         },
-        [thresholds]
+        [thresholds],
     );
 
     /* =========================
@@ -972,21 +1151,27 @@ const DashboardPage = () => {
         if (!todayReadings.length || !thresholds.length) return {};
 
         try {
-            const lastReading = parseFloat(todayReadings[0].water_level);
+            const lastReading = parseFloat(
+                todayReadings[0].converted_water_level,
+            );
 
             const avg = (
                 todayReadings.reduce(
-                    (sum, r) => sum + parseFloat(r.water_level),
-                    0
+                    (sum, r) => sum + parseFloat(r.converted_water_level),
+                    0,
                 ) / todayReadings.length
             ).toFixed(2);
 
             const peak = Math.max(
-                ...todayReadings.map((r) => parseFloat(r.water_level))
+                ...todayReadings.map((r) =>
+                    parseFloat(r.converted_water_level),
+                ),
             ).toFixed(2);
 
             const lowest = Math.min(
-                ...todayReadings.map((r) => parseFloat(r.water_level))
+                ...todayReadings.map((r) =>
+                    parseFloat(r.converted_water_level),
+                ),
             ).toFixed(2);
 
             const currentThreshold = getThresholdForLevel(lastReading);
@@ -997,7 +1182,7 @@ const DashboardPage = () => {
             return {
                 lastReadingValue: `${lastReading.toFixed(2)}${UNIT}`,
                 lastReadingTime: new Date(
-                    todayReadings[0].created_at
+                    todayReadings[0].created_at,
                 ).toLocaleTimeString(),
                 averageReading: `${avg}${UNIT}`,
                 peakReading: `${peak}${UNIT}`,
@@ -1018,6 +1203,7 @@ const DashboardPage = () => {
     /* =========================
      RENDER
   ========================== */
+  
     if (isAuthLoading || loading) {
         return (
             <div
@@ -1056,7 +1242,7 @@ const DashboardPage = () => {
                 {/* HEADER */}
                 <Card
                     style={{
-                        ...cardStyle,
+                        ...cardStyleAdaptive,
                         background: THEME.BLUE_PRIMARY,
                         border: "none",
                     }}>
@@ -1141,14 +1327,15 @@ const DashboardPage = () => {
                                 <CardContainer
                                     title="Total Users"
                                     value={
-                                        roleCount
-                                            ? userRole === "Admin"
-                                                ? roleCount.Admin +
-                                                  roleCount.Official +
-                                                  roleCount.Resident
-                                                : roleCount.Official +
-                                                  roleCount.Resident
-                                            : 0
+                                        roleCount ?
+                                            userRole === "Admin" ?
+                                                roleCount.Admin +
+                                                roleCount.Official +
+                                                roleCount.Resident
+                                            :   roleCount.Official +
+                                                roleCount.Resident
+
+                                        :   0
                                     }
                                     prefix={<TeamOutlined />}
                                     color="#722ed1"
@@ -1161,7 +1348,7 @@ const DashboardPage = () => {
                 {/* WATER LEVEL MONITORING */}
                 {roleConfig.canViewReadings && (
                     <>
-                        {todayReadings.length === 0 ? (
+                        {todayReadings.length === 0 ?
                             <Card
                                 style={{
                                     height: isMobile ? "55vh" : "35vh",
@@ -1177,8 +1364,7 @@ const DashboardPage = () => {
                                 }}>
                                 <Empty description="No water level readings available today" />
                             </Card>
-                        ) : (
-                            <>
+                        :   <>
                                 <Row gutter={[24, 24]}>
                                     <Col xs={12} md={8}>
                                         <CardContainer
@@ -1243,7 +1429,7 @@ const DashboardPage = () => {
                                                 "N/A"
                                             }
                                             color={waterLevelStats.avgColor}
-                                            subText={`From ${
+                                            subText={`${
                                                 waterLevelStats.totalReadings ||
                                                 0
                                             } readings`}
@@ -1262,7 +1448,7 @@ const DashboardPage = () => {
                                     </Col>
                                 </Row>
                             </>
-                        )}
+                        }
                     </>
                 )}
 
@@ -1271,7 +1457,7 @@ const DashboardPage = () => {
                     <>
                         <Card
                             style={{
-                                ...cardStyle,
+                                ...cardStyleAdaptive,
                                 background: THEME.BLUE_PRIMARY,
                                 border: "none",
                             }}>
@@ -1289,6 +1475,21 @@ const DashboardPage = () => {
                                         Configure threshold settings.
                                     </Text>
                                 </Col>
+                                {roleConfig.canEditMaxRange && (
+                                    <Col>
+                                        <Button
+                                            type="default"
+                                            ghost
+                                            icon={<SettingOutlined />}
+                                            onClick={handleOpenMaxRangeModal}
+                                            style={{
+                                                color: "white",
+                                                borderColor: "white",
+                                            }}>
+                                            {!isMobile && "Max Range"}
+                                        </Button>
+                                    </Col>
+                                )}
                             </Row>
                         </Card>
                         <ThresholdCards
@@ -1313,6 +1514,15 @@ const DashboardPage = () => {
                 <DefaultPasswordModal
                     isOpen={isPasswordModalOpen}
                     onClose={handleClosePasswordModal}
+                    isMobile={isMobile}
+                />
+            )}
+
+            {roleConfig.canEditMaxRange && (
+                <MaxRangeModal
+                    isOpen={isMaxRangeModalOpen}
+                    onClose={handleCloseMaxRangeModal}
+                    onUpdate={handleMaxRangeUpdate}
                     isMobile={isMobile}
                 />
             )}

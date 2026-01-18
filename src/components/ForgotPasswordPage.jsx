@@ -5,7 +5,7 @@ import { supabase } from "@/globals";
 import { Card, Typography, Input, Button, Space } from "antd";
 import { FloatLabel } from "@/utils/FloatLabel";
 import { SendOutlined, MailOutlined } from "@ant-design/icons";
-import { THEME, cardStyle } from "@/utils/theme";
+import { THEME, cardStyleAdaptive } from "@/utils/theme";
 import { validateEmail } from "@/utils/validation";
 import { showSuccess, showError, showInfo } from "@/utils/notifications";
 import {
@@ -95,7 +95,7 @@ const ForgotPasswordPage = () => {
             }}>
             <Card
                 style={{
-                    ...cardStyle,
+                    ...cardStyleAdaptive,
                     maxWidth: 450,
                     width: "100%",
                     borderTop: `6px solid ${THEME.BLUE_PRIMARY}`,

@@ -159,7 +159,6 @@ const AppHeader = () => {
                         className={`bottom-nav-item ${
                             location.pathname === item.key ? "active" : ""
                         }`}>
-                        {/* Keep original icon */}
                         {item.icon}
                     </Link>
                 ))}

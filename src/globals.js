@@ -17,7 +17,7 @@ export { default as LandingPage } from "@/layouts/LandingPage";
 export { default as supabase } from "@/services/supabaseClient";
 
 // NEW: Export utilities
-export { THEME, cardStyle, primaryButtonStyle } from "@/utils/theme";
+export { THEME, cardStyleAdaptive } from "@/utils/theme";
 export {
     validateUserForm,
     validateEmail,

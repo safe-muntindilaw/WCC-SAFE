@@ -16,14 +16,13 @@ const WaterAlertNotifier = () => {
                     await Notification.requestPermission();
                 }
             } catch (err) {
-                console.error("SW Registration failed:", err);
+                // console.error("SW Registration failed:", err);
             }
         };
 
         setupNotifications();
 
         const triggerAlertEffects = (level) => {
-            // 1. Long Vibration (Covers both siren and voice duration)
             if ("vibrate" in navigator) {
                 // Pattern: Vibrate 1s, Pause 0.1s, Repeat...
                 window.navigator.vibrate([
@@ -65,7 +64,7 @@ const WaterAlertNotifier = () => {
                     const { water_level } = payload.new;
                     sendLocalNotification(water_level);
                     triggerAlertEffects(water_level);
-                }
+                },
             )
             .subscribe();
 
