@@ -8,17 +8,19 @@ const WaterAlertNotifier = () => {
         sirenRef.current = new Audio("/siren.mp3");
 
         const checkSubscriptionAndNotify = async (waterLevel) => {
-            // 1. Get the currently logged-in user from Supabase Auth
+            // 1. Get the current logged-in user session
             const {
                 data: { user },
             } = await supabase.auth.getUser();
 
             if (!user) {
-                console.log("No authenticated user found. Skipping alert.");
+                console.log(
+                    "No logged-in user detected. Notification skipped.",
+                );
                 return;
             }
 
-            // 2. Query your 'public.contacts' table using the Auth UUID
+            // 2. Query the contacts table using the user's UUID
             const { data: contact, error } = await supabase
                 .from("contacts")
                 .select("subscribed")
@@ -27,19 +29,21 @@ const WaterAlertNotifier = () => {
 
             if (error) {
                 console.error(
-                    "Error verifying contact subscription:",
+                    "Error checking subscription status:",
                     error.message,
                 );
                 return;
             }
 
-            // 3. Trigger effects only if 'subscribed' is true
-            if (contact && contact.subscribed) {
-                console.log(
-                    `Alerting subscriber for water level: ${waterLevel}m`,
-                );
-                sendLocalNotification(water_level);
+            // 3. Conditional Alerting: Only if 'subscribed' is true
+            if (contact && contact.subscribed === true) {
+                console.log("User is subscribed. Dispatching alerts...");
+                sendLocalNotification(waterLevel);
                 triggerAlertEffects(waterLevel);
+            } else {
+                console.log(
+                    "User is logged in but has notifications disabled.",
+                );
             }
         };
 
@@ -79,7 +83,6 @@ const WaterAlertNotifier = () => {
             }
         };
 
-        // Listen for new water level entries
         const channel = supabase
             .channel("water_alerts_room")
             .on(
