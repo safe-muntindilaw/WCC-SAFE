@@ -8,28 +8,39 @@ const WaterAlertNotifier = () => {
         sirenRef.current = new Audio("/siren.mp3");
 
         const checkSubscriptionAndNotify = async (waterLevel) => {
-            // 1. Get the user's unique ID (e.g., stored during signup/onboarding)
-            const userContactInfo = localStorage.getItem("userContact"); // Adjust this to your key
+            // 1. Get the currently logged-in user from Supabase Auth
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
 
-            if (!userContactInfo) return; // Not subscribed/registered
+            if (!user) {
+                console.log("No authenticated user found. Skipping alert.");
+                return;
+            }
 
-            // 2. Query your 'contacts' table to see if they are active
-            const { data, error } = await supabase
+            // 2. Query your 'public.contacts' table using the Auth UUID
+            const { data: contact, error } = await supabase
                 .from("contacts")
-                .select("is_active") // Assuming you have a column like this
-                .eq("contact_info", userContactInfo)
+                .select("subscribed")
+                .eq("user_id", user.id)
                 .single();
 
-            if (error || !data || !data.is_active) {
-                console.log(
-                    "User is not a subscribed contact. Skipping alert.",
+            if (error) {
+                console.error(
+                    "Error verifying contact subscription:",
+                    error.message,
                 );
                 return;
             }
 
-            // 3. If they are a valid contact, trigger the effects
-            sendLocalNotification(waterLevel);
-            triggerAlertEffects(waterLevel);
+            // 3. Trigger effects only if 'subscribed' is true
+            if (contact && contact.subscribed) {
+                console.log(
+                    `Alerting subscriber for water level: ${waterLevel}m`,
+                );
+                sendLocalNotification(water_level);
+                triggerAlertEffects(waterLevel);
+            }
         };
 
         const setupNotifications = async () => {
@@ -46,38 +57,36 @@ const WaterAlertNotifier = () => {
         setupNotifications();
 
         const triggerAlertEffects = (level) => {
+            // Haptic/Vibration
             if ("vibrate" in navigator) {
                 window.navigator.vibrate([1000, 100, 1000, 100, 1000]);
             }
 
+            // Siren Sound
             if (sirenRef.current) {
                 sirenRef.current.currentTime = 0;
                 sirenRef.current.volume = 1.0;
-                sirenRef.current
-                    .play()
-                    .catch((e) => console.log("Siren blocked:", e));
+                sirenRef.current.play().catch(() => {});
             }
 
+            // Voice Alert
             if ("speechSynthesis" in window) {
                 window.speechSynthesis.cancel();
-                const msg = new SpeechSynthesisUtterance();
-                msg.text = `WARNING! Water level has reached ${level} meters!`;
-                setTimeout(() => {
-                    window.speechSynthesis.speak(msg);
-                }, 2000);
+                const msg = new SpeechSynthesisUtterance(
+                    `Warning! Water level has reached ${level} meters!`,
+                );
+                setTimeout(() => window.speechSynthesis.speak(msg), 2000);
             }
         };
 
-        // Real-time listener
+        // Listen for new water level entries
         const channel = supabase
             .channel("water_alerts_room")
             .on(
                 "postgres_changes",
                 { event: "INSERT", schema: "public", table: "water_alerts" },
                 (payload) => {
-                    const { water_level } = payload.new;
-                    // Check subscription BEFORE alerting
-                    checkSubscriptionAndNotify(water_level);
+                    checkSubscriptionAndNotify(payload.new.water_level);
                 },
             )
             .subscribe();
