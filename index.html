@@ -17,23 +17,6 @@
         <title>SAFE Muntindilaw</title>
 
         <style>
-            :root {
-                --brand-blue: #0056a0;
-                --dark-bg: #0a3d62;
-                --glow-color: rgba(24, 144, 255, 0.3);
-            }
-
-            body,
-            html {
-                margin: 0;
-                padding: 0;
-                background-color: var(--dark-bg);
-                overflow: hidden;
-                font-family:
-                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-                    sans-serif;
-            }
-
             #splash-screen {
                 position: fixed;
                 inset: 0;
@@ -47,7 +30,6 @@
                 background-color: var(--dark-bg);
             }
 
-            /* Clean Breathing Background (No Tilt Insets) */
             .moving-gradient {
                 position: absolute;
                 inset: 0;
@@ -84,7 +66,6 @@
                 filter: drop-shadow(0 0 20px var(--glow-color));
             }
 
-            /* Animated Ripples - Synced with logo breath */
             .logo-ripple {
                 position: absolute;
                 border: 2px solid rgba(24, 144, 255, 0.4);
@@ -98,7 +79,6 @@
                 animation-delay: 2s;
             }
 
-            /* Animations */
             @keyframes rippleExpand {
                 0% {
                     width: 100px;
@@ -142,7 +122,6 @@
         </style>
 
         <script>
-            // Prevent splash flicker on refresh
             if (sessionStorage.getItem("splashDismissed")) {
                 document.write(
                     "<style>#splash-screen { display: none !important; }</style>",
@@ -170,28 +149,13 @@
         <script type="module" src="/src/main.jsx"></script>
 
         <script>
-            let wakeLock = null;
-
-            async function requestWakeLock() {
-                if ("wakeLock" in navigator) {
-                    try {
-                        wakeLock = await navigator.wakeLock.request("screen");
-                        console.log("Wake Lock active: Screen will not sleep.");
-                        wakeLock.addEventListener("release", () => {
-                            console.log("Wake Lock was released");
-                        });
-                    } catch (err) {
-                        console.error(
-                            `Wake Lock Error: ${err.name}, ${err.message}`,
-                        );
-                    }
-                }
-            }
-
             function dismissSplash() {
                 const splash = document.getElementById("splash-screen");
 
-                if ("vibrate" in navigator) window.navigator.vibrate(10);
+                if ("vibrate" in navigator) {
+                    window.navigator.vibrate(10);
+                }
+
                 const audioUnlock = new Audio("/siren.mp3");
                 audioUnlock.volume = 0;
                 audioUnlock
@@ -199,22 +163,19 @@
                     .then(() => audioUnlock.pause())
                     .catch(() => {});
 
-                requestWakeLock();
+                if ("speechSynthesis" in window) {
+                    window.speechSynthesis.speak(
+                        new SpeechSynthesisUtterance(""),
+                    );
+                }
 
                 splash.classList.add("fade-out");
                 sessionStorage.setItem("splashDismissed", "true");
+
                 setTimeout(() => {
                     splash.style.display = "none";
                 }, 800);
             }
-            document.addEventListener("visibilitychange", async () => {
-                if (
-                    wakeLock !== null &&
-                    document.visibilityState === "visible"
-                ) {
-                    await requestWakeLock();
-                }
-            });
         </script>
     </body>
 </html>

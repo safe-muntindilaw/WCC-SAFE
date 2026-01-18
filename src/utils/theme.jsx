@@ -45,6 +45,8 @@ export const THEME = {
     BREAKPOINT_DESKTOP: 1200,
 };
 
+
+
 export const cardStyleAdaptive = {
     borderRadius: THEME.BORDER_RADIUS,
     boxShadow: THEME.CARD_SHADOW,
