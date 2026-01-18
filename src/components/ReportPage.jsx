@@ -1,4 +1,4 @@
-// ReportPage.jsx - Optimized Modern Chart Design with Enhanced Loading States
+// ReportPage.jsx
 import React, {
     useEffect,
     useState,
@@ -255,20 +255,46 @@ const ReportPage = () => {
 
     const fetchReadings = useCallback(async (start, end) => {
         try {
-            setIsFetchingData(true); // Set fetching state
-            const { data: readings, error } = await supabase
-                .from("sensor_readings")
-                .select("converted_water_level, created_at")
-                .gte("created_at", start.toISOString())
-                .lt("created_at", end.toISOString())
-                .order("created_at", { ascending: true });
-            if (error) throw error;
-            return readings || [];
+            setIsFetchingData(true);
+            let allReadings = [];
+            let from = 0;
+            let step = 500; // Batch size
+            let to = step - 1;
+            let hasMore = true;
+
+            while (hasMore) {
+                const { data: readings, error } = await supabase
+                    .from("sensor_readings")
+                    .select("converted_water_level, created_at")
+                    .gte("created_at", start.toISOString())
+                    .lt("created_at", end.toISOString())
+                    .order("created_at", { ascending: true })
+                    .range(from, to); // Fetch specific slice
+
+                if (error) throw error;
+
+                if (readings && readings.length > 0) {
+                    allReadings = [...allReadings, ...readings];
+
+                    // If we got exactly the 'step' amount, there's likely more data
+                    if (readings.length === step) {
+                        from += step;
+                        to += step;
+                    } else {
+                        hasMore = false; // Last batch received
+                    }
+                } else {
+                    hasMore = false; // No data found
+                }
+            }
+
+            return allReadings;
         } catch (error) {
+            console.error(error);
             showError("Failed to fetch sensor data");
             return [];
         } finally {
-            setIsFetchingData(false); // Clear fetching state
+            setIsFetchingData(false);
         }
     }, []);
 
@@ -779,769 +805,746 @@ const ReportPage = () => {
     }
 
     return (
-        <ConfigProvider theme={{ token: { colorPrimary: THEME.BLUE_PRIMARY } }}>
-            <div
+        <div
+            style={{
+                padding: isMobile ? 16 : 24,
+            }}>
+            {/* Header Card */}
+            <Card
                 style={{
-                    padding: isMobile ? 16 : 24,
-                }}>
-                {/* Header Card */}
-                <Card
-                    style={{
-                        ...cardStyleAdaptive,
-                        background: THEME.BLUE_PRIMARY,
-                        marginBottom: 16,
-                        border: "none",
-                    }}
-                    styles={{ body: { padding: isMobile ? 16 : 20 } }}>
-                    <Row
-                        align="middle"
-                        justify="space-between"
-                        gutter={[12, 12]}>
-                        <Col xs={24} sm={16}>
-                            <Space direction="vertical" size={2}>
-                                <Title
-                                    level={isMobile ? 4 : 2}
-                                    style={{
-                                        margin: 0,
-                                        color: "white",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 10,
-                                    }}>
-                                    <LineChartOutlined /> Water Level Reports
-                                </Title>
-                                <Text
-                                    style={{
-                                        color: "rgba(255, 255, 255, 0.9)",
-                                        fontSize: isMobile ? 12 : 14,
-                                    }}>
-                                    Real-time monitoring and historical data
-                                    {isFetchingData && (
-                                        <span style={{ marginLeft: 8 }}>
-                                            <LoadingOutlined spin /> Fetching...
-                                        </span>
-                                    )}
-                                </Text>
-                            </Space>
-                        </Col>
-                        {!isMobile && (
-                            <Col sm={8} style={{ textAlign: "right" }}>
-                                <RefreshButton
-                                    refreshing={refreshing}
-                                    onRefresh={() => fetchSensorData(true)}
-                                />
-                            </Col>
-                        )}
-                    </Row>
-                </Card>
-
-                {/* Chart Section */}
-                <Card
-                    style={{
-                        ...cardStyleAdaptive,
-                    }}
-                    styles={{ body: { padding: isMobile ? 16 : 20 } }}
-                    title={
-                        isMobile && (
-                            <Row justify="space-between" align="middle">
-                                <Col>
-                                    {isFetchingData ?
-                                        <Space size={4}>
-                                            <LoadingOutlined spin />
-                                            <span>Loading...</span>
-                                        </Space>
-                                    : dataStats ?
-                                        showPrediction ?
-                                            <Space size={4}>
-                                                <span>
-                                                    Prediction:{" "}
-                                                    {dataStats.prediction.toFixed(
-                                                        2,
-                                                    )}
-                                                    m
-                                                </span>
-                                            </Space>
-                                        :   <Space size={4}>
-                                                {dataStats.trend >= 0 ?
-                                                    <RiseOutlined />
-                                                :   <FallOutlined />}
-                                                <span>
-                                                    Trend:{" "}
-                                                    {dataStats.trend >= 0 ?
-                                                        "+"
-                                                    :   ""}
-                                                    {dataStats.trend.toFixed(2)}
-                                                    m
-                                                </span>
-                                            </Space>
-
-                                    :   null}
-                                </Col>
-                                <Col>
-                                    <Space size={8}>
-                                        <Button
-                                            type="text"
-                                            icon={<FilterOutlined />}
-                                            onClick={() =>
-                                                setFilterDrawerVisible(true)
-                                            }
-                                            style={{
-                                                color: THEME.BLUE_PRIMARY,
-                                            }}
-                                        />
-                                        <Button
-                                            type="text"
-                                            icon={
-                                                <ReloadOutlined
-                                                    spin={
-                                                        refreshing ||
-                                                        isFetchingData
-                                                    }
-                                                />
-                                            }
-                                            onClick={() =>
-                                                fetchSensorData(true)
-                                            }
-                                            loading={
-                                                refreshing || isFetchingData
-                                            }
-                                            style={{
-                                                color: THEME.BLUE_PRIMARY,
-                                            }}
-                                        />
-                                    </Space>
-                                </Col>
-                            </Row>
-                        )
-                    }>
-                    {/* Report Type Selector - Desktop Only */}
+                    ...cardStyleAdaptive,
+                    background: THEME.BLUE_PRIMARY,
+                    marginBottom: 16,
+                    border: "none",
+                }}
+                styles={{ body: { padding: isMobile ? 16 : 20 } }}>
+                <Row align="middle" justify="space-between" gutter={[12, 12]}>
+                    <Col xs={24} sm={16}>
+                        <Space direction="vertical" size={2}>
+                            <Title
+                                level={isMobile ? 4 : 2}
+                                style={{
+                                    margin: 0,
+                                    color: "white",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 10,
+                                }}>
+                                <LineChartOutlined /> Water Level Reports
+                            </Title>
+                            <Text
+                                style={{
+                                    color: "rgba(255, 255, 255, 0.9)",
+                                    fontSize: isMobile ? 12 : 14,
+                                }}>
+                                Real-time monitoring and historical data
+                                {isFetchingData && (
+                                    <span style={{ marginLeft: 8 }}>
+                                        <LoadingOutlined spin /> Fetching...
+                                    </span>
+                                )}
+                            </Text>
+                        </Space>
+                    </Col>
                     {!isMobile && (
-                        <div
+                        <Col sm={8} style={{ textAlign: "right" }}>
+                            <RefreshButton
+                                refreshing={refreshing}
+                                onRefresh={() => fetchSensorData(true)}
+                            />
+                        </Col>
+                    )}
+                </Row>
+            </Card>
+
+            {/* Chart Section */}
+            <Card
+                style={{
+                    ...cardStyleAdaptive,
+                }}
+                styles={{ body: { padding: isMobile ? 16 : 20 } }}
+                title={
+                    isMobile && (
+                        <Row justify="space-between" align="middle">
+                            <Col>
+                                {isFetchingData ?
+                                    <Space size={4}>
+                                        <LoadingOutlined spin />
+                                        <span>Loading...</span>
+                                    </Space>
+                                : dataStats ?
+                                    showPrediction ?
+                                        <Space size={4}>
+                                            <span>
+                                                Prediction:{" "}
+                                                {dataStats.prediction.toFixed(
+                                                    2,
+                                                )}
+                                                m
+                                            </span>
+                                        </Space>
+                                    :   <Space size={4}>
+                                            {dataStats.trend >= 0 ?
+                                                <RiseOutlined />
+                                            :   <FallOutlined />}
+                                            <span>
+                                                Trend:{" "}
+                                                {dataStats.trend >= 0 ?
+                                                    "+"
+                                                :   ""}
+                                                {dataStats.trend.toFixed(2)}m
+                                            </span>
+                                        </Space>
+
+                                :   null}
+                            </Col>
+                            <Col>
+                                <Space size={8}>
+                                    <Button
+                                        type="text"
+                                        icon={<FilterOutlined />}
+                                        onClick={() =>
+                                            setFilterDrawerVisible(true)
+                                        }
+                                        style={{
+                                            color: THEME.BLUE_PRIMARY,
+                                        }}
+                                    />
+                                    <Button
+                                        type="text"
+                                        icon={
+                                            <ReloadOutlined
+                                                spin={
+                                                    refreshing || isFetchingData
+                                                }
+                                            />
+                                        }
+                                        onClick={() => fetchSensorData(true)}
+                                        loading={refreshing || isFetchingData}
+                                        style={{
+                                            color: THEME.BLUE_PRIMARY,
+                                        }}
+                                    />
+                                </Space>
+                            </Col>
+                        </Row>
+                    )
+                }>
+                {/* Report Type Selector - Desktop Only */}
+                {!isMobile && (
+                    <div
+                        style={{
+                            width: "100%",
+                            display: "flex",
+                            justifyContent: "center",
+                            marginBottom: 24,
+                        }}>
+                        <Radio.Group
+                            value={reportType}
+                            onChange={(e) => setReportType(e.target.value)}
+                            buttonStyle="solid"
+                            size="large"
+                            disabled={isFetchingData}
+                            style={{
+                                display: "flex",
+                                gap: 8,
+                                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                                borderRadius: 8,
+                                padding: 4,
+                                background: "white",
+                            }}>
+                            <Radio.Button
+                                value="today"
+                                style={{ borderRadius: 6 }}>
+                                Today
+                            </Radio.Button>
+                            <Radio.Button
+                                value="weekly"
+                                style={{ borderRadius: 6 }}>
+                                Weekly
+                            </Radio.Button>
+                            <Radio.Button
+                                value="monthly"
+                                style={{ borderRadius: 6 }}>
+                                Monthly
+                            </Radio.Button>
+                            <Radio.Button
+                                value="annually"
+                                style={{ borderRadius: 6 }}>
+                                Annual
+                            </Radio.Button>
+                        </Radio.Group>
+                    </div>
+                )}
+
+                {/* Monthly Controls - Desktop Only */}
+                {!isMobile && reportType === "monthly" && (
+                    <Space
+                        size="middle"
+                        style={{
+                            width: "100%",
+                            justifyContent: "center",
+                            marginBottom: 24,
+                            flexWrap: "wrap",
+                        }}>
+                        <Space size="small">
+                            <Text strong>Month:</Text>
+                            <DatePicker
+                                picker="month"
+                                value={selectedMonth}
+                                onChange={setSelectedMonth}
+                                allowClear={false}
+                                disabled={isFetchingData}
+                                size="large"
+                                style={{ borderRadius: 8 }}
+                            />
+                        </Space>
+                        <Space size="small">
+                            <Text strong>View:</Text>
+                            <Select
+                                value={monthView}
+                                onChange={setMonthView}
+                                disabled={isFetchingData}
+                                size="large"
+                                style={{ width: 120, borderRadius: 8 }}>
+                                <Option value="day">Daily</Option>
+                                <Option value="week">Weekly</Option>
+                            </Select>
+                        </Space>
+                        <Button
+                            onClick={resetMonthly}
+                            icon={<ReloadOutlined />}
+                            disabled={isFetchingData}
+                            size="large"
+                            style={{ borderRadius: 8 }}>
+                            Reset
+                        </Button>
+                    </Space>
+                )}
+
+                {/* Annual Controls - Desktop Only */}
+                {!isMobile && reportType === "annually" && (
+                    <Space
+                        size="middle"
+                        style={{
+                            width: "100%",
+                            justifyContent: "center",
+                            marginBottom: 24,
+                            flexWrap: "wrap",
+                        }}>
+                        <Space size="small">
+                            <Text strong>Compare:</Text>
+                            <Select
+                                mode="multiple"
+                                value={selectedYears}
+                                onChange={setSelectedYears}
+                                placeholder="Select years"
+                                disabled={isFetchingData}
+                                size="large"
+                                style={{ minWidth: 220, borderRadius: 8 }}
+                                maxTagCount={3}>
+                                {Array.from({ length: 10 }, (_, i) => {
+                                    const year = (
+                                        dayjs().year() - i
+                                    ).toString();
+                                    return (
+                                        <Option key={year} value={year}>
+                                            {year}
+                                        </Option>
+                                    );
+                                })}
+                            </Select>
+                        </Space>
+                        <Button
+                            onClick={resetAnnual}
+                            icon={<ReloadOutlined />}
+                            disabled={isFetchingData}
+                            size="large"
+                            style={{ borderRadius: 8 }}>
+                            Reset
+                        </Button>
+                    </Space>
+                )}
+
+                {/* Chart Title */}
+                <div style={{ textAlign: "center", marginBottom: 20 }}>
+                    <Title
+                        level={isMobile ? 5 : 3}
+                        style={{
+                            margin: 0,
+                            background: `linear-gradient(135deg, ${THEME.BLUE_AUTHORITY} 0%, ${THEME.BLUE_PRIMARY} 100%)`,
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                            fontWeight: 800,
+                        }}>
+                        {chartTitle}
+                    </Title>
+                    {showTimestamp && (
+                        <Text
+                            type="secondary"
+                            style={{
+                                fontSize: isMobile ? 12 : 14,
+                                display: "block",
+                                marginTop: 4,
+                                fontWeight: 500,
+                            }}>
+                            {chartSubtitle}
+                        </Text>
+                    )}
+                </div>
+
+                {/* Chart Container */}
+                {loading || isFetchingData ?
+                    <div
+                        style={{
+                            height: isMobile ? 310 : 300,
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            flexDirection: "column",
+                            gap: 12,
+                        }}>
+                        <Spin size="large" />
+                        <Text type="secondary" style={{ fontSize: 13 }}>
+                            {isFetchingData ?
+                                "Fetching data from database..."
+                            :   "Loading chart..."}
+                        </Text>
+                    </div>
+                : data.length === 0 ?
+                    <div
+                        style={{
+                            height: isMobile ? 310 : 300,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}>
+                        <Empty
+                            description={
+                                <Space direction="vertical" size={2}>
+                                    <Text type="secondary">No data found</Text>
+                                    <Text
+                                        type="secondary"
+                                        style={{ fontSize: 12 }}>
+                                        Try a different time period
+                                    </Text>
+                                </Space>
+                            }
+                        />
+                    </div>
+                :   <ResponsiveContainer
+                        width="100%"
+                        height={isMobile ? 310 : 300}>
+                        <LineChart
+                            style={{ aspectRatio: 1.618 }}
+                            data={data}
+                            margin={{
+                                top: isMobile ? 0 : 30,
+                                right: isMobile ? 20 : 60,
+                                left: isMobile ? -35 : 0,
+                                bottom: isMobile ? 0 : 0,
+                            }}>
+                            <defs>
+                                <linearGradient
+                                    id="colorGradient"
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1">
+                                    <stop
+                                        offset="5%"
+                                        stopColor={ACCENT_COLOR}
+                                        stopOpacity={0.3}
+                                    />
+                                    <stop
+                                        offset="95%"
+                                        stopColor={ACCENT_COLOR}
+                                        stopOpacity={0.05}
+                                    />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="#e5e7eb"
+                                vertical={false}
+                            />
+                            {renderThresholdReferences()}
+                            <XAxis
+                                label={{
+                                    value: "Water Level (m)",
+                                    position: "insideBottom",
+                                    style: {
+                                        fontSize: isMobile ? 11 : 13,
+                                        fontWeight: 600,
+                                        fill: THEME.BLUE_AUTHORITY,
+                                        textAnchor: "middle",
+                                    },
+                                }}
+                                dataKey="date"
+                                angle={-45}
+                                textAnchor="end"
+                                height={isMobile ? 60 : 70}
+                                interval={isMobile ? "preserveStartEnd" : 0}
+                                tick={
+                                    reportType === "today" ? false : (
+                                        {
+                                            fontSize: isMobile ? 10 : 12,
+                                            fill: "#6b7280",
+                                        }
+                                    )
+                                }
+                                axisLine={{ stroke: "#d1d5db" }}
+                                tickLine={
+                                    reportType === "today" ? false : (
+                                        { stroke: "#d1d5db" }
+                                    )
+                                }
+                            />
+                            <YAxis
+                                domain={getYAxisDomain}
+                                ticks={[
+                                    ...new Set([
+                                        ...thresholds.map(
+                                            (t) => t.converted_min_level,
+                                        ),
+                                        maxRange,
+                                    ]),
+                                ].sort((a, b) => a - b)}
+                                tick={{
+                                    fontSize: isMobile ? 10 : 12,
+                                    fill: "#6b7280",
+                                }}
+                                axisLine={{ stroke: "#d1d5db" }}
+                                tickLine={{ stroke: "#d1d5db" }}
+                            />
+                            <Tooltip content={<CustomTooltip />} />
+                            {showLegend && (
+                                <Legend
+                                    verticalAlign="top"
+                                    height={50}
+                                    wrapperStyle={{
+                                        fontSize: 13,
+                                        fontWeight: 500,
+                                        paddingTop: 10,
+                                    }}
+                                />
+                            )}
+                            {renderChartLines()}
+                        </LineChart>
+                    </ResponsiveContainer>
+                }
+
+                {/* Legend Section - Desktop Only */}
+                {!isMobile && thresholds.length > 0 && dataStats && (
+                    <div style={{ marginTop: 20 }}>
+                        <Space
+                            size={[16, 8]}
+                            wrap
                             style={{
                                 width: "100%",
-                                display: "flex",
                                 justifyContent: "center",
-                                marginBottom: 24,
+                                display: "flex",
                             }}>
+                            {/* Stats Only - No Thresholds */}
+                            <Badge
+                                color="#667eea"
+                                text={
+                                    <Text
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                        }}>
+                                        Peak: {dataStats.max.toFixed(2)}m
+                                    </Text>
+                                }
+                            />
+                            <Badge
+                                color="#4facfe"
+                                text={
+                                    <Text
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                        }}>
+                                        Lowest: {dataStats.min.toFixed(2)}m
+                                    </Text>
+                                }
+                            />
+                            <Badge
+                                color="#43e97b"
+                                text={
+                                    <Text
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                        }}>
+                                        Average: {dataStats.avg.toFixed(2)}m
+                                    </Text>
+                                }
+                            />
+                            <Badge
+                                color={
+                                    dataStats.trend >= 0 ? "#fa709a" : "#330867"
+                                }
+                                text={
+                                    <Text
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                        }}>
+                                        Trend: {dataStats.trend >= 0 ? "+" : ""}
+                                        {dataStats.trend.toFixed(2)}m
+                                    </Text>
+                                }
+                            />
+                            <Badge
+                                color="#8b5cf6"
+                                text={
+                                    <Text
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                        }}>
+                                        Prediction:{" "}
+                                        {dataStats.prediction.toFixed(2)}m
+                                    </Text>
+                                }
+                            />
+                        </Space>
+                    </div>
+                )}
+            </Card>
+
+            {/* Mobile Filter Drawer */}
+            <Drawer
+                style={{
+                    borderRadius: "0 0 10vw 10vw",
+                    borderBottom: `4px solid ${THEME.BLUE_PRIMARY}`,
+                }}
+                placement="top"
+                onClose={() => setFilterDrawerVisible(false)}
+                open={filterDrawerVisible}
+                height="auto"
+                styles={{
+                    body: { padding: isMobile ? 16 : 24 },
+                    mask: { backdropFilter: "blur(4px)" },
+                }}
+                closable={false}>
+                <Card
+                    variant={false}
+                    style={{
+                        ...cardStyleAdaptive,
+                        height: "100%",
+                        borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
+                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                        borderRadius: "0 0 10vw 10vw",
+                    }}>
+                    <Space
+                        direction="vertical"
+                        size={16}
+                        style={{ width: "100%" }}>
+                        <div>
+                            <Text
+                                strong
+                                style={{
+                                    display: "block",
+                                    marginBottom: 8,
+                                    fontSize: 13,
+                                    textAlign: "center",
+                                }}>
+                                Report Type
+                            </Text>
                             <Radio.Group
                                 value={reportType}
                                 onChange={(e) => setReportType(e.target.value)}
                                 buttonStyle="solid"
-                                size="large"
+                                size="middle"
                                 disabled={isFetchingData}
-                                style={{
-                                    display: "flex",
-                                    gap: 8,
-                                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                                    borderRadius: 8,
-                                    padding: 4,
-                                    background: "white",
-                                }}>
+                                style={{ width: "100%", display: "flex" }}>
                                 <Radio.Button
                                     value="today"
-                                    style={{ borderRadius: 6 }}>
+                                    style={{
+                                        flex: 1,
+                                        textAlign: "center",
+                                    }}>
                                     Today
                                 </Radio.Button>
                                 <Radio.Button
                                     value="weekly"
-                                    style={{ borderRadius: 6 }}>
-                                    Weekly
+                                    style={{
+                                        flex: 1,
+                                        textAlign: "center",
+                                    }}>
+                                    Week
                                 </Radio.Button>
                                 <Radio.Button
                                     value="monthly"
-                                    style={{ borderRadius: 6 }}>
-                                    Monthly
+                                    style={{
+                                        flex: 1,
+                                        textAlign: "center",
+                                    }}>
+                                    Month
                                 </Radio.Button>
                                 <Radio.Button
                                     value="annually"
-                                    style={{ borderRadius: 6 }}>
-                                    Annual
+                                    style={{
+                                        flex: 1,
+                                        textAlign: "center",
+                                    }}>
+                                    Year
                                 </Radio.Button>
                             </Radio.Group>
                         </div>
-                    )}
 
-                    {/* Monthly Controls - Desktop Only */}
-                    {!isMobile && reportType === "monthly" && (
-                        <Space
-                            size="middle"
-                            style={{
-                                width: "100%",
-                                justifyContent: "center",
-                                marginBottom: 24,
-                                flexWrap: "wrap",
-                            }}>
-                            <Space size="small">
-                                <Text strong>Month:</Text>
-                                <DatePicker
-                                    picker="month"
-                                    value={selectedMonth}
-                                    onChange={setSelectedMonth}
-                                    allowClear={false}
-                                    disabled={isFetchingData}
-                                    size="large"
-                                    style={{ borderRadius: 8 }}
-                                />
-                            </Space>
-                            <Space size="small">
-                                <Text strong>View:</Text>
-                                <Select
-                                    value={monthView}
-                                    onChange={setMonthView}
-                                    disabled={isFetchingData}
-                                    size="large"
-                                    style={{ width: 120, borderRadius: 8 }}>
-                                    <Option value="day">Daily</Option>
-                                    <Option value="week">Weekly</Option>
-                                </Select>
-                            </Space>
-                            <Button
-                                onClick={resetMonthly}
-                                icon={<ReloadOutlined />}
-                                disabled={isFetchingData}
-                                size="large"
-                                style={{ borderRadius: 8 }}>
-                                Reset
-                            </Button>
-                        </Space>
-                    )}
-
-                    {/* Annual Controls - Desktop Only */}
-                    {!isMobile && reportType === "annually" && (
-                        <Space
-                            size="middle"
-                            style={{
-                                width: "100%",
-                                justifyContent: "center",
-                                marginBottom: 24,
-                                flexWrap: "wrap",
-                            }}>
-                            <Space size="small">
-                                <Text strong>Compare:</Text>
-                                <Select
-                                    mode="multiple"
-                                    value={selectedYears}
-                                    onChange={setSelectedYears}
-                                    placeholder="Select years"
-                                    disabled={isFetchingData}
-                                    size="large"
-                                    style={{ minWidth: 220, borderRadius: 8 }}
-                                    maxTagCount={3}>
-                                    {Array.from({ length: 10 }, (_, i) => {
-                                        const year = (
-                                            dayjs().year() - i
-                                        ).toString();
-                                        return (
-                                            <Option key={year} value={year}>
-                                                {year}
-                                            </Option>
-                                        );
-                                    })}
-                                </Select>
-                            </Space>
-                            <Button
-                                onClick={resetAnnual}
-                                icon={<ReloadOutlined />}
-                                disabled={isFetchingData}
-                                size="large"
-                                style={{ borderRadius: 8 }}>
-                                Reset
-                            </Button>
-                        </Space>
-                    )}
-
-                    {/* Chart Title */}
-                    <div style={{ textAlign: "center", marginBottom: 20 }}>
-                        <Title
-                            level={isMobile ? 5 : 3}
-                            style={{
-                                margin: 0,
-                                background: `linear-gradient(135deg, ${THEME.BLUE_AUTHORITY} 0%, ${THEME.BLUE_PRIMARY} 100%)`,
-                                WebkitBackgroundClip: "text",
-                                WebkitTextFillColor: "transparent",
-                                fontWeight: 800,
-                            }}>
-                            {chartTitle}
-                        </Title>
-                        {showTimestamp && (
-                            <Text
-                                type="secondary"
-                                style={{
-                                    fontSize: isMobile ? 12 : 14,
-                                    display: "block",
-                                    marginTop: 4,
-                                    fontWeight: 500,
-                                }}>
-                                {chartSubtitle}
-                            </Text>
-                        )}
-                    </div>
-
-                    {/* Chart Container */}
-                    {loading || isFetchingData ?
-                        <div
-                            style={{
-                                height: isMobile ? 310 : 300,
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "center",
-                                flexDirection: "column",
-                                gap: 12,
-                            }}>
-                            <Spin size="large" />
-                            <Text type="secondary" style={{ fontSize: 13 }}>
-                                {isFetchingData ?
-                                    "Fetching data from database..."
-                                :   "Loading chart..."}
-                            </Text>
-                        </div>
-                    : data.length === 0 ?
-                        <div
-                            style={{
-                                height: isMobile ? 310 : 300,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                            }}>
-                            <Empty
-                                description={
-                                    <Space direction="vertical" size={2}>
-                                        <Text type="secondary">
-                                            No data found
-                                        </Text>
-                                        <Text
-                                            type="secondary"
-                                            style={{ fontSize: 12 }}>
-                                            Try a different time period
-                                        </Text>
-                                    </Space>
-                                }
-                            />
-                        </div>
-                    :   <ResponsiveContainer
-                            width="100%"
-                            height={isMobile ? 310 : 300}>
-                            <LineChart
-                                style={{ aspectRatio: 1.618 }}
-                                data={data}
-                                margin={{
-                                    top: isMobile ? 0 : 30,
-                                    right: isMobile ? 20 : 60,
-                                    left: isMobile ? -35 : 0,
-                                    bottom: isMobile ? 0 : 0,
-                                }}>
-                                <defs>
-                                    <linearGradient
-                                        id="colorGradient"
-                                        x1="0"
-                                        y1="0"
-                                        x2="0"
-                                        y2="1">
-                                        <stop
-                                            offset="5%"
-                                            stopColor={ACCENT_COLOR}
-                                            stopOpacity={0.3}
-                                        />
-                                        <stop
-                                            offset="95%"
-                                            stopColor={ACCENT_COLOR}
-                                            stopOpacity={0.05}
-                                        />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid
-                                    strokeDasharray="3 3"
-                                    stroke="#e5e7eb"
-                                    vertical={false}
-                                />
-                                {renderThresholdReferences()}
-                                <XAxis
-                                    label={{
-                                        value: "Water Level (m)",
-                                        position: "insideBottom",
-                                        style: {
-                                            fontSize: isMobile ? 11 : 13,
-                                            fontWeight: 600,
-                                            fill: THEME.BLUE_AUTHORITY,
-                                            textAnchor: "middle",
-                                        },
-                                    }}
-                                    dataKey="date"
-                                    angle={-45}
-                                    textAnchor="end"
-                                    height={isMobile ? 60 : 70}
-                                    interval={isMobile ? "preserveStartEnd" : 0}
-                                    tick={
-                                        reportType === "today" ? false : (
-                                            {
-                                                fontSize: isMobile ? 10 : 12,
-                                                fill: "#6b7280",
-                                            }
-                                        )
-                                    }
-                                    axisLine={{ stroke: "#d1d5db" }}
-                                    tickLine={
-                                        reportType === "today" ? false : (
-                                            { stroke: "#d1d5db" }
-                                        )
-                                    }
-                                />
-                                <YAxis
-                                    domain={getYAxisDomain}
-                                    ticks={[
-                                        ...new Set([
-                                            ...thresholds.map(
-                                                (t) => t.converted_min_level,
-                                            ),
-                                            maxRange,
-                                        ]),
-                                    ].sort((a, b) => a - b)}
-                                    tick={{
-                                        fontSize: isMobile ? 10 : 12,
-                                        fill: "#6b7280",
-                                    }}
-                                    axisLine={{ stroke: "#d1d5db" }}
-                                    tickLine={{ stroke: "#d1d5db" }}
-                                />
-                                <Tooltip content={<CustomTooltip />} />
-                                {showLegend && (
-                                    <Legend
-                                        verticalAlign="top"
-                                        height={50}
-                                        wrapperStyle={{
+                        {reportType === "monthly" && (
+                            <Space
+                                direction="vertical"
+                                style={{ width: "100%" }}
+                                size={12}>
+                                <div>
+                                    <Text
+                                        strong
+                                        style={{
+                                            display: "block",
+                                            marginBottom: 8,
                                             fontSize: 13,
-                                            fontWeight: 500,
-                                            paddingTop: 10,
+                                        }}>
+                                        Select Month
+                                    </Text>
+                                    <DatePicker
+                                        picker="month"
+                                        value={selectedMonth}
+                                        onChange={setSelectedMonth}
+                                        allowClear={false}
+                                        disabled={isFetchingData}
+                                        style={{
+                                            width: "100%",
+                                            height: 32,
                                         }}
                                     />
-                                )}
-                                {renderChartLines()}
-                            </LineChart>
-                        </ResponsiveContainer>
-                    }
-
-                    {/* Legend Section - Desktop Only */}
-                    {!isMobile && thresholds.length > 0 && dataStats && (
-                        <div style={{ marginTop: 20 }}>
-                            <Space
-                                size={[16, 8]}
-                                wrap
-                                style={{
-                                    width: "100%",
-                                    justifyContent: "center",
-                                    display: "flex",
-                                }}>
-                                {/* Stats Only - No Thresholds */}
-                                <Badge
-                                    color="#667eea"
-                                    text={
-                                        <Text
-                                            style={{
-                                                fontSize: 12,
-                                                fontWeight: 500,
-                                            }}>
-                                            Peak: {dataStats.max.toFixed(2)}m
-                                        </Text>
-                                    }
-                                />
-                                <Badge
-                                    color="#4facfe"
-                                    text={
-                                        <Text
-                                            style={{
-                                                fontSize: 12,
-                                                fontWeight: 500,
-                                            }}>
-                                            Lowest: {dataStats.min.toFixed(2)}m
-                                        </Text>
-                                    }
-                                />
-                                <Badge
-                                    color="#43e97b"
-                                    text={
-                                        <Text
-                                            style={{
-                                                fontSize: 12,
-                                                fontWeight: 500,
-                                            }}>
-                                            Average: {dataStats.avg.toFixed(2)}m
-                                        </Text>
-                                    }
-                                />
-                                <Badge
-                                    color={
-                                        dataStats.trend >= 0 ?
-                                            "#fa709a"
-                                        :   "#330867"
-                                    }
-                                    text={
-                                        <Text
-                                            style={{
-                                                fontSize: 12,
-                                                fontWeight: 500,
-                                            }}>
-                                            Trend:{" "}
-                                            {dataStats.trend >= 0 ? "+" : ""}
-                                            {dataStats.trend.toFixed(2)}m
-                                        </Text>
-                                    }
-                                />
-                                <Badge
-                                    color="#8b5cf6"
-                                    text={
-                                        <Text
-                                            style={{
-                                                fontSize: 12,
-                                                fontWeight: 500,
-                                            }}>
-                                            Prediction:{" "}
-                                            {dataStats.prediction.toFixed(2)}m
-                                        </Text>
-                                    }
-                                />
+                                </div>
+                                <div>
+                                    <Text
+                                        strong
+                                        style={{
+                                            display: "block",
+                                            marginBottom: 8,
+                                            fontSize: 13,
+                                        }}>
+                                        View By
+                                    </Text>
+                                    <Select
+                                        value={monthView}
+                                        onChange={setMonthView}
+                                        disabled={isFetchingData}
+                                        style={{
+                                            width: "100%",
+                                            height: 32,
+                                        }}>
+                                        <Option value="day">Daily</Option>
+                                        <Option value="week">Weekly</Option>
+                                    </Select>
+                                </div>
+                                <Flex justify="center">
+                                    <Button
+                                        onClick={resetMonthly}
+                                        icon={<ReloadOutlined />}
+                                        disabled={isFetchingData}
+                                        style={{
+                                            borderRadius: 6,
+                                            width: "45%",
+                                            height: 32,
+                                        }}>
+                                        Reset Month
+                                    </Button>
+                                </Flex>
                             </Space>
-                        </div>
-                    )}
+                        )}
+
+                        {reportType === "annually" && (
+                            <Space
+                                direction="vertical"
+                                style={{ width: "100%" }}
+                                size={12}>
+                                <div>
+                                    <Text
+                                        strong
+                                        style={{
+                                            display: "block",
+                                            marginBottom: 8,
+                                            fontSize: 13,
+                                        }}>
+                                        Compare Years
+                                    </Text>
+                                    <Select
+                                        mode="multiple"
+                                        value={selectedYears}
+                                        onChange={setSelectedYears}
+                                        placeholder="Select years"
+                                        disabled={isFetchingData}
+                                        style={{
+                                            width: "100%",
+                                            minHeight: 40,
+                                        }}
+                                        maxTagCount={2}>
+                                        {Array.from({ length: 10 }, (_, i) => {
+                                            const year = (
+                                                dayjs().year() - i
+                                            ).toString();
+                                            return (
+                                                <Option key={year} value={year}>
+                                                    {year}
+                                                </Option>
+                                            );
+                                        })}
+                                    </Select>
+                                </div>
+                                <Flex justify="center">
+                                    <Button
+                                        onClick={resetAnnual}
+                                        icon={<ReloadOutlined />}
+                                        disabled={isFetchingData}
+                                        style={{
+                                            borderRadius: 6,
+                                            width: "45%",
+                                            height: 32,
+                                        }}>
+                                        Reset Years
+                                    </Button>
+                                </Flex>
+                            </Space>
+                        )}
+                    </Space>
                 </Card>
-
-                {/* Mobile Filter Drawer */}
-                <Drawer
+                <div
                     style={{
-                        borderRadius: "0 0 10vw 10vw",
-                        borderBottom: `4px solid ${THEME.BLUE_PRIMARY}`,
-                    }}
-                    placement="top"
-                    onClose={() => setFilterDrawerVisible(false)}
-                    open={filterDrawerVisible}
-                    height="auto"
-                    styles={{
-                        body: { padding: isMobile ? 16 : 24 },
-                        mask: { backdropFilter: "blur(4px)" },
-                    }}
-                    closable={false}>
-                    <Card
-                        variant={false}
+                        position: "fixed",
+                        left: "50%",
+                        top: "75vh",
+                        transform: "translate(-50%, -50%)",
+                        zIndex: 10000,
+                        filter: "drop-shadow(0px 4px 12px rgba(0, 0, 0, 0.2))",
+                        pointerEvents: "auto",
+                    }}>
+                    <Button
+                        shape="circle"
+                        icon={<CloseOutlined />}
+                        onClick={() => setFilterDrawerVisible(false)}
                         style={{
-                            ...cardStyleAdaptive,
-                            height: "100%",
-                            borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
-                            backgroundColor: "rgba(255, 255, 255, 0.9)",
-                            borderRadius: "0 0 10vw 10vw",
-                        }}>
-                        <Space
-                            direction="vertical"
-                            size={16}
-                            style={{ width: "100%" }}>
-                            <div>
-                                <Text
-                                    strong
-                                    style={{
-                                        display: "block",
-                                        marginBottom: 8,
-                                        fontSize: 13,
-                                        textAlign: "center",
-                                    }}>
-                                    Report Type
-                                </Text>
-                                <Radio.Group
-                                    value={reportType}
-                                    onChange={(e) =>
-                                        setReportType(e.target.value)
-                                    }
-                                    buttonStyle="solid"
-                                    size="middle"
-                                    disabled={isFetchingData}
-                                    style={{ width: "100%", display: "flex" }}>
-                                    <Radio.Button
-                                        value="today"
-                                        style={{
-                                            flex: 1,
-                                            textAlign: "center",
-                                        }}>
-                                        Today
-                                    </Radio.Button>
-                                    <Radio.Button
-                                        value="weekly"
-                                        style={{
-                                            flex: 1,
-                                            textAlign: "center",
-                                        }}>
-                                        Week
-                                    </Radio.Button>
-                                    <Radio.Button
-                                        value="monthly"
-                                        style={{
-                                            flex: 1,
-                                            textAlign: "center",
-                                        }}>
-                                        Month
-                                    </Radio.Button>
-                                    <Radio.Button
-                                        value="annually"
-                                        style={{
-                                            flex: 1,
-                                            textAlign: "center",
-                                        }}>
-                                        Year
-                                    </Radio.Button>
-                                </Radio.Group>
-                            </div>
-
-                            {reportType === "monthly" && (
-                                <Space
-                                    direction="vertical"
-                                    style={{ width: "100%" }}
-                                    size={12}>
-                                    <div>
-                                        <Text
-                                            strong
-                                            style={{
-                                                display: "block",
-                                                marginBottom: 8,
-                                                fontSize: 13,
-                                            }}>
-                                            Select Month
-                                        </Text>
-                                        <DatePicker
-                                            picker="month"
-                                            value={selectedMonth}
-                                            onChange={setSelectedMonth}
-                                            allowClear={false}
-                                            disabled={isFetchingData}
-                                            style={{
-                                                width: "100%",
-                                                height: 32,
-                                            }}
-                                        />
-                                    </div>
-                                    <div>
-                                        <Text
-                                            strong
-                                            style={{
-                                                display: "block",
-                                                marginBottom: 8,
-                                                fontSize: 13,
-                                            }}>
-                                            View By
-                                        </Text>
-                                        <Select
-                                            value={monthView}
-                                            onChange={setMonthView}
-                                            disabled={isFetchingData}
-                                            style={{
-                                                width: "100%",
-                                                height: 32,
-                                            }}>
-                                            <Option value="day">Daily</Option>
-                                            <Option value="week">Weekly</Option>
-                                        </Select>
-                                    </div>
-                                    <Flex justify="center">
-                                        <Button
-                                            onClick={resetMonthly}
-                                            icon={<ReloadOutlined />}
-                                            disabled={isFetchingData}
-                                            style={{
-                                                borderRadius: 6,
-                                                width: "45%",
-                                                height: 32,
-                                            }}>
-                                            Reset Month
-                                        </Button>
-                                    </Flex>
-                                </Space>
-                            )}
-
-                            {reportType === "annually" && (
-                                <Space
-                                    direction="vertical"
-                                    style={{ width: "100%" }}
-                                    size={12}>
-                                    <div>
-                                        <Text
-                                            strong
-                                            style={{
-                                                display: "block",
-                                                marginBottom: 8,
-                                                fontSize: 13,
-                                            }}>
-                                            Compare Years
-                                        </Text>
-                                        <Select
-                                            mode="multiple"
-                                            value={selectedYears}
-                                            onChange={setSelectedYears}
-                                            placeholder="Select years"
-                                            disabled={isFetchingData}
-                                            style={{
-                                                width: "100%",
-                                                minHeight: 40,
-                                            }}
-                                            maxTagCount={2}>
-                                            {Array.from(
-                                                { length: 10 },
-                                                (_, i) => {
-                                                    const year = (
-                                                        dayjs().year() - i
-                                                    ).toString();
-                                                    return (
-                                                        <Option
-                                                            key={year}
-                                                            value={year}>
-                                                            {year}
-                                                        </Option>
-                                                    );
-                                                },
-                                            )}
-                                        </Select>
-                                    </div>
-                                    <Flex justify="center">
-                                        <Button
-                                            onClick={resetAnnual}
-                                            icon={<ReloadOutlined />}
-                                            disabled={isFetchingData}
-                                            style={{
-                                                borderRadius: 6,
-                                                width: "45%",
-                                                height: 32,
-                                            }}>
-                                            Reset Years
-                                        </Button>
-                                    </Flex>
-                                </Space>
-                            )}
-                        </Space>
-                    </Card>
-                    <div
-                        style={{
-                            position: "fixed",
-                            left: "50%",
-                            top: "75vh",
-                            transform: "translate(-50%, -50%)",
-                            zIndex: 10000,
-                            filter: "drop-shadow(0px 4px 12px rgba(0, 0, 0, 0.2))",
-                            pointerEvents: "auto",
-                        }}>
-                        <Button
-                            shape="circle"
-                            icon={<CloseOutlined />}
-                            onClick={() => setFilterDrawerVisible(false)}
-                            style={{
-                                width: 50,
-                                height: 50,
-                                backgroundColor: "#fff",
-                                border: `2px solid ${THEME.BLUE_PRIMARY}`,
-                                color: THEME.BLUE_PRIMARY,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: "22px",
-                            }}
-                        />
-                    </div>
-                </Drawer>
-            </div>
-        </ConfigProvider>
+                            width: 50,
+                            height: 50,
+                            backgroundColor: "#fff",
+                            border: `2px solid ${THEME.BLUE_PRIMARY}`,
+                            color: THEME.BLUE_PRIMARY,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "22px",
+                        }}
+                    />
+                </div>
+            </Drawer>
+        </div>
     );
 };
 

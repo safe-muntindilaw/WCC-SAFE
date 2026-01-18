@@ -1,4 +1,4 @@
-// UserManagement.jsx - Optimized with Enhanced Loading States
+// UserManagement.jsx
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/globals";
 import * as XLSX from "xlsx";
@@ -166,40 +166,56 @@ const UserManagement = () => {
         setLoading(true);
         setIsFetchingData(true);
         try {
-            let usersQuery = supabase
-                .from("contacts")
-                .select(
-                    "user_id, first_name, last_name, email, role, contact_number, place_id, places(name)",
-                )
-                .order("created_at", { ascending: false });
+            // 1. Fetch static config data first (Places and Password)
+            const [placesResult, passwordResult] = await Promise.all([
+                supabase
+                    .from("places")
+                    .select("id, name")
+                    .order("name", { ascending: true }),
+                supabase.from("default_password").select("default").single(),
+            ]);
 
-            if (currentUserRole === "Official") {
-                usersQuery = usersQuery.neq("role", "Admin");
-            }
-
-            // Add the password query to the Promise.all array
-            const [usersResult, placesResult, passwordResult] =
-                await Promise.all([
-                    usersQuery,
-                    supabase
-                        .from("places")
-                        .select("id, name")
-                        .order("name", { ascending: true }),
-                    supabase
-                        .from("default_password")
-                        .select("default")
-                        .single(), // We only need the one default password
-                ]);
-
-            if (usersResult.error) throw usersResult.error;
             if (placesResult.error) throw placesResult.error;
             if (passwordResult.error) throw passwordResult.error;
 
-            // Set all your states
-            setUsers(usersResult.data || []);
-            setPlaces(placesResult.data || []);
+            // 2. Setup Batching for the Contacts/Users
+            let allUsers = [];
+            let from = 0;
+            const step = 500;
+            let hasMore = true;
 
-            // PASSING VALUE TO STATE: This makes it available as 'defaultPassword'
+            while (hasMore) {
+                let usersQuery = supabase
+                    .from("contacts")
+                    .select(
+                        "user_id, first_name, last_name, email, role, contact_number, place_id, places(name)",
+                    )
+                    .order("created_at", { ascending: false })
+                    .range(from, from + step - 1);
+
+                if (currentUserRole === "Official") {
+                    usersQuery = usersQuery.neq("role", "Admin");
+                }
+
+                const { data: users, error: usersError } = await usersQuery;
+
+                if (usersError) throw usersError;
+
+                if (users && users.length > 0) {
+                    allUsers = [...allUsers, ...users];
+                    if (users.length < step) {
+                        hasMore = false;
+                    } else {
+                        from += step;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            }
+
+            // 3. Set all states once all data is collected
+            setUsers(allUsers);
+            setPlaces(placesResult.data || []);
             setDefaultPassword(passwordResult.data.default);
 
             const map = (placesResult.data || []).reduce((acc, p) => {

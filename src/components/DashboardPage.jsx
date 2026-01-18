@@ -1,5 +1,5 @@
 // DashboardPage.jsx - Enhanced Version with Consistent Modals
-import { theme } from 'antd';
+import { theme } from "antd";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import {
     Card,
@@ -980,19 +980,43 @@ const DashboardPage = () => {
 
     const fetchTodayReadings = useCallback(async () => {
         try {
-            const todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-            const todayStartISO = todayStart.toISOString();
+            const startTime = new Date();
+            startTime.setHours(startTime.getHours() - 30);
+            const startTimeISO = startTime.toISOString();
 
-            const { data, error } = await supabase
-                .from("sensor_readings")
-                .select("converted_water_level, created_at")
-                .gte("created_at", todayStartISO)
-                .order("created_at", { ascending: false });
+            let allData = [];
+            let from = 0;
+            let to = 499; // 500 items per batch
+            const targetCount = 1800;
+            let hasMore = true;
 
-            if (error) throw error;
+            while (hasMore && allData.length < targetCount) {
+                const { data, error } = await supabase
+                    .from("sensor_readings")
+                    .select("converted_water_level, created_at")
+                    .gte("created_at", startTimeISO)
+                    .order("created_at", { ascending: false })
+                    .range(from, to);
 
-            setTodayReadings(data || []);
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    allData = [...allData, ...data];
+
+                    // If we got fewer than 500, we've reached the end of the database
+                    if (data.length < 500) {
+                        hasMore = false;
+                    } else {
+                        from += 500;
+                        to += 500;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            }
+
+            // Trim to exactly 1800 if the last batch overshot it
+            setTodayReadings(allData.slice(0, targetCount));
         } catch (err) {
             console.error(err);
             showWarning("Failed to load sensor readings");
@@ -1203,7 +1227,7 @@ const DashboardPage = () => {
     /* =========================
      RENDER
   ========================== */
-  
+
     if (isAuthLoading || loading) {
         return (
             <div
