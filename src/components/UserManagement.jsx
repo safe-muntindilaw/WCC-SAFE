@@ -1,5 +1,6 @@
 // UserManagement.jsx
 import { useState, useEffect, useMemo, useCallback } from "react";
+import React from "react";
 import { supabase } from "@/globals";
 import * as XLSX from "xlsx";
 import {
@@ -75,6 +76,197 @@ const INPUT_HEIGHT = { mobile: 32, desktop: 40 };
 
 const getRoleColor = (role) => ROLE_COLORS[role] || "#000000";
 
+/* =========================
+   MEMOIZED COMPONENTS
+========================= */
+
+const SortButton = React.memo(({ columnKey, sortConfig, onSort, children }) => {
+    const getSortIcon = () => {
+        if (sortConfig.key === columnKey) {
+            return sortConfig.direction === "asc" ?
+                    <SortAscendingOutlined />
+                :   <SortDescendingOutlined />;
+        }
+        return <SwapOutlined />;
+    };
+
+    return (
+        <Space size={4}>
+            <span>{children}</span>
+            <Button
+                type="text"
+                size="small"
+                icon={getSortIcon()}
+                onClick={() => onSort(columnKey)}
+                style={{ padding: "0 4px" }}
+            />
+        </Space>
+    );
+});
+
+SortButton.displayName = "SortButton";
+
+const InfoCard = React.memo(({ title, items, type = "info" }) => {
+    const backgrounds = {
+        info: { bg: "#e6f7ff", border: "#91d5ff" },
+        success: { bg: "#f6ffed", border: "#b7eb8f" },
+    };
+
+    const colors = backgrounds[type] || backgrounds.info;
+
+    return (
+        <Card
+            size="small"
+            style={{
+                background: colors.bg,
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+            }}>
+            <Space direction="vertical" size={4}>
+                <Text strong style={{ fontSize: 13 }}>
+                    {title}
+                </Text>
+                {items && (
+                    <ul
+                        style={{
+                            margin: 0,
+                            paddingLeft: 18,
+                            fontSize: 13,
+                            color: "#595959",
+                        }}>
+                        {items.map((item, idx) => (
+                            <li key={idx}>{item}</li>
+                        ))}
+                    </ul>
+                )}
+            </Space>
+        </Card>
+    );
+});
+
+InfoCard.displayName = "InfoCard";
+
+const FileUploadCard = React.memo(({ file, onRemove }) => {
+    if (!file) return null;
+
+    return (
+        <Card
+            size="small"
+            style={{
+                background: "#f6ffed",
+                border: "1px solid #b7eb8f",
+                borderRadius: 8,
+            }}>
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 8,
+                }}>
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        minWidth: 0,
+                        flex: 1,
+                    }}>
+                    <Text
+                        strong
+                        style={{
+                            flexShrink: 0,
+                            marginRight: 8,
+                        }}>
+                        File:
+                    </Text>
+                    <Text
+                        ellipsis
+                        style={{
+                            color: "#488828",
+                            minWidth: 0,
+                        }}>
+                        {file.name}
+                    </Text>
+                </div>
+                <Button
+                    type="text"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={onRemove}
+                />
+            </div>
+        </Card>
+    );
+});
+
+FileUploadCard.displayName = "FileUploadCard";
+
+const EmptyState = React.memo(
+    ({
+        searchQuery,
+        selectedRole,
+        placeFilter,
+        onClearFilters,
+        inputHeight,
+        isMobile,
+    }) => {
+        const hasFilters = searchQuery || selectedRole || placeFilter;
+
+        return (
+            <div
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: isMobile ? "50vh" : "65vh",
+                    textAlign: "center",
+                }}>
+                <UserOutlined
+                    style={{
+                        fontSize: isMobile ? 64 : 80,
+                        color: "#d9d9d9",
+                        marginBottom: 24,
+                    }}
+                />
+                <Title
+                    level={isMobile ? 4 : 3}
+                    style={{ color: "#8c8c8c", marginBottom: 12 }}>
+                    No Contacts Found
+                </Title>
+                <Text
+                    type="secondary"
+                    style={{
+                        fontSize: isMobile ? 14 : 16,
+                        maxWidth: 400,
+                        display: "block",
+                        marginBottom: 24,
+                    }}>
+                    {hasFilters ?
+                        "No contacts match your current filters. Try adjusting your search criteria."
+                    :   "Get started by adding your first contact using the button above."
+                    }
+                </Text>
+                {hasFilters && (
+                    <Button
+                        type="primary"
+                        onClick={onClearFilters}
+                        style={{ height: inputHeight }}>
+                        Clear All Filters
+                    </Button>
+                )}
+            </div>
+        );
+    },
+);
+
+EmptyState.displayName = "EmptyState";
+
+/* =========================
+   MAIN COMPONENT
+========================= */
+
 const UserManagement = () => {
     const [users, setUsers] = useState([]);
     const [places, setPlaces] = useState([]);
@@ -129,7 +321,7 @@ const UserManagement = () => {
         formData.contact_number,
         isEditing,
         formData.user_id,
-        originalContactNumber, // This is now the formatted 10-digit version
+        originalContactNumber,
     );
 
     useEffect(() => {
@@ -259,12 +451,10 @@ const UserManagement = () => {
             formData;
         const cleanedContact = contact_number.replace(/\D/g, "");
 
-        // Check if email or contact has changed in edit mode
         const emailChanged = isEditing ? email !== originalEmail : true;
         const contactChanged =
             isEditing ? contact_number !== originalContactNumber : true;
 
-        // Base validations
         const baseValid =
             first_name.trim() &&
             last_name.trim() &&
@@ -274,7 +464,6 @@ const UserManagement = () => {
             place_id &&
             validationErrors.length === 0;
 
-        // If editing and fields haven't changed, skip their validation
         if (isEditing) {
             const emailValid =
                 emailChanged ?
@@ -290,7 +479,6 @@ const UserManagement = () => {
             return baseValid && emailValid && contactValid;
         }
 
-        // For new contacts, require all validations
         return (
             baseValid &&
             emailValidation.isValid === true &&
@@ -308,7 +496,7 @@ const UserManagement = () => {
         originalContactNumber,
     ]);
 
-    const resetForm = () => {
+    const resetForm = useCallback(() => {
         setFormData({
             user_id: null,
             first_name: "",
@@ -321,18 +509,18 @@ const UserManagement = () => {
         setOriginalEmail("");
         setOriginalContactNumber("");
         setUploadFile(null);
-    };
+    }, []);
 
-    const callEdgeFunction = async (functionName, body) => {
+    const callEdgeFunction = useCallback(async (functionName, body) => {
         const { data, error } = await supabase.functions.invoke(functionName, {
             body,
         });
         if (error) throw new Error(error.message);
         if (data?.error) throw new Error(data.error);
         return data;
-    };
+    }, []);
 
-    const handleSubmit = async () => {
+    const handleSubmit = useCallback(async () => {
         if (!defaultPassword) {
             showError(
                 "System configuration is still loading. Please wait a moment.",
@@ -442,9 +630,20 @@ const UserManagement = () => {
                 }
             },
         });
-    };
+    }, [
+        defaultPassword,
+        validationErrors,
+        isEditing,
+        formData,
+        places,
+        originalEmail,
+        confirm,
+        callEdgeFunction,
+        fetchData,
+        resetForm,
+    ]);
 
-    const handleEdit = (user) => {
+    const handleEdit = useCallback((user) => {
         const formattedNumber = formatPhoneNumber(user.contact_number);
         setFormData({
             user_id: user.user_id,
@@ -456,40 +655,43 @@ const UserManagement = () => {
             place_id: user.place_id,
         });
         setOriginalEmail(user.email);
-        setOriginalContactNumber(formattedNumber); // FIXED: Store the formatted version, not the full version
+        setOriginalContactNumber(formattedNumber);
         setIsUserModalVisible(true);
-    };
+    }, []);
 
-    const handleDelete = async (user_id) => {
-        confirm({
-            title: "Delete Contact",
-            content:
-                "Delete this contact and their user account? This action cannot be undone.",
-            danger: true,
-            onOk: async () => {
-                setLoading(true);
-                try {
-                    await callEdgeFunction("delete-user", { user_id });
-                    const { error } = await supabase
-                        .from("contacts")
-                        .delete()
-                        .eq("user_id", user_id);
-                    if (error) throw error;
-                    showSuccess("Contact deleted successfully");
-                    await fetchData();
-                    setSelectedUsers((prev) =>
-                        prev.filter((id) => id !== user_id),
-                    );
-                } catch (err) {
-                    showError(`Deletion failed: ${err.message}`);
-                } finally {
-                    setLoading(false);
-                }
-            },
-        });
-    };
+    const handleDelete = useCallback(
+        async (user_id) => {
+            confirm({
+                title: "Delete Contact",
+                content:
+                    "Delete this contact and their user account? This action cannot be undone.",
+                danger: true,
+                onOk: async () => {
+                    setLoading(true);
+                    try {
+                        await callEdgeFunction("delete-user", { user_id });
+                        const { error } = await supabase
+                            .from("contacts")
+                            .delete()
+                            .eq("user_id", user_id);
+                        if (error) throw error;
+                        showSuccess("Contact deleted successfully");
+                        await fetchData();
+                        setSelectedUsers((prev) =>
+                            prev.filter((id) => id !== user_id),
+                        );
+                    } catch (err) {
+                        showError(`Deletion failed: ${err.message}`);
+                    } finally {
+                        setLoading(false);
+                    }
+                },
+            });
+        },
+        [confirm, callEdgeFunction, fetchData],
+    );
 
-    const handleFileUpload = async () => {
+    const handleFileUpload = useCallback(async () => {
         if (!uploadFile) {
             showError("Please select a file to upload");
             return;
@@ -691,9 +893,19 @@ const UserManagement = () => {
         } finally {
             setBatchLoading(false);
         }
-    };
+    }, [
+        uploadFile,
+        placeMap,
+        currentUserRole,
+        availableRoles,
+        defaultPassword,
+        confirm,
+        callEdgeFunction,
+        resetForm,
+        fetchData,
+    ]);
 
-    const handleBatchDelete = async () => {
+    const handleBatchDelete = useCallback(async () => {
         if (selectedUsers.length === 0) {
             showError("No contacts selected");
             return;
@@ -729,7 +941,7 @@ const UserManagement = () => {
                 }
             },
         });
-    };
+    }, [selectedUsers, confirm, callEdgeFunction, fetchData]);
 
     const filteredUsers = useMemo(() => {
         let result = users;
@@ -751,7 +963,7 @@ const UserManagement = () => {
         return result;
     }, [users, selectedRole, searchQuery, placeFilter]);
 
-    const handleSort = (columnKey) => {
+    const handleSort = useCallback((columnKey) => {
         setSortConfig((prev) => ({
             key: columnKey,
             direction:
@@ -759,7 +971,7 @@ const UserManagement = () => {
                     "desc"
                 :   "asc",
         }));
-    };
+    }, []);
 
     const sortedUsers = useMemo(() => {
         if (!sortConfig.key) return filteredUsers;
@@ -790,9 +1002,9 @@ const UserManagement = () => {
         });
     }, [filteredUsers, sortConfig]);
 
-    const totalPages = Math.max(
-        1,
-        Math.ceil(sortedUsers.length / itemsPerPage),
+    const totalPages = useMemo(
+        () => Math.max(1, Math.ceil(sortedUsers.length / itemsPerPage)),
+        [sortedUsers.length, itemsPerPage],
     );
 
     useEffect(() => {
@@ -808,12 +1020,13 @@ const UserManagement = () => {
         return sortedUsers.slice(start, start + itemsPerPage);
     }, [sortedUsers, currentPage, itemsPerPage]);
 
-    const toggleUserSelect = (id) =>
+    const toggleUserSelect = useCallback((id) => {
         setSelectedUsers((prev) =>
             prev.includes(id) ? prev.filter((u) => u !== id) : [...prev, id],
         );
+    }, []);
 
-    const toggleSelectAll = () => {
+    const toggleSelectAll = useCallback(() => {
         const pageIds = paginatedUsers.map((u) => u.user_id);
         const allSelectedOnPage = pageIds.every((id) =>
             selectedUsers.includes(id),
@@ -824,16 +1037,54 @@ const UserManagement = () => {
                 prev.filter((id) => !pageIds.includes(id))
             :   Array.from(new Set([...prev, ...pageIds])),
         );
-    };
+    }, [paginatedUsers, selectedUsers]);
 
-    const getSortIcon = (key) => {
-        if (sortConfig.key === key) {
-            return sortConfig.direction === "asc" ?
-                    <SortAscendingOutlined />
-                :   <SortDescendingOutlined />;
-        }
-        return <SwapOutlined />;
-    };
+    const handleClearFilters = useCallback(() => {
+        setSearchQuery("");
+        setSelectedRole("");
+        setPlaceFilter("");
+    }, []);
+
+    const handleFilterDrawerClose = useCallback(() => {
+        setFilterDrawerVisible(false);
+    }, []);
+
+    const handleFilterDrawerOpen = useCallback(() => {
+        setFilterDrawerVisible(true);
+    }, []);
+
+    const handleUserModalOpen = useCallback(() => {
+        setIsUserModalVisible(true);
+        resetForm();
+    }, [resetForm]);
+
+    const handleUserModalClose = useCallback(() => {
+        if (isEditing) setIsUserModalVisible(false);
+        resetForm();
+    }, [isEditing, resetForm]);
+
+    const handleBatchModalOpen = useCallback(() => {
+        setIsBatchModalVisible(true);
+    }, []);
+
+    const handleBatchModalClose = useCallback(() => {
+        setUploadFile(null);
+        setIsBatchModalVisible(false);
+    }, []);
+
+    const handleTemplateDownload = useCallback(() => {
+        const link = document.createElement("a");
+        link.href = "/safe_contact_list.xlsx";
+        link.download = "safe_contact_list.xlsx";
+        link.click();
+    }, []);
+
+    const handleFormDataChange = useCallback((field, value) => {
+        setFormData((prev) => ({
+            ...prev,
+            [field]: value,
+        }));
+    }, []);
 
     if (!currentUserRole) {
         return (
@@ -882,20 +1133,15 @@ const UserManagement = () => {
             ),
         },
         {
-            title: (
-                <Space size={4}>
-                    <span>Name</span>
-                    {!isMobile && (
-                        <Button
-                            type="text"
-                            size="small"
-                            icon={getSortIcon("name")}
-                            onClick={() => handleSort("name")}
-                            style={{ padding: "0 4px" }}
-                        />
-                    )}
-                </Space>
-            ),
+            title:
+                !isMobile ?
+                    <SortButton
+                        columnKey="name"
+                        sortConfig={sortConfig}
+                        onSort={handleSort}>
+                        Name
+                    </SortButton>
+                :   "Name",
             dataIndex: "first_name",
             key: "name",
             render: (_, record) => (
@@ -931,16 +1177,12 @@ const UserManagement = () => {
                 },
                 {
                     title: (
-                        <Space size={4}>
-                            <span>Role</span>
-                            <Button
-                                type="text"
-                                size="small"
-                                icon={getSortIcon("role")}
-                                onClick={() => handleSort("role")}
-                                style={{ padding: "0 4px" }}
-                            />
-                        </Space>
+                        <SortButton
+                            columnKey="role"
+                            sortConfig={sortConfig}
+                            onSort={handleSort}>
+                            Role
+                        </SortButton>
                     ),
                     dataIndex: "role",
                     key: "role",
@@ -959,16 +1201,12 @@ const UserManagement = () => {
                 },
                 {
                     title: (
-                        <Space size={4}>
-                            <span>Place</span>
-                            <Button
-                                type="text"
-                                size="small"
-                                icon={getSortIcon("place")}
-                                onClick={() => handleSort("place")}
-                                style={{ padding: "0 4px" }}
-                            />
-                        </Space>
+                        <SortButton
+                            columnKey="place"
+                            sortConfig={sortConfig}
+                            onSort={handleSort}>
+                            Place
+                        </SortButton>
                     ),
                     dataIndex: ["places", "name"],
                     key: "place",
@@ -1069,7 +1307,7 @@ const UserManagement = () => {
                                 />
                                 <Button
                                     icon={<FilterOutlined />}
-                                    onClick={() => setFilterDrawerVisible(true)}
+                                    onClick={handleFilterDrawerOpen}
                                 />
                             </div>
 
@@ -1077,16 +1315,13 @@ const UserManagement = () => {
                                 <Button
                                     type="primary"
                                     icon={<UserAddOutlined />}
-                                    onClick={() => {
-                                        setIsUserModalVisible(true);
-                                        resetForm();
-                                    }}
+                                    onClick={handleUserModalOpen}
                                     style={{ flex: 1 }}>
                                     New Contact
                                 </Button>
                                 <Button
                                     icon={<UploadOutlined />}
-                                    onClick={() => setIsBatchModalVisible(true)}
+                                    onClick={handleBatchModalOpen}
                                     style={{ flex: 1 }}>
                                     Batch Upload
                                 </Button>
@@ -1158,16 +1393,13 @@ const UserManagement = () => {
                             <Button
                                 type="primary"
                                 icon={<UserAddOutlined />}
-                                onClick={() => {
-                                    setIsUserModalVisible(true);
-                                    resetForm();
-                                }}>
+                                onClick={handleUserModalOpen}>
                                 New Contact
                             </Button>
 
                             <Button
                                 icon={<UploadOutlined />}
-                                onClick={() => setIsBatchModalVisible(true)}>
+                                onClick={handleBatchModalOpen}>
                                 Batch Upload
                             </Button>
                         </div>
@@ -1192,53 +1424,14 @@ const UserManagement = () => {
                         </Text>
                     </div>
                 : sortedUsers.length === 0 ?
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            minHeight: isMobile ? "50vh" : "65vh",
-                            textAlign: "center",
-                        }}>
-                        <UserOutlined
-                            style={{
-                                fontSize: isMobile ? 64 : 80,
-                                color: "#d9d9d9",
-                                marginBottom: 24,
-                            }}
-                        />
-                        <Title
-                            level={isMobile ? 4 : 3}
-                            style={{ color: "#8c8c8c", marginBottom: 12 }}>
-                            No Contacts Found
-                        </Title>
-                        <Text
-                            type="secondary"
-                            style={{
-                                fontSize: isMobile ? 14 : 16,
-                                maxWidth: 400,
-                                display: "block",
-                                marginBottom: 24,
-                            }}>
-                            {searchQuery || selectedRole || placeFilter ?
-                                "No contacts match your current filters. Try adjusting your search criteria."
-                            :   "Get started by adding your first contact using the button above."
-                            }
-                        </Text>
-                        {(searchQuery || selectedRole || placeFilter) && (
-                            <Button
-                                type="primary"
-                                onClick={() => {
-                                    setSearchQuery("");
-                                    setSelectedRole("");
-                                    setPlaceFilter("");
-                                }}
-                                style={{ height: inputHeight }}>
-                                Clear All Filters
-                            </Button>
-                        )}
-                    </div>
+                    <EmptyState
+                        searchQuery={searchQuery}
+                        selectedRole={selectedRole}
+                        placeFilter={placeFilter}
+                        onClearFilters={handleClearFilters}
+                        inputHeight={inputHeight}
+                        isMobile={isMobile}
+                    />
                 :   <div
                         style={{
                             display: "flex",
@@ -1294,14 +1487,15 @@ const UserManagement = () => {
                     borderBottom: `4px solid ${THEME.BLUE_PRIMARY}`,
                 }}
                 placement="top"
-                onClose={() => setFilterDrawerVisible(false)}
+                onClose={handleFilterDrawerClose}
                 open={filterDrawerVisible}
                 height="auto"
                 styles={{
                     body: { padding: isMobile ? 16 : 24 },
                     mask: { backdropFilter: "blur(4px)" },
                 }}
-                closable={false}>
+                closable={false}
+                maskClosable={true}>
                 <Card
                     variant={false}
                     style={{
@@ -1362,7 +1556,13 @@ const UserManagement = () => {
                                     <Button
                                         key={key}
                                         onClick={() => handleSort(key)}
-                                        icon={getSortIcon(key)}
+                                        icon={
+                                            sortConfig.key === key ?
+                                                sortConfig.direction === "asc" ?
+                                                    <SortAscendingOutlined />
+                                                :   <SortDescendingOutlined />
+                                            :   <SwapOutlined />
+                                        }
                                         type={
                                             sortConfig.key === key ?
                                                 "primary"
@@ -1388,10 +1588,7 @@ const UserManagement = () => {
                                 <Button
                                     type="primary"
                                     block
-                                    onClick={() => {
-                                        setSelectedRole("");
-                                        setPlaceFilter("");
-                                    }}
+                                    onClick={handleClearFilters}
                                     style={{
                                         height: 32,
                                         borderRadius: 6,
@@ -1416,7 +1613,7 @@ const UserManagement = () => {
                             <Button
                                 shape="circle"
                                 icon={<CloseOutlined />}
-                                onClick={() => setFilterDrawerVisible(false)}
+                                onClick={handleFilterDrawerClose}
                                 style={{
                                     width: 50,
                                     height: 50,
@@ -1471,12 +1668,10 @@ const UserManagement = () => {
                                 prefix={<UserOutlined />}
                                 value={formData.first_name}
                                 onChange={(e) =>
-                                    setFormData((prev) => ({
-                                        ...prev,
-                                        first_name: capitalizeWords(
-                                            e.target.value,
-                                        ),
-                                    }))
+                                    handleFormDataChange(
+                                        "first_name",
+                                        capitalizeWords(e.target.value),
+                                    )
                                 }
                                 style={{ height: inputHeight }}
                             />
@@ -1490,12 +1685,10 @@ const UserManagement = () => {
                                 prefix={<UserOutlined />}
                                 value={formData.last_name}
                                 onChange={(e) =>
-                                    setFormData((prev) => ({
-                                        ...prev,
-                                        last_name: capitalizeWords(
-                                            e.target.value,
-                                        ),
-                                    }))
+                                    handleFormDataChange(
+                                        "last_name",
+                                        capitalizeWords(e.target.value),
+                                    )
                                 }
                                 style={{ height: inputHeight }}
                             />
@@ -1527,10 +1720,10 @@ const UserManagement = () => {
                                     type="email"
                                     value={formData.email}
                                     onChange={(e) =>
-                                        setFormData((prev) => ({
-                                            ...prev,
-                                            email: e.target.value,
-                                        }))
+                                        handleFormDataChange(
+                                            "email",
+                                            e.target.value,
+                                        )
                                     }
                                     style={{ height: inputHeight }}
                                 />
@@ -1584,14 +1777,10 @@ const UserManagement = () => {
                                     maxLength={10}
                                     value={formData.contact_number}
                                     onChange={(e) =>
-                                        setFormData((prev) => ({
-                                            ...prev,
-                                            contact_number:
-                                                e.target.value.replace(
-                                                    /\D/g,
-                                                    "",
-                                                ),
-                                        }))
+                                        handleFormDataChange(
+                                            "contact_number",
+                                            e.target.value.replace(/\D/g, ""),
+                                        )
                                     }
                                     style={{ height: inputHeight }}
                                     styles={{ prefix: { marginRight: 0 } }}
@@ -1618,10 +1807,7 @@ const UserManagement = () => {
                             <Select
                                 value={formData.place_id || undefined}
                                 onChange={(value) =>
-                                    setFormData((prev) => ({
-                                        ...prev,
-                                        place_id: value,
-                                    }))
+                                    handleFormDataChange("place_id", value)
                                 }
                                 style={{ width: "100%", height: inputHeight }}>
                                 {places.map((p) => (
@@ -1642,10 +1828,7 @@ const UserManagement = () => {
                             <Select
                                 value={formData.role || undefined}
                                 onChange={(value) =>
-                                    setFormData((prev) => ({
-                                        ...prev,
-                                        role: value,
-                                    }))
+                                    handleFormDataChange("role", value)
                                 }
                                 style={{ width: "100%", height: inputHeight }}>
                                 {availableRoles.map((role) => (
@@ -1663,10 +1846,7 @@ const UserManagement = () => {
                                     height: inputHeight,
                                     borderRadius: 6,
                                 }}
-                                onClick={() => {
-                                    if (isEditing) setIsUserModalVisible(false);
-                                    resetForm();
-                                }}
+                                onClick={handleUserModalClose}
                                 disabled={loading}>
                                 {isEditing ? "Cancel" : "Clear"}
                             </Button>
@@ -1701,10 +1881,7 @@ const UserManagement = () => {
                     </Title>
                 }
                 open={isBatchModalVisible}
-                onCancel={() => {
-                    setUploadFile(null);
-                    setIsBatchModalVisible(false);
-                }}
+                onCancel={handleBatchModalClose}
                 footer={null}
                 width={isMobile ? "100%" : 500}
                 centered
@@ -1720,90 +1897,20 @@ const UserManagement = () => {
                         direction="vertical"
                         size={32}
                         style={{ width: "100%" }}>
-                        <Card
-                            size="small"
-                            style={{
-                                background: "#e6f7ff",
-                                border: "1px solid #91d5ff",
-                                borderRadius: 8,
-                            }}>
-                            <Space direction="vertical" size={4}>
-                                <Text strong style={{ fontSize: 13 }}>
-                                    Requirements:
-                                </Text>
-                                <ul
-                                    style={{
-                                        margin: 0,
-                                        paddingLeft: 18,
-                                        fontSize: 13,
-                                        color: "#595959",
-                                    }}>
-                                    <li>
-                                        All emails must be Gmail addresses
-                                        (@gmail.com)
-                                    </li>
-                                    <li>
-                                        Numbers must start with 9 (10 digits
-                                        total)
-                                    </li>
-                                    <li>File format: .csv, .xlsx, or .xls</li>
-                                    <li>
-                                        Existing emails will be updated with new
-                                        information
-                                    </li>
-                                </ul>
-                            </Space>
-                        </Card>
+                        <InfoCard
+                            title="Requirements:"
+                            items={[
+                                "All emails must be Gmail addresses (@gmail.com)",
+                                "Numbers must start with 9 (10 digits total)",
+                                "File format: .csv, .xlsx, or .xls",
+                                "Existing emails will be updated with new information",
+                            ]}
+                        />
 
-                        {uploadFile && (
-                            <Card
-                                size="small"
-                                style={{
-                                    background: "#f6ffed",
-                                    border: "1px solid #b7eb8f",
-                                    borderRadius: 8,
-                                }}>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center",
-                                        gap: 8,
-                                    }}>
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            minWidth: 0,
-                                            flex: 1,
-                                        }}>
-                                        <Text
-                                            strong
-                                            style={{
-                                                flexShrink: 0,
-                                                marginRight: 8,
-                                            }}>
-                                            File:
-                                        </Text>
-                                        <Text
-                                            ellipsis
-                                            style={{
-                                                color: "#488828",
-                                                minWidth: 0,
-                                            }}>
-                                            {uploadFile.name}
-                                        </Text>
-                                    </div>
-                                    <Button
-                                        type="text"
-                                        size="small"
-                                        danger
-                                        icon={<DeleteOutlined />}
-                                        onClick={() => setUploadFile(null)}
-                                    />
-                                </div>
-                            </Card>
-                        )}
+                        <FileUploadCard
+                            file={uploadFile}
+                            onRemove={() => setUploadFile(null)}
+                        />
 
                         <Space
                             direction="vertical"
@@ -1832,12 +1939,7 @@ const UserManagement = () => {
                             <Button
                                 icon={<DownloadOutlined />}
                                 block
-                                onClick={() => {
-                                    const link = document.createElement("a");
-                                    link.href = "/safe_contact_list.xlsx";
-                                    link.download = "safe_contact_list.xlsx";
-                                    link.click();
-                                }}
+                                onClick={handleTemplateDownload}
                                 style={{
                                     height: inputHeight,
                                     borderRadius: 6,
@@ -1854,10 +1956,7 @@ const UserManagement = () => {
                                 block
                                 danger
                                 style={{ height: inputHeight, borderRadius: 6 }}
-                                onClick={() => {
-                                    setUploadFile(null);
-                                    setIsBatchModalVisible(false);
-                                }}
+                                onClick={handleBatchModalClose}
                                 disabled={batchLoading}>
                                 Cancel
                             </Button>

@@ -122,7 +122,8 @@ const averageByWeek = (readings) =>
         (r) => `Week ${Math.ceil(dayjs(r.created_at).date() / 7)}`,
     );
 
-const RefreshButton = ({ refreshing, onRefresh }) => (
+// Memoized RefreshButton component
+const RefreshButton = React.memo(({ refreshing, onRefresh }) => (
     <Button
         type="default"
         ghost
@@ -131,7 +132,9 @@ const RefreshButton = ({ refreshing, onRefresh }) => (
         loading={refreshing}
         style={{ color: "white", borderColor: "white" }}
     />
-);
+));
+
+RefreshButton.displayName = "RefreshButton";
 
 // Memoized CustomTooltip component
 const CustomTooltip = React.memo(({ active, payload, label }) => {
@@ -196,6 +199,110 @@ const CustomTooltip = React.memo(({ active, payload, label }) => {
 
 CustomTooltip.displayName = "CustomTooltip";
 
+// Memoized BadgeDisplay component
+const BadgeDisplay = React.memo(
+    ({ isFetchingData, currentLevel, dataStats, badgeIndex }) => {
+        if (isFetchingData) {
+            return (
+                <Space size={4}>
+                    <LoadingOutlined spin />
+                    <span>Loading...</span>
+                </Space>
+            );
+        }
+
+        if (currentLevel === null || !dataStats) return null;
+
+        if (badgeIndex === 0) {
+            return (
+                <Space size={4}>
+                    <span>Current: {currentLevel.toFixed(2)}m</span>
+                </Space>
+            );
+        }
+
+        if (badgeIndex === 1) {
+            return (
+                <Space size={4}>
+                    {dataStats.trend >= 0 ?
+                        <RiseOutlined />
+                    :   <FallOutlined />}
+                    <span>
+                        Trend: {dataStats.trend >= 0 ? "+" : ""}
+                        {dataStats.trend.toFixed(2)}m
+                    </span>
+                </Space>
+            );
+        }
+
+        return (
+            <Space size={4}>
+                <span>Prediction: {dataStats.prediction.toFixed(2)}m</span>
+            </Space>
+        );
+    },
+);
+
+BadgeDisplay.displayName = "BadgeDisplay";
+
+// Memoized StatsLegend component
+const StatsLegend = React.memo(({ dataStats }) => (
+    <div style={{ marginTop: 20 }}>
+        <Space
+            size={[16, 8]}
+            wrap
+            style={{
+                width: "100%",
+                justifyContent: "center",
+                display: "flex",
+            }}>
+            <Badge
+                color="#667eea"
+                text={
+                    <Text style={{ fontSize: 12, fontWeight: 500 }}>
+                        Peak: {dataStats.max.toFixed(2)}m
+                    </Text>
+                }
+            />
+            <Badge
+                color="#4facfe"
+                text={
+                    <Text style={{ fontSize: 12, fontWeight: 500 }}>
+                        Lowest: {dataStats.min.toFixed(2)}m
+                    </Text>
+                }
+            />
+            <Badge
+                color="#43e97b"
+                text={
+                    <Text style={{ fontSize: 12, fontWeight: 500 }}>
+                        Average: {dataStats.avg.toFixed(2)}m
+                    </Text>
+                }
+            />
+            <Badge
+                color={dataStats.trend >= 0 ? "#fa709a" : "#330867"}
+                text={
+                    <Text style={{ fontSize: 12, fontWeight: 500 }}>
+                        Trend: {dataStats.trend >= 0 ? "+" : ""}
+                        {dataStats.trend.toFixed(2)}m
+                    </Text>
+                }
+            />
+            <Badge
+                color="#8b5cf6"
+                text={
+                    <Text style={{ fontSize: 12, fontWeight: 500 }}>
+                        Prediction: {dataStats.prediction.toFixed(2)}m
+                    </Text>
+                }
+            />
+        </Space>
+    </div>
+));
+
+StatsLegend.displayName = "StatsLegend";
+
 const ReportPage = () => {
     const [reportType, setReportType] = useState("today");
     const [monthView, setMonthView] = useState("day");
@@ -211,20 +318,38 @@ const ReportPage = () => {
     const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
     const [thresholds, setThresholds] = useState([]);
     const [maxRange, setMaxRange] = useState(4.5);
-    const [isFetchingData, setIsFetchingData] = useState(false); // New state for data fetching
+    const [isFetchingData, setIsFetchingData] = useState(false);
+    const [currentLevel, setCurrentLevel] = useState(null);
+    const [badgeIndex, setBadgeIndex] = useState(0);
     const { isMobile } = useResponsive();
 
     // Use ref to prevent refresh indicator on realtime updates
     const isRealtimeUpdate = useRef(false);
 
-    // Badge toggle state for mobile
-    const [showPrediction, setShowPrediction] = useState(false);
-
+    // Badge toggle state for mobile - cycles through 3 states (0: current, 1: trend, 2: prediction)
     useEffect(() => {
         const interval = setInterval(() => {
-            setShowPrediction((prev) => !prev);
+            setBadgeIndex((prev) => (prev + 1) % 3);
         }, 3000);
         return () => clearInterval(interval);
+    }, []);
+
+    const fetchCurrentLevel = useCallback(async () => {
+        try {
+            const { data, error } = await supabase
+                .from("sensor_readings")
+                .select("converted_water_level, created_at")
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .single();
+
+            if (error) throw error;
+            if (data) {
+                setCurrentLevel(parseFloat(data.converted_water_level));
+            }
+        } catch (error) {
+            console.error("Failed to fetch current level:", error);
+        }
     }, []);
 
     const fetchThresholds = useCallback(async () => {
@@ -258,7 +383,7 @@ const ReportPage = () => {
             setIsFetchingData(true);
             let allReadings = [];
             let from = 0;
-            let step = 500; // Batch size
+            let step = 500;
             let to = step - 1;
             let hasMore = true;
 
@@ -269,22 +394,21 @@ const ReportPage = () => {
                     .gte("created_at", start.toISOString())
                     .lt("created_at", end.toISOString())
                     .order("created_at", { ascending: true })
-                    .range(from, to); // Fetch specific slice
+                    .range(from, to);
 
                 if (error) throw error;
 
                 if (readings && readings.length > 0) {
                     allReadings = [...allReadings, ...readings];
 
-                    // If we got exactly the 'step' amount, there's likely more data
                     if (readings.length === step) {
                         from += step;
                         to += step;
                     } else {
-                        hasMore = false; // Last batch received
+                        hasMore = false;
                     }
                 } else {
-                    hasMore = false; // No data found
+                    hasMore = false;
                 }
             }
 
@@ -337,14 +461,12 @@ const ReportPage = () => {
 
     const fetchSensorData = useCallback(
         async (isRefresh = false) => {
-            // Show appropriate loading states
             if (isRefresh && !isRealtimeUpdate.current) {
                 setRefreshing(true);
             } else if (!isRefresh) {
                 setLoading(true);
             }
 
-            // Always clear data when starting to fetch
             setData([]);
             setLineKeys([]);
             setIsFetchingData(true);
@@ -468,7 +590,8 @@ const ReportPage = () => {
 
     useEffect(() => {
         fetchThresholds();
-    }, [fetchThresholds]);
+        fetchCurrentLevel();
+    }, [fetchThresholds, fetchCurrentLevel]);
 
     useEffect(() => {
         if (thresholds.length > 0) fetchSensorData();
@@ -481,6 +604,7 @@ const ReportPage = () => {
                 "postgres_changes",
                 { event: "*", schema: "public", table: "sensor_readings" },
                 () => {
+                    fetchCurrentLevel();
                     if (reportType === "today" || reportType === "weekly") {
                         isRealtimeUpdate.current = true;
                         fetchSensorData(true);
@@ -491,7 +615,7 @@ const ReportPage = () => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [fetchSensorData, reportType]);
+    }, [fetchSensorData, reportType, fetchCurrentLevel]);
 
     const resetMonthly = useCallback(() => {
         setMonthView("day");
@@ -501,6 +625,34 @@ const ReportPage = () => {
     const resetAnnual = useCallback(() => {
         setSelectedYears([dayjs().year().toString()]);
     }, []);
+
+    const handleReportTypeChange = useCallback((e) => {
+        setReportType(e.target.value);
+    }, []);
+
+    const handleMonthViewChange = useCallback((value) => {
+        setMonthView(value);
+    }, []);
+
+    const handleSelectedMonthChange = useCallback((value) => {
+        setSelectedMonth(value);
+    }, []);
+
+    const handleSelectedYearsChange = useCallback((value) => {
+        setSelectedYears(value);
+    }, []);
+
+    const handleFilterDrawerClose = useCallback(() => {
+        setFilterDrawerVisible(false);
+    }, []);
+
+    const handleFilterDrawerOpen = useCallback(() => {
+        setFilterDrawerVisible(true);
+    }, []);
+
+    const handleRefresh = useCallback(() => {
+        fetchSensorData(true);
+    }, [fetchSensorData]);
 
     const getYAxisDomain = useMemo(() => {
         const FIXED_MAX = maxRange;
@@ -518,11 +670,9 @@ const ReportPage = () => {
     const yAxisTicks = useMemo(() => {
         if (!thresholds.length) return undefined;
 
-        // Create unique ticks by filtering out duplicates
         const tickSet = new Set();
         const ticks = [];
 
-        // Add threshold min levels
         thresholds.forEach((t) => {
             const value = Number(t.converted_min_level.toFixed(2));
             if (!tickSet.has(value)) {
@@ -531,18 +681,15 @@ const ReportPage = () => {
             }
         });
 
-        // Add max range if not already present
         const maxValue = Number(maxRange.toFixed(2));
         if (!tickSet.has(maxValue)) {
             tickSet.add(maxValue);
             ticks.push(maxValue);
         }
 
-        // Sort ticks in ascending order
         return ticks.sort((a, b) => a - b);
     }, [thresholds, maxRange]);
 
-    // Optimized stats calculation with useMemo
     const dataStats = useMemo(() => {
         if (!data.length) return null;
 
@@ -562,7 +709,6 @@ const ReportPage = () => {
                 (data[0]["Water Level"] || Object.values(data[0])[1])
             :   0;
 
-        // Advanced prediction algorithm
         let prediction = avg;
 
         if (data.length > 3) {
@@ -570,14 +716,12 @@ const ReportPage = () => {
                 data[data.length - 1]["Water Level"] ||
                 Object.values(data[data.length - 1])[1];
 
-            // Calculate exponential weighted moving average (more weight to recent data)
-            const alpha = 0.3; // Smoothing factor (0.2-0.3 works well for water levels)
+            const alpha = 0.3;
             let ewma = values[0];
             for (let i = 1; i < values.length; i++) {
                 ewma = alpha * values[i] + (1 - alpha) * ewma;
             }
 
-            // Calculate momentum (rate of change acceleration)
             const recentValues = values.slice(-Math.min(5, values.length));
             const momentum =
                 recentValues.length > 1 ?
@@ -585,7 +729,6 @@ const ReportPage = () => {
                     recentValues.length
                 :   0;
 
-            // Calculate volatility (standard deviation of recent changes)
             const changes = [];
             for (let i = 1; i < values.length; i++) {
                 changes.push(values[i] - values[i - 1]);
@@ -600,8 +743,6 @@ const ReportPage = () => {
                     )
                 :   0;
 
-            // Weighted prediction combining multiple factors
-            // 40% EWMA, 30% current + momentum, 20% trend-adjusted, 10% average
             const ewmaComponent = 0.4 * ewma;
             const momentumComponent = 0.3 * (currentLevel + momentum * 2);
             const trendComponent =
@@ -614,17 +755,14 @@ const ReportPage = () => {
                 trendComponent +
                 avgComponent;
 
-            // Apply dampening if volatility is high (less confident prediction)
             if (volatility > 0.1) {
                 prediction = 0.7 * prediction + 0.3 * currentLevel;
             }
 
-            // For daily view, consider time-of-day patterns
             if (reportType === "today" && data.length > 10) {
                 const now = dayjs();
                 const currentHour = now.hour();
 
-                // Find similar time periods in the data
                 const similarTimeReadings = data
                     .filter((d) => {
                         const dataHour = parseInt(d.date.split(":")[0]);
@@ -636,31 +774,25 @@ const ReportPage = () => {
                     const timeBasedAvg =
                         similarTimeReadings.reduce((a, b) => a + b, 0) /
                         similarTimeReadings.length;
-                    // Blend time-based pattern (30%) with trend-based prediction (70%)
                     prediction = 0.7 * prediction + 0.3 * timeBasedAvg;
                 }
             }
 
-            // For weekly/monthly views, apply seasonal dampening
             if (reportType === "weekly" || reportType === "monthly") {
-                // More conservative prediction for longer timeframes
                 prediction = 0.6 * prediction + 0.4 * ewma;
             }
         } else {
-            // Not enough data for sophisticated prediction, use simple extrapolation
             const currentLevel =
                 data[data.length - 1]["Water Level"] ||
                 Object.values(data[data.length - 1])[1];
             prediction = currentLevel + trend * 0.5;
         }
 
-        // Clamp prediction to valid range with safety margins
         prediction = Math.max(0, Math.min(maxRange * 0.95, prediction));
 
         return { max, min, avg, trend, prediction };
     }, [data, maxRange, reportType]);
 
-    // Memoized chart lines rendering
     const renderChartLines = useCallback(() => {
         const isAnnual = reportType === "annually";
         const currentYear = dayjs().year().toString();
@@ -742,7 +874,6 @@ const ReportPage = () => {
         });
     }, [reportType, lineKeys, data]);
 
-    // Memoized threshold references
     const renderThresholdReferences = useCallback(() => {
         if (!thresholds.length) return null;
 
@@ -778,10 +909,24 @@ const ReportPage = () => {
         });
     }, [thresholds]);
 
-    const showLegend = reportType === "annually" && data.length > 0;
+    const showLegend = useMemo(
+        () => reportType === "annually" && data.length > 0,
+        [reportType, data.length],
+    );
+    const showTimestamp = useMemo(() => reportType !== "today", [reportType]);
 
-    // Show timestamp only for weekly, monthly, and annually
-    const showTimestamp = reportType !== "today";
+    const yearOptions = useMemo(
+        () =>
+            Array.from({ length: 10 }, (_, i) => {
+                const year = (dayjs().year() - i).toString();
+                return (
+                    <Option key={year} value={year}>
+                        {year}
+                    </Option>
+                );
+            }),
+        [],
+    );
 
     if (initialLoadDone === false) {
         return (
@@ -850,7 +995,7 @@ const ReportPage = () => {
                         <Col sm={8} style={{ textAlign: "right" }}>
                             <RefreshButton
                                 refreshing={refreshing}
-                                onRefresh={() => fetchSensorData(true)}
+                                onRefresh={handleRefresh}
                             />
                         </Col>
                     )}
@@ -867,45 +1012,19 @@ const ReportPage = () => {
                     isMobile && (
                         <Row justify="space-between" align="middle">
                             <Col>
-                                {isFetchingData ?
-                                    <Space size={4}>
-                                        <LoadingOutlined spin />
-                                        <span>Loading...</span>
-                                    </Space>
-                                : dataStats ?
-                                    showPrediction ?
-                                        <Space size={4}>
-                                            <span>
-                                                Prediction:{" "}
-                                                {dataStats.prediction.toFixed(
-                                                    2,
-                                                )}
-                                                m
-                                            </span>
-                                        </Space>
-                                    :   <Space size={4}>
-                                            {dataStats.trend >= 0 ?
-                                                <RiseOutlined />
-                                            :   <FallOutlined />}
-                                            <span>
-                                                Trend:{" "}
-                                                {dataStats.trend >= 0 ?
-                                                    "+"
-                                                :   ""}
-                                                {dataStats.trend.toFixed(2)}m
-                                            </span>
-                                        </Space>
-
-                                :   null}
+                                <BadgeDisplay
+                                    isFetchingData={isFetchingData}
+                                    currentLevel={currentLevel}
+                                    dataStats={dataStats}
+                                    badgeIndex={badgeIndex}
+                                />
                             </Col>
                             <Col>
                                 <Space size={8}>
                                     <Button
                                         type="text"
                                         icon={<FilterOutlined />}
-                                        onClick={() =>
-                                            setFilterDrawerVisible(true)
-                                        }
+                                        onClick={handleFilterDrawerOpen}
                                         style={{
                                             color: THEME.BLUE_PRIMARY,
                                         }}
@@ -919,7 +1038,7 @@ const ReportPage = () => {
                                                 }
                                             />
                                         }
-                                        onClick={() => fetchSensorData(true)}
+                                        onClick={handleRefresh}
                                         loading={refreshing || isFetchingData}
                                         style={{
                                             color: THEME.BLUE_PRIMARY,
@@ -941,10 +1060,9 @@ const ReportPage = () => {
                         }}>
                         <Radio.Group
                             value={reportType}
-                            onChange={(e) => setReportType(e.target.value)}
+                            onChange={handleReportTypeChange}
                             buttonStyle="solid"
                             size="large"
-                            disabled={isFetchingData}
                             style={{
                                 display: "flex",
                                 gap: 8,
@@ -992,9 +1110,8 @@ const ReportPage = () => {
                             <DatePicker
                                 picker="month"
                                 value={selectedMonth}
-                                onChange={setSelectedMonth}
+                                onChange={handleSelectedMonthChange}
                                 allowClear={false}
-                                disabled={isFetchingData}
                                 size="large"
                                 style={{ borderRadius: 8 }}
                             />
@@ -1003,8 +1120,7 @@ const ReportPage = () => {
                             <Text strong>View:</Text>
                             <Select
                                 value={monthView}
-                                onChange={setMonthView}
-                                disabled={isFetchingData}
+                                onChange={handleMonthViewChange}
                                 size="large"
                                 style={{ width: 120, borderRadius: 8 }}>
                                 <Option value="day">Daily</Option>
@@ -1014,7 +1130,6 @@ const ReportPage = () => {
                         <Button
                             onClick={resetMonthly}
                             icon={<ReloadOutlined />}
-                            disabled={isFetchingData}
                             size="large"
                             style={{ borderRadius: 8 }}>
                             Reset
@@ -1037,28 +1152,17 @@ const ReportPage = () => {
                             <Select
                                 mode="multiple"
                                 value={selectedYears}
-                                onChange={setSelectedYears}
+                                onChange={handleSelectedYearsChange}
                                 placeholder="Select years"
-                                disabled={isFetchingData}
                                 size="large"
                                 style={{ minWidth: 220, borderRadius: 8 }}
                                 maxTagCount={3}>
-                                {Array.from({ length: 10 }, (_, i) => {
-                                    const year = (
-                                        dayjs().year() - i
-                                    ).toString();
-                                    return (
-                                        <Option key={year} value={year}>
-                                            {year}
-                                        </Option>
-                                    );
-                                })}
+                                {yearOptions}
                             </Select>
                         </Space>
                         <Button
                             onClick={resetAnnual}
                             icon={<ReloadOutlined />}
-                            disabled={isFetchingData}
                             size="large"
                             style={{ borderRadius: 8 }}>
                             Reset
@@ -1105,11 +1209,11 @@ const ReportPage = () => {
                             gap: 12,
                         }}>
                         <Spin size="large" />
-                        <Text type="secondary" style={{ fontSize: 13 }}>
+                        {/* <Text type="secondary" style={{ fontSize: 13 }}>
                             {isFetchingData ?
                                 "Fetching data from database..."
                             :   "Loading chart..."}
-                        </Text>
+                        </Text> */}
                     </div>
                 : data.length === 0 ?
                     <div
@@ -1202,14 +1306,7 @@ const ReportPage = () => {
                             />
                             <YAxis
                                 domain={getYAxisDomain}
-                                ticks={[
-                                    ...new Set([
-                                        ...thresholds.map(
-                                            (t) => t.converted_min_level,
-                                        ),
-                                        maxRange,
-                                    ]),
-                                ].sort((a, b) => a - b)}
+                                ticks={yAxisTicks}
                                 tick={{
                                     fontSize: isMobile ? 10 : 12,
                                     fill: "#6b7280",
@@ -1236,82 +1333,7 @@ const ReportPage = () => {
 
                 {/* Legend Section - Desktop Only */}
                 {!isMobile && thresholds.length > 0 && dataStats && (
-                    <div style={{ marginTop: 20 }}>
-                        <Space
-                            size={[16, 8]}
-                            wrap
-                            style={{
-                                width: "100%",
-                                justifyContent: "center",
-                                display: "flex",
-                            }}>
-                            {/* Stats Only - No Thresholds */}
-                            <Badge
-                                color="#667eea"
-                                text={
-                                    <Text
-                                        style={{
-                                            fontSize: 12,
-                                            fontWeight: 500,
-                                        }}>
-                                        Peak: {dataStats.max.toFixed(2)}m
-                                    </Text>
-                                }
-                            />
-                            <Badge
-                                color="#4facfe"
-                                text={
-                                    <Text
-                                        style={{
-                                            fontSize: 12,
-                                            fontWeight: 500,
-                                        }}>
-                                        Lowest: {dataStats.min.toFixed(2)}m
-                                    </Text>
-                                }
-                            />
-                            <Badge
-                                color="#43e97b"
-                                text={
-                                    <Text
-                                        style={{
-                                            fontSize: 12,
-                                            fontWeight: 500,
-                                        }}>
-                                        Average: {dataStats.avg.toFixed(2)}m
-                                    </Text>
-                                }
-                            />
-                            <Badge
-                                color={
-                                    dataStats.trend >= 0 ? "#fa709a" : "#330867"
-                                }
-                                text={
-                                    <Text
-                                        style={{
-                                            fontSize: 12,
-                                            fontWeight: 500,
-                                        }}>
-                                        Trend: {dataStats.trend >= 0 ? "+" : ""}
-                                        {dataStats.trend.toFixed(2)}m
-                                    </Text>
-                                }
-                            />
-                            <Badge
-                                color="#8b5cf6"
-                                text={
-                                    <Text
-                                        style={{
-                                            fontSize: 12,
-                                            fontWeight: 500,
-                                        }}>
-                                        Prediction:{" "}
-                                        {dataStats.prediction.toFixed(2)}m
-                                    </Text>
-                                }
-                            />
-                        </Space>
-                    </div>
+                    <StatsLegend dataStats={dataStats} />
                 )}
             </Card>
 
@@ -1322,14 +1344,15 @@ const ReportPage = () => {
                     borderBottom: `4px solid ${THEME.BLUE_PRIMARY}`,
                 }}
                 placement="top"
-                onClose={() => setFilterDrawerVisible(false)}
+                onClose={handleFilterDrawerClose}
                 open={filterDrawerVisible}
                 height="auto"
                 styles={{
                     body: { padding: isMobile ? 16 : 24 },
                     mask: { backdropFilter: "blur(4px)" },
                 }}
-                closable={false}>
+                closable={false}
+                maskClosable={true}>
                 <Card
                     variant={false}
                     style={{
@@ -1356,10 +1379,9 @@ const ReportPage = () => {
                             </Text>
                             <Radio.Group
                                 value={reportType}
-                                onChange={(e) => setReportType(e.target.value)}
+                                onChange={handleReportTypeChange}
                                 buttonStyle="solid"
                                 size="middle"
-                                disabled={isFetchingData}
                                 style={{ width: "100%", display: "flex" }}>
                                 <Radio.Button
                                     value="today"
@@ -1414,9 +1436,8 @@ const ReportPage = () => {
                                     <DatePicker
                                         picker="month"
                                         value={selectedMonth}
-                                        onChange={setSelectedMonth}
+                                        onChange={handleSelectedMonthChange}
                                         allowClear={false}
-                                        disabled={isFetchingData}
                                         style={{
                                             width: "100%",
                                             height: 32,
@@ -1435,8 +1456,7 @@ const ReportPage = () => {
                                     </Text>
                                     <Select
                                         value={monthView}
-                                        onChange={setMonthView}
-                                        disabled={isFetchingData}
+                                        onChange={handleMonthViewChange}
                                         style={{
                                             width: "100%",
                                             height: 32,
@@ -1449,7 +1469,6 @@ const ReportPage = () => {
                                     <Button
                                         onClick={resetMonthly}
                                         icon={<ReloadOutlined />}
-                                        disabled={isFetchingData}
                                         style={{
                                             borderRadius: 6,
                                             width: "45%",
@@ -1479,31 +1498,20 @@ const ReportPage = () => {
                                     <Select
                                         mode="multiple"
                                         value={selectedYears}
-                                        onChange={setSelectedYears}
+                                        onChange={handleSelectedYearsChange}
                                         placeholder="Select years"
-                                        disabled={isFetchingData}
                                         style={{
                                             width: "100%",
                                             minHeight: 40,
                                         }}
                                         maxTagCount={2}>
-                                        {Array.from({ length: 10 }, (_, i) => {
-                                            const year = (
-                                                dayjs().year() - i
-                                            ).toString();
-                                            return (
-                                                <Option key={year} value={year}>
-                                                    {year}
-                                                </Option>
-                                            );
-                                        })}
+                                        {yearOptions}
                                     </Select>
                                 </div>
                                 <Flex justify="center">
                                     <Button
                                         onClick={resetAnnual}
                                         icon={<ReloadOutlined />}
-                                        disabled={isFetchingData}
                                         style={{
                                             borderRadius: 6,
                                             width: "45%",
@@ -1529,7 +1537,7 @@ const ReportPage = () => {
                     <Button
                         shape="circle"
                         icon={<CloseOutlined />}
-                        onClick={() => setFilterDrawerVisible(false)}
+                        onClick={handleFilterDrawerClose}
                         style={{
                             width: 50,
                             height: 50,

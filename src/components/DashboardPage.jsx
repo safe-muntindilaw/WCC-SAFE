@@ -1,6 +1,7 @@
 // DashboardPage.jsx - Enhanced Version with Consistent Modals
 import { theme } from "antd";
 import { useEffect, useState, useMemo, useCallback } from "react";
+import React from "react";
 import {
     Card,
     Row,
@@ -140,86 +141,86 @@ const useAuth = () => {
 /* =========================
    COMPONENT: BaseModal (Reusable Modal Wrapper)
 ========================= */
-const BaseModal = ({
-    isOpen,
-    onClose,
-    title,
-    icon,
-    children,
-    isMobile,
-    width = 500,
-}) => {
-    return (
-        <Modal
-            title={
-                <Title level={4} style={{ margin: 0 }}>
-                    {icon && <span style={{ marginRight: 8 }}>{icon}</span>}
-                    {title}
-                </Title>
-            }
-            open={isOpen}
-            onCancel={onClose}
-            footer={null}
-            width={isMobile ? "100%" : width}
-            centered
-            destroyOnHidden>
-            <Card
-                variant={false}
-                style={{
-                    borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
-                    marginTop: 16,
-                }}
-                styles={{ body: { padding: isMobile ? 16 : 24 } }}>
-                {children}
-            </Card>
-        </Modal>
-    );
-};
+const BaseModal = React.memo(
+    ({ isOpen, onClose, title, icon, children, isMobile, width = 500 }) => {
+        return (
+            <Modal
+                title={
+                    <Title level={4} style={{ margin: 0 }}>
+                        {icon && <span style={{ marginRight: 8 }}>{icon}</span>}
+                        {title}
+                    </Title>
+                }
+                open={isOpen}
+                onCancel={onClose}
+                footer={null}
+                width={isMobile ? "100%" : width}
+                centered
+                destroyOnHidden>
+                <Card
+                    variant={false}
+                    style={{
+                        borderTop: `4px solid ${THEME.BLUE_PRIMARY}`,
+                        marginTop: 16,
+                    }}
+                    styles={{ body: { padding: isMobile ? 16 : 24 } }}>
+                    {children}
+                </Card>
+            </Modal>
+        );
+    },
+);
+
+BaseModal.displayName = "BaseModal";
 
 /* =========================
    COMPONENT: ModalActions
 ========================= */
-const ModalActions = ({
-    onCancel,
-    onSave,
-    loading,
-    isMobile,
-    saveText = "Save",
-    disabled = false,
-}) => {
-    return (
-        <Flex justify="end" gap={12}>
-            <Button
-                danger
-                style={{
-                    height: isMobile ? 32 : 40,
-                    borderRadius: 6,
-                    width: "100%",
-                }}
-                onClick={onCancel}
-                disabled={loading}>
-                Cancel
-            </Button>
-            <Button
-                type="primary"
-                onClick={onSave}
-                loading={loading}
-                disabled={disabled}
-                style={{
-                    height: isMobile ? 32 : 40,
-                    borderRadius: 6,
-                    width: "100%",
-                }}>
-                {loading ? "Saving..." : saveText}
-            </Button>
-        </Flex>
-    );
-};
+const ModalActions = React.memo(
+    ({
+        onCancel,
+        onSave,
+        loading,
+        isMobile,
+        saveText = "Save",
+        disabled = false,
+    }) => {
+        return (
+            <Flex justify="end" gap={12}>
+                <Button
+                    danger
+                    style={{
+                        height: isMobile ? 32 : 40,
+                        borderRadius: 6,
+                        width: "100%",
+                    }}
+                    onClick={onCancel}
+                    disabled={loading}>
+                    Cancel
+                </Button>
+                <Button
+                    type="primary"
+                    onClick={onSave}
+                    loading={loading}
+                    disabled={disabled}
+                    style={{
+                        height: isMobile ? 32 : 40,
+                        borderRadius: 6,
+                        width: "100%",
+                    }}>
+                    {loading ? "Saving..." : saveText}
+                </Button>
+            </Flex>
+        );
+    },
+);
+
+ModalActions.displayName = "ModalActions";
 
 /* =========================
    COMPONENT: InfoAlert (Reusable Info Card)
 ========================= */
-const InfoAlert = ({ title, items, type = "info" }) => {
+const InfoAlert = React.memo(({ title, items, type = "info" }) => {
     const backgrounds = {
         info: { bg: "#e6f7ff", border: "#91d5ff" },
         warning: { bg: "#fff7e6", border: "#ffd591" },
@@ -255,12 +256,14 @@ const InfoAlert = ({ title, items, type = "info" }) => {
             </Space>
         </Card>
     );
-};
+});
+
+InfoAlert.displayName = "InfoAlert";
 
 /* =========================
    COMPONENT: DefaultPasswordModal
 ========================= */
-const DefaultPasswordModal = ({ isOpen, onClose, isMobile }) => {
+const DefaultPasswordModal = React.memo(({ isOpen, onClose, isMobile }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [currentPassword, setCurrentPassword] = useState("");
@@ -270,6 +273,7 @@ const DefaultPasswordModal = ({ isOpen, onClose, isMobile }) => {
         if (isOpen) {
             fetchCurrentPassword();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
     const fetchCurrentPassword = async () => {
@@ -376,19 +380,20 @@ const DefaultPasswordModal = ({ isOpen, onClose, isMobile }) => {
                 <ModalActions
                     onCancel={onClose}
                     onSave={handleSave}
-                    // loading={loading}
                     isMobile={isMobile}
                     saveText="Update"
                 />
             </Space>
         </BaseModal>
     );
-};
+});
+
+DefaultPasswordModal.displayName = "DefaultPasswordModal";
 
 /* =========================
    COMPONENT: MaxRangeModal
 ========================= */
-const MaxRangeModal = ({ isOpen, onClose, isMobile, onUpdate }) => {
+const MaxRangeModal = React.memo(({ isOpen, onClose, isMobile, onUpdate }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [currentMaxRange, setCurrentMaxRange] = useState(null);
@@ -398,6 +403,7 @@ const MaxRangeModal = ({ isOpen, onClose, isMobile, onUpdate }) => {
         if (isOpen) {
             fetchCurrentMaxRange();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
     const fetchCurrentMaxRange = async () => {
@@ -517,332 +523,367 @@ const MaxRangeModal = ({ isOpen, onClose, isMobile, onUpdate }) => {
                 <ModalActions
                     onCancel={onClose}
                     onSave={handleSave}
-                    // loading={loading}
                     isMobile={isMobile}
                     saveText="Update"
                 />
             </Space>
         </BaseModal>
     );
-};
+});
+
+MaxRangeModal.displayName = "MaxRangeModal";
 
 /* =========================
    COMPONENT: ThresholdSettingsModal
 ========================= */
-const ThresholdSettingsModal = ({
-    isOpen,
-    record,
-    onClose,
-    onSave,
-    isSaving,
-    isMobile,
-}) => {
-    const [form] = Form.useForm();
-    const [smsTemplates, setSmsTemplates] = useState([]);
-    const [activeTab, setActiveTab] = useState("threshold");
-    const [saving, setSaving] = useState(false);
-    const { confirm } = useConfirmDialog();
+const ThresholdSettingsModal = React.memo(
+    ({ isOpen, record, onClose, onSave, isSaving, isMobile }) => {
+        const [form] = Form.useForm();
+        const [smsTemplates, setSmsTemplates] = useState([]);
+        const [activeTab, setActiveTab] = useState("threshold");
+        const [saving, setSaving] = useState(false);
+        const { confirm } = useConfirmDialog();
 
-    useEffect(() => {
-        if (record) {
-            form.setFieldsValue({
-                min_level: parseFloat(record.min_level),
-                max_level: parseFloat(record.max_level),
-            });
-            fetchSmsTemplates();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [record]);
+        // Check if this is L0 threshold (no SMS templates needed)
+        const isL0Threshold = record?.name === "L0";
 
-    const fetchSmsTemplates = async () => {
-        if (!record) return;
-        try {
-            const { data, error } = await supabase
+        useEffect(() => {
+            if (record) {
+                form.setFieldsValue({
+                    min_level: parseFloat(record.min_level),
+                    max_level: parseFloat(record.max_level),
+                });
+                if (!isL0Threshold) {
+                    fetchSmsTemplates();
+                }
+            }
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [record, isL0Threshold]);
+
+        const fetchSmsTemplates = async () => {
+            if (!record || isL0Threshold) return;
+            try {
+                const { data, error } = await supabase
+                    .from("sms_templates")
+                    .select("*")
+                    .eq("threshold_name", record.name);
+                if (error) throw error;
+                setSmsTemplates(data || []);
+            } catch (err) {
+                console.error(err);
+                showError("Failed to load SMS templates");
+            }
+        };
+
+        const handleSaveThreshold = async () => {
+            try {
+                const values = await form.validateFields([
+                    "min_level",
+                    "max_level",
+                ]);
+                onSave(record.id, values);
+            } catch (err) {
+                console.log("Validation Failed:", err);
+            }
+        };
+
+        const handleSaveSmsTemplate = async (templateId) => {
+            const value = form.getFieldValue(`template_${templateId}`);
+            if (!value || !value.trim()) {
+                throw new Error("SMS template cannot be empty");
+            }
+
+            const { error } = await supabase
                 .from("sms_templates")
-                .select("*")
-                .eq("threshold_name", record.name);
+                .update({
+                    message_template: value,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", templateId);
+
             if (error) throw error;
-            setSmsTemplates(data || []);
-        } catch (err) {
-            console.error(err);
-            showError("Failed to load SMS templates");
-        }
-    };
+        };
 
-    const handleSaveThreshold = async () => {
-        try {
-            const values = await form.validateFields([
-                "min_level",
-                "max_level",
-            ]);
-            onSave(record.id, values);
-        } catch (err) {
-            console.log("Validation Failed:", err);
-        }
-    };
+        const handleSaveAll = async () => {
+            if (activeTab === "threshold") {
+                confirm({
+                    title: "Save Threshold Changes",
+                    content: `Are you sure you want to update the threshold settings for ${record.name}?`,
+                    onOk: async () => {
+                        await handleSaveThreshold();
+                    },
+                });
+            } else {
+                const templateIds = smsTemplates.map((t) => t.id);
+                if (templateIds.length === 0) {
+                    showWarning("No templates to save");
+                    return;
+                }
 
-    const handleSaveSmsTemplate = async (templateId) => {
-        const value = form.getFieldValue(`template_${templateId}`);
-        if (!value || !value.trim()) {
-            throw new Error("SMS template cannot be empty");
-        }
+                confirm({
+                    title: "Save SMS Template Changes",
+                    content: `Are you sure you want to update the SMS template(s) for ${record.name}?`,
+                    onOk: async () => {
+                        setSaving(true);
+                        let successCount = 0;
+                        let failCount = 0;
 
-        const { error } = await supabase
-            .from("sms_templates")
-            .update({
-                message_template: value,
-                updated_at: new Date().toISOString(),
-            })
-            .eq("id", templateId);
-
-        if (error) throw error;
-    };
-
-    const handleSaveAll = async () => {
-        if (activeTab === "threshold") {
-            confirm({
-                title: "Save Threshold Changes",
-                content: `Are you sure you want to update the threshold settings for ${record.name}?`,
-                onOk: async () => {
-                    await handleSaveThreshold();
-                },
-            });
-        } else {
-            const templateIds = smsTemplates.map((t) => t.id);
-            if (templateIds.length === 0) {
-                showWarning("No templates to save");
-                return;
-            }
-
-            confirm({
-                title: "Save SMS Template Changes",
-                content: `Are you sure you want to update the SMS template(s) for ${record.name}?`,
-                onOk: async () => {
-                    setSaving(true);
-                    let successCount = 0;
-                    let failCount = 0;
-
-                    for (const templateId of templateIds) {
-                        try {
-                            await handleSaveSmsTemplate(templateId);
-                            successCount++;
-                        } catch (err) {
-                            console.error(err);
-                            failCount++;
+                        for (const templateId of templateIds) {
+                            try {
+                                await handleSaveSmsTemplate(templateId);
+                                successCount++;
+                            } catch (err) {
+                                console.error(err);
+                                failCount++;
+                            }
                         }
-                    }
 
-                    setSaving(false);
+                        setSaving(false);
 
-                    if (failCount === 0 && successCount > 0) {
-                        showSuccess("SMS template(s) updated successfully");
-                        await fetchSmsTemplates();
-                    } else if (successCount === 0) {
-                        showError("Failed to update SMS templates");
-                    } else {
-                        showWarning(
-                            `Updated ${successCount} template(s), ${failCount} failed`,
-                        );
-                        await fetchSmsTemplates();
-                    }
-                },
-            });
-        }
-    };
-
-    if (!record) return null;
-
-    const thresholdTab = (
-        <Space direction="vertical" size={16} style={{ width: "100%" }}>
-            <InfoAlert
-                title="Threshold Settings:"
-                items={[
-                    "Minimum level must be less than maximum level",
-                    "Values are measured in meters (m)",
-                ]}
-            />
-
-            <Form form={form} layout="vertical">
-                <Form.Item
-                    name="min_level"
-                    label={`Minimum Level (${UNIT})`}
-                    rules={[
-                        {
-                            required: true,
-                            message: "Please input minimum level!",
-                        },
-                    ]}>
-                    <InputNumber
-                        min={0}
-                        step={0.01}
-                        style={{ width: "100%" }}
-                        addonAfter={UNIT}
-                    />
-                </Form.Item>
-                <Form.Item
-                    name="max_level"
-                    label={`Maximum Level (${UNIT})`}
-                    rules={[
-                        {
-                            required: true,
-                            message: "Please input maximum level!",
-                        },
-                        ({ getFieldValue }) => ({
-                            validator(_, value) {
-                                if (
-                                    !value ||
-                                    value >= getFieldValue("min_level")
-                                )
-                                    return Promise.resolve();
-                                return Promise.reject(
-                                    new Error("Max must be >= Min!"),
-                                );
-                            },
-                        }),
-                    ]}>
-                    <InputNumber
-                        min={0}
-                        step={0.01}
-                        style={{ width: "100%" }}
-                        addonAfter={UNIT}
-                    />
-                </Form.Item>
-            </Form>
-        </Space>
-    );
-
-    const smsTab = (
-        <Space direction="vertical" size={16} style={{ width: "100%" }}>
-            <InfoAlert
-                title="SMS Template Guidelines:"
-                items={[
-                    "Keep messages clear and concise",
-                    "Include relevant water level information",
-                    "Add emergency contact if needed",
-                    "Use {converted_water_level} to display dynamic data",
-                ]}
-            />
-
-            {smsTemplates.length === 0 ?
-                <Alert
-                    message="No SMS Template Found"
-                    description={`No SMS template found for ${record.name}. Please create one in the database.`}
-                    type="warning"
-                    showIcon
-                />
-            :   <Form form={form} layout="vertical">
-                    {smsTemplates.map((template) => (
-                        <Form.Item
-                            key={template.id}
-                            name={`template_${template.id}`}
-                            label={`SMS Template for ${
-                                template.threshold_name || record.name
-                            }`}
-                            initialValue={template.message_template}
-                            rules={[
-                                {
-                                    required: true,
-                                    message: "Template cannot be empty!",
-                                },
-                            ]}>
-                            <TextArea
-                                rows={4}
-                                placeholder="Enter SMS message template..."
-                                maxLength={160}
-                                showCount
-                            />
-                        </Form.Item>
-                    ))}
-                </Form>
+                        if (failCount === 0 && successCount > 0) {
+                            showSuccess("SMS template(s) updated successfully");
+                            await fetchSmsTemplates();
+                        } else if (successCount === 0) {
+                            showError("Failed to update SMS templates");
+                        } else {
+                            showWarning(
+                                `Updated ${successCount} template(s), ${failCount} failed`,
+                            );
+                            await fetchSmsTemplates();
+                        }
+                    },
+                });
             }
-        </Space>
-    );
+        };
 
-    return (
-        <BaseModal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={`Settings: ${record.name}`}
-            icon={<SettingOutlined />}
-            isMobile={isMobile}>
-            <Space direction="vertical" size={24} style={{ width: "100%" }}>
-                <Tabs
-                    activeKey={activeTab}
-                    onChange={setActiveTab}
+        if (!record) return null;
+
+        const thresholdTab = (
+            <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                <InfoAlert
+                    title="Threshold Settings:"
                     items={[
-                        {
-                            key: "threshold",
-                            label: (
-                                <span>
-                                    <AlertOutlined /> Threshold
-                                </span>
-                            ),
-                            children: thresholdTab,
-                        },
-                        {
-                            key: "sms",
-                            label: (
-                                <span>
-                                    <MessageOutlined /> SMS Template
-                                </span>
-                            ),
-                            children: smsTab,
-                        },
+                        "Minimum level must be less than maximum level",
+                        "Values are measured in meters (m)",
                     ]}
                 />
 
-                <ModalActions
-                    onCancel={onClose}
-                    onSave={handleSaveAll}
-                    loading={isSaving || saving}
-                    isMobile={isMobile}
-                    saveText={`Save ${activeTab === "threshold" ? "Threshold" : "Template"}`}
-                    disabled={activeTab === "sms" && smsTemplates.length === 0}
-                />
+                <Form form={form} layout="vertical">
+                    <Form.Item
+                        name="min_level"
+                        label={`Minimum Level (${UNIT})`}
+                        rules={[
+                            {
+                                required: true,
+                                message: "Please input minimum level!",
+                            },
+                        ]}>
+                        <InputNumber
+                            min={0}
+                            step={0.01}
+                            style={{ width: "100%" }}
+                            addonAfter={UNIT}
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        name="max_level"
+                        label={`Maximum Level (${UNIT})`}
+                        rules={[
+                            {
+                                required: true,
+                                message: "Please input maximum level!",
+                            },
+                            ({ getFieldValue }) => ({
+                                validator(_, value) {
+                                    if (
+                                        !value ||
+                                        value >= getFieldValue("min_level")
+                                    )
+                                        return Promise.resolve();
+                                    return Promise.reject(
+                                        new Error("Max must be >= Min!"),
+                                    );
+                                },
+                            }),
+                        ]}>
+                        <InputNumber
+                            min={0}
+                            step={0.01}
+                            style={{ width: "100%" }}
+                            addonAfter={UNIT}
+                        />
+                    </Form.Item>
+                </Form>
             </Space>
-        </BaseModal>
-    );
-};
+        );
+
+        const smsTab = (
+            <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                <InfoAlert
+                    title="SMS Template Guidelines:"
+                    items={[
+                        "Keep messages clear and concise",
+                        "Include relevant water level information",
+                        "Add emergency contact if needed",
+                        "Use {converted_water_level} to display dynamic data",
+                    ]}
+                />
+
+                {smsTemplates.length === 0 ?
+                    <Alert
+                        message="No SMS Template Found"
+                        description={`No SMS template found for ${record.name}. Please create one in the database.`}
+                        type="warning"
+                        showIcon
+                    />
+                :   <Form form={form} layout="vertical">
+                        {smsTemplates.map((template) => (
+                            <Form.Item
+                                key={template.id}
+                                name={`template_${template.id}`}
+                                label={`SMS Template for ${
+                                    template.threshold_name || record.name
+                                }`}
+                                initialValue={template.message_template}
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Template cannot be empty!",
+                                    },
+                                ]}>
+                                <TextArea
+                                    rows={4}
+                                    placeholder="Enter SMS message template..."
+                                    maxLength={160}
+                                    showCount
+                                />
+                            </Form.Item>
+                        ))}
+                    </Form>
+                }
+            </Space>
+        );
+
+        // For L0, only show threshold tab without tabs wrapper
+        if (isL0Threshold) {
+            return (
+                <BaseModal
+                    isOpen={isOpen}
+                    onClose={onClose}
+                    title={`Settings: ${record.name}`}
+                    icon={<SettingOutlined />}
+                    isMobile={isMobile}>
+                    <Space
+                        direction="vertical"
+                        size={24}
+                        style={{ width: "100%" }}>
+                        {thresholdTab}
+                        <ModalActions
+                            onCancel={onClose}
+                            onSave={handleSaveThreshold}
+                            loading={isSaving}
+                            isMobile={isMobile}
+                            saveText="Save Threshold"
+                        />
+                    </Space>
+                </BaseModal>
+            );
+        }
+
+        return (
+            <BaseModal
+                isOpen={isOpen}
+                onClose={onClose}
+                title={`Settings: ${record.name}`}
+                icon={<SettingOutlined />}
+                isMobile={isMobile}>
+                <Space direction="vertical" size={24} style={{ width: "100%" }}>
+                    <Tabs
+                        activeKey={activeTab}
+                        onChange={setActiveTab}
+                        items={[
+                            {
+                                key: "threshold",
+                                label: (
+                                    <span>
+                                        <AlertOutlined /> Threshold
+                                    </span>
+                                ),
+                                children: thresholdTab,
+                            },
+                            {
+                                key: "sms",
+                                label: (
+                                    <span>
+                                        <MessageOutlined /> SMS Template
+                                    </span>
+                                ),
+                                children: smsTab,
+                            },
+                        ]}
+                    />
+
+                    <ModalActions
+                        onCancel={onClose}
+                        onSave={handleSaveAll}
+                        loading={isSaving || saving}
+                        isMobile={isMobile}
+                        saveText={`Save ${activeTab === "threshold" ? "Threshold" : "Template"}`}
+                        disabled={
+                            activeTab === "sms" && smsTemplates.length === 0
+                        }
+                    />
+                </Space>
+            </BaseModal>
+        );
+    },
+);
+
+ThresholdSettingsModal.displayName = "ThresholdSettingsModal";
 
 /* =========================
    COMPONENT: CardContainer
 ========================= */
-const CardContainer = ({
-    title,
-    value,
-    prefix,
-    color = THEME.BLUE_PRIMARY,
-    subText,
-    loading = false,
-}) => (
-    <Card
-        style={{
-            ...cardStyleAdaptive,
-            borderColor: color,
-        }}>
-        {loading ?
-            <Spin />
-        :   <>
-                <Statistic
-                    title={title}
-                    value={value ?? "N/A"}
-                    prefix={prefix}
-                    valueStyle={{ color }}
-                />
-                {subText && (
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                        {subText}
-                    </Text>
-                )}
-            </>
-        }
-    </Card>
+const CardContainer = React.memo(
+    ({
+        title,
+        value,
+        prefix,
+        color = THEME.BLUE_PRIMARY,
+        subText,
+        loading = false,
+    }) => (
+        <Card
+            style={{
+                ...cardStyleAdaptive,
+                borderColor: color,
+            }}>
+            {loading ?
+                <Spin />
+            :   <>
+                    <Statistic
+                        title={title}
+                        value={value ?? "N/A"}
+                        prefix={prefix}
+                        valueStyle={{ color }}
+                    />
+                    {subText && (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            {subText}
+                        </Text>
+                    )}
+                </>
+            }
+        </Card>
+    ),
 );
+
+CardContainer.displayName = "CardContainer";
 
 /* =========================
    COMPONENT: RefreshButton
 ========================= */
-const RefreshButton = ({ refreshing, onRefresh }) => (
+const RefreshButton = React.memo(({ refreshing, onRefresh }) => (
     <Button
         type="default"
         ghost
@@ -851,12 +892,14 @@ const RefreshButton = ({ refreshing, onRefresh }) => (
         loading={refreshing}
         style={{ color: "white", borderColor: "white" }}
     />
-);
+));
+
+RefreshButton.displayName = "RefreshButton";
 
 /* =========================
    COMPONENT: ThresholdCards
 ========================= */
-const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
+const ThresholdCards = React.memo(({ thresholds, isUserAdmin, onEdit }) => {
     if (!thresholds?.length)
         return <Empty description="No thresholds configured" />;
 
@@ -917,7 +960,9 @@ const ThresholdCards = ({ thresholds, isUserAdmin, onEdit }) => {
             })}
         </Row>
     );
-};
+});
+
+ThresholdCards.displayName = "ThresholdCards";
 
 /* =========================
    COMPONENT: DashboardPage
@@ -980,17 +1025,17 @@ const DashboardPage = () => {
 
     const fetchTodayReadings = useCallback(async () => {
         try {
-            const startTime = new Date();
-            startTime.setHours(startTime.getHours() - 30);
-            const startTimeISO = startTime.toISOString();
+            // Get start of today (midnight)
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            const startTimeISO = startOfToday.toISOString();
 
             let allData = [];
             let from = 0;
             let to = 499; // 500 items per batch
-            const targetCount = 1800;
             let hasMore = true;
 
-            while (hasMore && allData.length < targetCount) {
+            while (hasMore) {
                 const { data, error } = await supabase
                     .from("sensor_readings")
                     .select("converted_water_level, created_at")
@@ -1003,7 +1048,7 @@ const DashboardPage = () => {
                 if (data && data.length > 0) {
                     allData = [...allData, ...data];
 
-                    // If we got fewer than 500, we've reached the end of the database
+                    // If we got fewer than 500, we've reached the end
                     if (data.length < 500) {
                         hasMore = false;
                     } else {
@@ -1015,8 +1060,7 @@ const DashboardPage = () => {
                 }
             }
 
-            // Trim to exactly 1800 if the last batch overshot it
-            setTodayReadings(allData.slice(0, targetCount));
+            setTodayReadings(allData);
         } catch (err) {
             console.error(err);
             showWarning("Failed to load sensor readings");
@@ -1105,7 +1149,7 @@ const DashboardPage = () => {
         setIsModalOpen(true);
     }, []);
 
-    const handleSaveThreshold = async (id, values) => {
+    const handleSaveThreshold = useCallback(async (id, values) => {
         setIsSaving(true);
         try {
             const { error } = await supabase
@@ -1113,7 +1157,7 @@ const DashboardPage = () => {
                 .update(values)
                 .eq("id", id);
             if (error) throw error;
-            showSuccess(`Threshold ${editingRecord.name} updated successfully`);
+            showSuccess(`Threshold updated successfully`);
             await fetchThresholds();
             setIsModalOpen(false);
             setEditingRecord(null);
@@ -1123,31 +1167,35 @@ const DashboardPage = () => {
         } finally {
             setIsSaving(false);
         }
-    };
+    }, []);
 
-    const handleCloseModal = () => {
+    const handleCloseModal = useCallback(() => {
         setIsModalOpen(false);
-    };
+    }, []);
 
-    const handleOpenPasswordModal = () => {
+    const handleOpenPasswordModal = useCallback(() => {
         setIsPasswordModalOpen(true);
-    };
+    }, []);
 
-    const handleClosePasswordModal = () => {
+    const handleClosePasswordModal = useCallback(() => {
         setIsPasswordModalOpen(false);
-    };
+    }, []);
 
-    const handleOpenMaxRangeModal = () => {
+    const handleOpenMaxRangeModal = useCallback(() => {
         setIsMaxRangeModalOpen(true);
-    };
+    }, []);
 
-    const handleCloseMaxRangeModal = () => {
+    const handleCloseMaxRangeModal = useCallback(() => {
         setIsMaxRangeModalOpen(false);
-    };
+    }, []);
 
-    const handleMaxRangeUpdate = async () => {
+    const handleMaxRangeUpdate = useCallback(async () => {
         await fetchThresholds();
-    };
+    }, [fetchThresholds]);
+
+    const handleRefreshClick = useCallback(() => {
+        refreshDashboard(false);
+    }, [refreshDashboard]);
 
     /* =========================
      HELPER: Get threshold for water level
@@ -1298,7 +1346,7 @@ const DashboardPage = () => {
                                 )}
                                 <RefreshButton
                                     refreshing={refreshing}
-                                    onRefresh={() => refreshDashboard(false)}
+                                    onRefresh={handleRefreshClick}
                                 />
                             </Space>
                         </Col>
