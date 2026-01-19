@@ -257,6 +257,14 @@ const StatsLegend = React.memo(({ dataStats }) => (
                 display: "flex",
             }}>
             <Badge
+                color={ACCENT_COLOR}
+                text={
+                    <Text style={{ fontSize: 12, fontWeight: 500 }}>
+                        Recent: {dataStats.recent.toFixed(2)}m
+                    </Text>
+                }
+            />
+            <Badge
                 color="#667eea"
                 text={
                     <Text style={{ fontSize: 12, fontWeight: 500 }}>
@@ -443,7 +451,7 @@ const ReportPage = () => {
         const today = dayjs();
         switch (reportType) {
             case "today":
-                return today.format("MMMM DD, YYYY");
+                return today.format("MM DD, YYYY");
             case "weekly":
                 return `${today.startOf("isoWeek").format("MMM DD")} - ${today
                     .endOf("isoWeek")
@@ -702,19 +710,18 @@ const ReportPage = () => {
         const max = Math.max(...values);
         const min = Math.min(...values);
         const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        const recent =
+            data[data.length - 1]["Water Level"] ||
+            Object.values(data[data.length - 1])[1];
         const trend =
             data.length > 1 ?
-                (data[data.length - 1]["Water Level"] ||
-                    Object.values(data[data.length - 1])[1]) -
-                (data[0]["Water Level"] || Object.values(data[0])[1])
+                recent - (data[0]["Water Level"] || Object.values(data[0])[1])
             :   0;
 
         let prediction = avg;
 
         if (data.length > 3) {
-            const currentLevel =
-                data[data.length - 1]["Water Level"] ||
-                Object.values(data[data.length - 1])[1];
+            const currentLevel = recent;
 
             const alpha = 0.3;
             let ewma = values[0];
@@ -782,15 +789,13 @@ const ReportPage = () => {
                 prediction = 0.6 * prediction + 0.4 * ewma;
             }
         } else {
-            const currentLevel =
-                data[data.length - 1]["Water Level"] ||
-                Object.values(data[data.length - 1])[1];
+            const currentLevel = recent;
             prediction = currentLevel + trend * 0.5;
         }
 
         prediction = Math.max(0, Math.min(maxRange * 0.95, prediction));
 
-        return { max, min, avg, trend, prediction };
+        return { max, min, avg, trend, prediction, recent };
     }, [data, maxRange, reportType]);
 
     const renderChartLines = useCallback(() => {
@@ -850,16 +855,24 @@ const ReportPage = () => {
                                 2
                             :   3
                         }
-                        dot={
-                            reportType === "today" ? false : (
-                                {
-                                    r: isAnnual ? 6 : 5,
-                                    fill: color,
-                                    strokeWidth: 2,
-                                    stroke: "#fff",
-                                }
-                            )
-                        }
+                        dot={(props) => {
+                            if (reportType === "today") return null;
+
+                            const isLastPoint = props.index === data.length - 1;
+                            const dotColor = isLastPoint ? ACCENT_COLOR : color;
+                            const dotRadius = isAnnual ? 6 : 5;
+
+                            return (
+                                <circle
+                                    cx={props.cx}
+                                    cy={props.cy}
+                                    r={dotRadius}
+                                    fill={dotColor}
+                                    strokeWidth={2}
+                                    stroke="#fff"
+                                />
+                            );
+                        }}
                         activeDot={{
                             r: 8,
                             fill: color,
@@ -913,7 +926,7 @@ const ReportPage = () => {
         () => reportType === "annually" && data.length > 0,
         [reportType, data.length],
     );
-    const showTimestamp = useMemo(() => reportType !== "today", [reportType]);
+    const showTimestamp = true;
 
     const yearOptions = useMemo(
         () =>
@@ -1204,11 +1217,6 @@ const ReportPage = () => {
                             gap: 12,
                         }}>
                         <Spin size="large" />
-                        {/* <Text type="secondary" style={{ fontSize: 13 }}>
-                            {isFetchingData ?
-                                "Fetching data from database..."
-                            :   "Loading chart..."}
-                        </Text> */}
                     </div>
                 : data.length === 0 ?
                     <div
