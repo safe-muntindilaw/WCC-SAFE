@@ -1,4 +1,4 @@
-import { BrowserRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router-dom";
 import { App as AntdApp } from "antd";
 import AppRoutes from "./routes/AppRoutes";
 import AuthProvider from "@/context/AuthContext";
@@ -10,9 +10,9 @@ const App = () => (
         <NotificationSetter />
         <WaterAlertNotifier />
         <AuthProvider>
-            <BrowserRouter>
+            <MemoryRouter>
                 <AppRoutes />
-            </BrowserRouter>
+            </MemoryRouter>
         </AuthProvider>
     </AntdApp>
 );
