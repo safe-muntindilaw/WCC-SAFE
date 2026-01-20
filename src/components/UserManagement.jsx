@@ -1122,7 +1122,7 @@ const UserManagement = () => {
             ),
             dataIndex: "select",
             key: "select",
-            width: isMobile ? 48 : 50,
+            width: isMobile ? 40 : 50,
             fixed: "left",
             align: "center",
             render: (_, record) => (
@@ -1235,22 +1235,19 @@ const UserManagement = () => {
                 <Space size={8}>
                     {isMobile ?
                         <>
-                            <Tooltip title="Edit">
-                                <Button
-                                    type="primary"
-                                    size="small"
-                                    icon={<EditOutlined />}
-                                    onClick={() => handleEdit(record)}
-                                />
-                            </Tooltip>
-                            <Tooltip title="Delete">
-                                <Button
-                                    danger
-                                    size="small"
-                                    icon={<DeleteOutlined />}
-                                    onClick={() => handleDelete(record.user_id)}
-                                />
-                            </Tooltip>
+                            <Button
+                                type="primary"
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={() => handleEdit(record)}
+                            />
+
+                            <Button
+                                danger
+                                size="small"
+                                icon={<DeleteOutlined />}
+                                onClick={() => handleDelete(record.user_id)}
+                            />
                         </>
                     :   <>
                             <Button
@@ -1841,6 +1838,9 @@ const UserManagement = () => {
 
                         <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                             <Button
+                                type="primary"
+                                ghost
+                                danger={isEditing}
                                 style={{
                                     flex: 1,
                                     height: inputHeight,
@@ -1926,6 +1926,8 @@ const UserManagement = () => {
                                 maxCount={1}
                                 style={{ width: "100%" }}>
                                 <Button
+                                    type="primary"
+                                    ghost
                                     icon={<UploadOutlined />}
                                     block
                                     style={{
@@ -1937,6 +1939,8 @@ const UserManagement = () => {
                             </Upload>
 
                             <Button
+                                type="primary"
+                                ghost
                                 icon={<DownloadOutlined />}
                                 block
                                 onClick={handleTemplateDownload}

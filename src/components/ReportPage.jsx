@@ -1015,7 +1015,7 @@ const ReportPage = () => {
                 style={{
                     ...cardStyleAdaptive,
                 }}
-                styles={{ body: { padding: isMobile ? 16 : 20 } }}
+                styles={{ body: { padding: isMobile ? 8 : 20 } }}
                 title={
                     isMobile && (
                         <Row justify="space-between" align="middle">
@@ -1247,8 +1247,8 @@ const ReportPage = () => {
                             data={data}
                             margin={{
                                 top: isMobile ? 0 : 30,
-                                right: isMobile ? 20 : 60,
-                                left: isMobile ? -35 : 0,
+                                right: isMobile ? 25 : 60,
+                                left: isMobile ? -30 : 0,
                                 bottom: isMobile ? 0 : 0,
                             }}>
                             <defs>

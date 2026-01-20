@@ -611,6 +611,7 @@ const ThresholdSettingsModal = React.memo(
                     content: `Are you sure you want to update the threshold settings for ${record.name}?`,
                     onOk: async () => {
                         await handleSaveThreshold();
+                        onClose();
                     },
                 });
             } else {
@@ -780,7 +781,7 @@ const ThresholdSettingsModal = React.memo(
                         {thresholdTab}
                         <ModalActions
                             onCancel={onClose}
-                            onSave={handleSaveThreshold}
+                            onSave={handleSaveAll}
                             loading={isSaving}
                             isMobile={isMobile}
                             saveText="Save Threshold"
@@ -1315,11 +1316,13 @@ const DashboardPage = () => {
                 <Card
                     style={{
                         ...cardStyleAdaptive,
-                        background: THEME.BLUE_PRIMARY,
+                        background:
+                            waterLevelStats.currentStatusColor ||
+                            THEME.BLUE_PRIMARY,
                         border: "none",
                     }}>
-                    <Row justify="space-between" align="middle">
-                        <Col>
+                    <Flex justify="space-between" align="center" wrap="nowrap">
+                        <div>
                             <Title
                                 level={isMobile ? 4 : 2}
                                 style={{ color: "#fff", margin: 0 }}>
@@ -1328,8 +1331,8 @@ const DashboardPage = () => {
                             <Text style={{ color: "rgba(255,255,255,0.85)" }}>
                                 {roleConfig.sectionTitle}
                             </Text>
-                        </Col>
-                        <Col>
+                        </div>
+                        <div>
                             <Space>
                                 {roleConfig.canEditDefaultPassword && (
                                     <Button
@@ -1349,8 +1352,8 @@ const DashboardPage = () => {
                                     onRefresh={handleRefreshClick}
                                 />
                             </Space>
-                        </Col>
-                    </Row>
+                        </div>
+                    </Flex>
                 </Card>
 
                 {/* USER ROLE STATISTICS */}

@@ -1,9 +1,10 @@
 import { App, Typography } from "antd";
 import { ExclamationCircleFilled, InfoCircleFilled } from "@ant-design/icons";
-
+import { useResponsive } from "@/utils/useResponsive";
 const { Text } = Typography;
 
 export const useConfirmDialog = () => {
+    const { isMobile } = useResponsive();
     const { modal } = App.useApp();
 
     const confirm = ({
@@ -54,15 +55,14 @@ export const useConfirmDialog = () => {
                                 gap: 8,
                                 marginTop: 8,
                             }}>
-                            {danger ? (
+                            {danger ?
                                 <ExclamationCircleFilled
                                     style={{ color: "#ff4d4f", fontSize: 22 }}
                                 />
-                            ) : (
-                                <InfoCircleFilled
+                            :   <InfoCircleFilled
                                     style={{ color: "#1890ff", fontSize: 22 }}
                                 />
-                            )}
+                            }
                             <Text
                                 strong
                                 style={{
@@ -92,14 +92,19 @@ export const useConfirmDialog = () => {
                 danger,
                 type: "primary",
                 style: {
-                    height: 40,
+                    height: isMobile ? 32 : 40,
                     borderRadius: 8,
                     paddingInline: 24,
                     fontWeight: 600,
                 },
             },
             cancelButtonProps: {
-                style: { height: 40, borderRadius: 8, paddingInline: 20 },
+                danger: true,
+                style: {
+                    height: isMobile ? 32 : 40,
+                    borderRadius: 8,
+                    paddingInline: 20,
+                },
             },
             onOk,
             onCancel,
