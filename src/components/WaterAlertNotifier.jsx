@@ -61,16 +61,17 @@ const WaterAlertNotifier = () => {
         setupNotifications();
 
         const triggerAlertEffects = (level) => {
-            if ("vibrate" in navigator) {
-                window.navigator.vibrate([1000, 100, 1000, 100, 1000]);
-            }
-
             if (!sirenRef.current || !("speechSynthesis" in window)) return;
 
             const message = `Warning! Water level has reached ${level} meters!`;
-
             let cycleCount = 0;
             const maxCycles = 3;
+
+            const vibrate = () => {
+                if ("vibrate" in navigator) {
+                    window.navigator.vibrate([1000, 100, 1000, 100, 1000]);
+                }
+            };
 
             const playVoice = () => {
                 window.speechSynthesis.cancel();
@@ -78,13 +79,15 @@ const WaterAlertNotifier = () => {
                 msg.onend = () => {
                     cycleCount++;
                     if (cycleCount < maxCycles) {
-                        setTimeout(playSiren, 500);
+                        // Voice done → wait 2s → next cycle
+                        setTimeout(playSiren, 250);
                     }
                 };
                 window.speechSynthesis.speak(msg);
             };
 
             const playSiren = () => {
+                vibrate(); // vibrate with each siren
                 sirenRef.current.currentTime = 0;
                 sirenRef.current.volume = 1.0;
 
@@ -96,6 +99,8 @@ const WaterAlertNotifier = () => {
 
                 sirenRef.current.play().catch(() => {});
             };
+
+            // Kick off first cycle
             playSiren();
         };
 
