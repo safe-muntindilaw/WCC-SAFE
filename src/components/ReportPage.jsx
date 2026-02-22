@@ -1340,7 +1340,7 @@ const ReportPage = () => {
                                         value: "Water Level (m)",
                                         angle: -90,
                                         position: "insideLeft",
-                                        offset: isMobile ? 30 : 10,
+                                        offset: isMobile ? -50 : 10,
                                         style: {
                                             fontSize: isMobile ? 11 : 13,
                                             fontWeight: 600,
