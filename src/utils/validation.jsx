@@ -9,7 +9,8 @@ export const capitalizeWords = (str) => {
         .replace(/\s+/g, " ")
         .split(" ")
         .map(
-            (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            (word) =>
+                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
         )
         .join(" ");
 };
@@ -113,7 +114,7 @@ export const checkEmailExists = async (email, excludeEmail = null) => {
 // Check if contact number exists in database
 export const checkContactExists = async (
     contactNumber,
-    excludeUserId = null
+    excludeUserId = null,
 ) => {
     const cleanedNumber = contactNumber.replace(/\D/g, "");
 
@@ -153,7 +154,7 @@ export const validateUserForm = (
     data,
     availableRoles = [],
     emailExists = false,
-    contactExists = false
+    contactExists = false,
 ) => {
     const errors = [];
     const {
@@ -181,23 +182,23 @@ export const validateUserForm = (
     }
 
     // First name validation
-    if (cleanedFirstName && !/^[a-zA-Z\s]{2,}$/.test(cleanedFirstName)) {
+    if (cleanedFirstName && !/^[a-zA-ZÑñ\s]{2,}$/.test(cleanedFirstName)) {
         errors.push(
-            "First name must contain only letters and spaces (min 2 characters)."
+            "First name must contain only letters and spaces (min 2 characters).",
         );
     }
 
     // Last name validation
-    if (cleanedLastName && !/^[a-zA-Z\s]{2,}$/.test(cleanedLastName)) {
+    if (cleanedLastName && !/^[a-zA-ZÑñ\s]{2,}$/.test(cleanedLastName)) {
         errors.push(
-            "Last name must contain only letters and spaces (min 2 characters)."
+            "Last name must contain only letters and spaces (min 2 characters).",
         );
     }
 
     // Email validation
     if (email && !validateEmail(email)) {
         errors.push(
-            "Please enter a valid Gmail address (e.g., user@gmail.com)."
+            "Please enter a valid Gmail address (e.g., user@gmail.com).",
         );
     } else if (email && emailExists) {
         errors.push("Email already registered.");

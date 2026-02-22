@@ -1,4 +1,4 @@
-// DashboardPage.jsx - Enhanced Version with Consistent Modals
+// DashboardPage.jsx - Enhanced Version with Consistent Modals + Emergency Hotlines
 import { theme } from "antd";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import React from "react";
@@ -20,6 +20,8 @@ import {
     Tabs,
     Flex,
     Alert,
+    Tooltip,
+    Tag,
 } from "antd";
 import {
     TeamOutlined,
@@ -93,6 +95,36 @@ const STATUS_CONFIG = {
         desc: "Unknown Status",
     },
 };
+
+/* =========================
+   EMERGENCY HOTLINES CONFIG
+========================= */
+const EMERGENCY_HOTLINES = [
+    {
+        name: "BDRRMO",
+        fullName: "Disaster Risk Reduction",
+        number: "89254351",
+        color: THEME.RED_CRITICAL,
+    },
+    {
+        name: "PNP",
+        fullName: "Police Station",
+        number: "88622611",
+        color: THEME.BLUE_AUTHORITY,
+    },
+    {
+        name: "BFP",
+        fullName: "Fire Protection",
+        number: "88422201",
+        color: THEME.ORANGE_ALERT,
+    },
+    {
+        name: "911",
+        fullName: "Emergency Hotline",
+        number: "911",
+        color: THEME.GREEN_SAFE,
+    },
+];
 
 /* =========================
    HOOK: useAuth
@@ -966,6 +998,182 @@ const ThresholdCards = React.memo(({ thresholds, isUserAdmin, onEdit }) => {
 ThresholdCards.displayName = "ThresholdCards";
 
 /* =========================
+   COMPONENT: HotlineCard
+========================= */
+const HotlineCard = React.memo(({ hotline, isMobile }) => {
+    const [hovered, setHovered] = useState(false);
+
+    return (
+        <Tooltip title={`Call ${hotline.fullName}`} placement="top">
+            <a
+                href={`tel:${hotline.number}`}
+                style={{ textDecoration: "none", display: "block" }}>
+                <div
+                    onMouseEnter={() => setHovered(true)}
+                    onMouseLeave={() => setHovered(false)}
+                    style={{
+                        position: "relative",
+                        overflow: "hidden",
+                        borderRadius: 16,
+                        border: `2px solid ${hovered ? hotline.color : hotline.color + "60"}`,
+                        background:
+                            hovered ?
+                                `linear-gradient(135deg, ${hotline.color} 0%, ${hotline.color}cc 100%)`
+                            :   `linear-gradient(135deg, ${hotline.color}15 0%, ${hotline.color}08 100%)`,
+                        padding: isMobile ? "20px 16px" : "24px 20px",
+                        cursor: "pointer",
+                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                        transform:
+                            hovered ?
+                                "translateY(-6px) scale(1.02)"
+                            :   "translateY(0) scale(1)",
+                        boxShadow:
+                            hovered ?
+                                `0 16px 32px ${hotline.color}50`
+                            :   `0 4px 12px ${hotline.color}25`,
+                        userSelect: "none",
+                    }}>
+                    {/* Big background name text */}
+                    <div
+                        style={{
+                            position: "absolute",
+                            bottom: -6,
+                            right: -2,
+                            fontSize: isMobile ? 32 : 44,
+                            fontWeight: 900,
+                            color:
+                                hovered ?
+                                    "rgba(255,255,255,0.15)"
+                                :   `${hotline.color}18`,
+                            lineHeight: 1,
+                            letterSpacing: -1,
+                            pointerEvents: "none",
+                            transition: "all 0.3s ease",
+                            whiteSpace: "nowrap",
+                        }}>
+                        {hotline.name}
+                    </div>
+
+                    {/* Icon */}
+                    <div
+                        style={{
+                            fontSize: isMobile ? 20 : 24,
+                            color:
+                                hovered ?
+                                    "rgba(255,255,255,0.9)"
+                                :   hotline.color,
+                            marginBottom: 8,
+                            transition: "all 0.3s ease",
+                        }}>
+                        {hotline.icon}
+                    </div>
+
+                    {/* Full name label */}
+                    <div
+                        style={{
+                            fontSize: isMobile ? 11 : 12,
+                            fontWeight: 600,
+                            color:
+                                hovered ?
+                                    "rgba(255,255,255,0.75)"
+                                :   hotline.color + "aa",
+                            textTransform: "uppercase",
+                            letterSpacing: 1,
+                            marginBottom: 4,
+                            transition: "all 0.3s ease",
+                        }}>
+                        {hotline.fullName}
+                    </div>
+
+                    {/* Number - main foreground focus */}
+                    <div
+                        style={{
+                            fontSize: isMobile ? 26 : 32,
+                            fontWeight: 800,
+                            color: hovered ? "#ffffff" : hotline.color,
+                            lineHeight: 1,
+                            letterSpacing: -0.5,
+                            transition: "all 0.3s ease",
+                        }}>
+                        {hotline.number}
+                    </div>
+
+                    {/* Call indicator */}
+                    <div
+                        style={{
+                            marginTop: 10,
+                            fontSize: isMobile ? 11 : 12,
+                            fontWeight: 600,
+                            color:
+                                hovered ?
+                                    "rgba(255,255,255,0.9)"
+                                :   hotline.color + "99",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            transition: "all 0.3s ease",
+                        }}>
+                        <span
+                            style={{
+                                display: "inline-block",
+                                width: 6,
+                                height: 6,
+                                borderRadius: "50%",
+                                background: hovered ? "#fff" : hotline.color,
+                                boxShadow:
+                                    hovered ? "0 0 6px #fff" : (
+                                        `0 0 6px ${hotline.color}`
+                                    ),
+                                transition: "all 0.3s ease",
+                            }}
+                        />
+                        Tap to Call
+                    </div>
+                </div>
+            </a>
+        </Tooltip>
+    );
+});
+
+HotlineCard.displayName = "HotlineCard";
+
+/* =========================
+   COMPONENT: EmergencyHotlines
+========================= */
+const EmergencyHotlines = React.memo(({ isMobile }) => (
+    <Card
+        style={{
+            ...cardStyleAdaptive,
+            borderColor: THEME.RED_CRITICAL,
+            background: "linear-gradient(135deg, #fff5f5 0%, #ffffff 100%)",
+        }}>
+        <Space direction="vertical" style={{ width: "100%" }} size={20}>
+            <Flex align="center" justify="center" gap={8}>
+                <Title
+                    level={4}
+                    style={{ margin: 0, color: THEME.RED_CRITICAL }}>
+                    Emergency Hotlines
+                </Title>
+            </Flex>
+            <Row gutter={[16, 16]}>
+                {EMERGENCY_HOTLINES.map((hotline, idx) => (
+                    <Col xs={24} sm={6} key={idx}>
+                        <HotlineCard hotline={hotline} isMobile={isMobile} />
+                    </Col>
+                ))}
+            </Row>
+            <Text
+                type="secondary"
+                style={{ textAlign: "center", display: "block", fontSize: 12 }}>
+                Tap any card to call immediately
+            </Text>
+        </Space>
+    </Card>
+));
+
+EmergencyHotlines.displayName = "EmergencyHotlines";
+
+/* =========================
    COMPONENT: DashboardPage
 ========================= */
 const DashboardPage = () => {
@@ -1026,14 +1234,13 @@ const DashboardPage = () => {
 
     const fetchTodayReadings = useCallback(async () => {
         try {
-            // Get start of today (midnight)
             const startOfToday = new Date();
             startOfToday.setHours(0, 0, 0, 0);
             const startTimeISO = startOfToday.toISOString();
 
             let allData = [];
             let from = 0;
-            let to = 499; // 500 items per batch
+            let to = 499;
             let hasMore = true;
 
             while (hasMore) {
@@ -1048,8 +1255,6 @@ const DashboardPage = () => {
 
                 if (data && data.length > 0) {
                     allData = [...allData, ...data];
-
-                    // If we got fewer than 500, we've reached the end
                     if (data.length < 500) {
                         hasMore = false;
                     } else {
@@ -1574,6 +1779,9 @@ const DashboardPage = () => {
                         />
                     </>
                 )}
+
+                {/* EMERGENCY HOTLINES */}
+                <EmergencyHotlines isMobile={isMobile} />
             </Space>
 
             <ThresholdSettingsModal

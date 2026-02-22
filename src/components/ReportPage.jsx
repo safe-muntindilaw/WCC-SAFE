@@ -963,32 +963,25 @@ const ReportPage = () => {
     }
 
     return (
-        <div
-            style={{
-                padding: isMobile ? 16 : 24,
-            }}>
+        <Space
+            direction="vertical"
+            style={{ width: "100%", padding: isMobile ? 16 : 32 }}
+            size="large">
             {/* Header Card */}
             <Card
                 style={{
                     ...cardStyleAdaptive,
                     background: THEME.BLUE_PRIMARY,
-                    marginBottom: 16,
                     border: "none",
                 }}
-                styles={{ body: { padding: isMobile ? 16 : 20 } }}>
+                styles={{ body: { padding: isMobile ? 16 : 24 } }}>
                 <Row align="middle" justify="space-between" gutter={[12, 12]}>
                     <Col xs={24} sm={16}>
                         <Space direction="vertical" size={2}>
                             <Title
                                 level={isMobile ? 4 : 2}
-                                style={{
-                                    margin: 0,
-                                    color: "white",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 10,
-                                }}>
-                                <LineChartOutlined /> Water Level Reports
+                                style={{ color: "#fff", margin: 0 }}>
+                                Water Level Reports
                             </Title>
                             <Text
                                 style={{
@@ -1555,7 +1548,7 @@ const ReportPage = () => {
                     />
                 </div>
             </Drawer>
-        </div>
+        </Space>
     );
 };
 
