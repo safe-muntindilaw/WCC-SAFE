@@ -70,29 +70,47 @@ const WaterAlertNotifier = () => {
                 const maxPlays = 3;
 
                 const playNext = () => {
-                    if (playCount < maxPlays) {
-                        playCount++;
-                        sirenRef.current.currentTime = 0;
-                        sirenRef.current.volume = 1.0;
-                        sirenRef.current.play().catch(() => {});
-                    } else {
-                        sirenRef.current.removeEventListener("ended", playNext);
+                    if (playCount >= maxPlays) {
+                        sirenRef.current.removeEventListener("ended", onEnded);
+                        return;
                     }
+                    playCount++;
+                    sirenRef.current.currentTime = 0;
+                    sirenRef.current.volume = 1.0;
+                    sirenRef.current.play().catch(() => {});
                 };
 
-                sirenRef.current.removeEventListener("ended", playNext); // clean up any old listener
-                sirenRef.current.addEventListener("ended", playNext);
-                playNext();
+                const onEnded = () => {
+                    // Wait 2 seconds between each siren play
+                    setTimeout(playNext, 2000);
+                };
+
+                sirenRef.current.removeEventListener("ended", onEnded);
+                sirenRef.current.addEventListener("ended", onEnded);
+                playNext(); // start first play
             }
 
             if ("speechSynthesis" in window) {
                 window.speechSynthesis.cancel();
-                const msg = new SpeechSynthesisUtterance(
-                    `Warning! Water level has reached ${level} meters!`,
-                );
-                setTimeout(() => window.speechSynthesis.speak(msg), 2000);
+                const message = `Warning! Water level has reached ${level} meters!`;
+
+                let voiceCount = 0;
+                const maxVoicePlays = 3;
+
+                const speakNext = () => {
+                    if (voiceCount >= maxVoicePlays) return;
+                    voiceCount++;
+
+                    const msg = new SpeechSynthesisUtterance(message);
+                    msg.onend = () => {
+                        setTimeout(speakNext, 2000);
+                    };
+                    window.speechSynthesis.speak(msg);
+                };
+                setTimeout(speakNext, 2000);
             }
         };
+
         const channel = supabase
             .channel("water_alerts_room")
             .on(
