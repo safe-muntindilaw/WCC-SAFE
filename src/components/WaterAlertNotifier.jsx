@@ -65,50 +65,38 @@ const WaterAlertNotifier = () => {
                 window.navigator.vibrate([1000, 100, 1000, 100, 1000]);
             }
 
-            if (sirenRef.current) {
-                let playCount = 0;
-                const maxPlays = 3;
+            if (!sirenRef.current || !("speechSynthesis" in window)) return;
 
-                const playNext = () => {
-                    if (playCount >= maxPlays) {
-                        sirenRef.current.removeEventListener("ended", onEnded);
-                        return;
-                    }
-                    playCount++;
-                    sirenRef.current.currentTime = 0;
-                    sirenRef.current.volume = 1.0;
-                    sirenRef.current.play().catch(() => {});
-                };
+            const message = `Warning! Water level has reached ${level} meters!`;
 
-                const onEnded = () => {
-                    // Wait 2 seconds between each siren play
-                    setTimeout(playNext, 2000);
-                };
+            let cycleCount = 0;
+            const maxCycles = 3;
 
-                sirenRef.current.removeEventListener("ended", onEnded);
-                sirenRef.current.addEventListener("ended", onEnded);
-                playNext(); // start first play
-            }
-
-            if ("speechSynthesis" in window) {
+            const playVoice = () => {
                 window.speechSynthesis.cancel();
-                const message = `Warning! Water level has reached ${level} meters!`;
-
-                let voiceCount = 0;
-                const maxVoicePlays = 3;
-
-                const speakNext = () => {
-                    if (voiceCount >= maxVoicePlays) return;
-                    voiceCount++;
-
-                    const msg = new SpeechSynthesisUtterance(message);
-                    msg.onend = () => {
-                        setTimeout(speakNext, 2000);
-                    };
-                    window.speechSynthesis.speak(msg);
+                const msg = new SpeechSynthesisUtterance(message);
+                msg.onend = () => {
+                    cycleCount++;
+                    if (cycleCount < maxCycles) {
+                        setTimeout(playSiren, 500);
+                    }
                 };
-                setTimeout(speakNext, 2000);
-            }
+                window.speechSynthesis.speak(msg);
+            };
+
+            const playSiren = () => {
+                sirenRef.current.currentTime = 0;
+                sirenRef.current.volume = 1.0;
+
+                sirenRef.current.onended = () => {
+                    sirenRef.current.onended = null;
+                    // Siren done → play voice
+                    setTimeout(playVoice, 0);
+                };
+
+                sirenRef.current.play().catch(() => {});
+            };
+            playSiren();
         };
 
         const channel = supabase
