@@ -967,40 +967,35 @@ const ReportPage = () => {
             direction="vertical"
             style={{ width: "100%", padding: isMobile ? 16 : 32 }}
             size="large">
-            {/* Header Card */}
+            {/* HEADER */}
             <Card
                 style={{
                     ...cardStyleAdaptive,
                     background: THEME.BLUE_PRIMARY,
                     border: "none",
-                }}
-                styles={{ body: { padding: isMobile ? 16 : 24 } }}>
-                <Row align="middle" justify="space-between" gutter={[12, 12]}>
-                    <Col xs={24} sm={16}>
-                        <Space direction="vertical" size={2}>
-                            <Title
-                                level={isMobile ? 4 : 2}
-                                style={{ color: "#fff", margin: 0 }}>
-                                Water Level Reports
-                            </Title>
-                            <Text
-                                style={{
-                                    color: "rgba(255, 255, 255, 0.9)",
-                                    fontSize: isMobile ? 12 : 14,
-                                }}>
-                                Real-time monitoring and historical data
-                            </Text>
-                        </Space>
-                    </Col>
+                }}>
+                <Flex justify="space-between" align="center" wrap="nowrap">
+                    <div>
+                        <Title
+                            level={isMobile ? 4 : 2}
+                            style={{ color: "#fff", margin: 0 }}>
+                            Water Level Reports
+                        </Title>
+                        <Text style={{ color: "rgba(255,255,255,0.85)" }}>
+                            Real-time monitoring and historical data
+                        </Text>
+                    </div>
                     {!isMobile && (
-                        <Col sm={8} style={{ textAlign: "right" }}>
-                            <RefreshButton
-                                refreshing={refreshing}
-                                onRefresh={handleRefresh}
-                            />
-                        </Col>
+                        <div>
+                            <Space direction="vertical" size={2}>
+                                <RefreshButton
+                                    refreshing={refreshing}
+                                    onRefresh={handleRefresh}
+                                />
+                            </Space>
+                        </div>
                     )}
-                </Row>
+                </Flex>
             </Card>
 
             {/* Chart Section */}

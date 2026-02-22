@@ -1,4 +1,4 @@
-// DashboardPage.jsx - Enhanced Version with Consistent Modals + Emergency Hotlines
+// DashboardPage.jsx
 import { theme } from "antd";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import React from "react";
@@ -1037,9 +1037,9 @@ const HotlineCard = React.memo(({ hotline, isMobile }) => {
                     <div
                         style={{
                             position: "absolute",
-                            bottom: -6,
-                            right: -2,
-                            fontSize: isMobile ? 32 : 44,
+                            bottom: -2,
+                            right: 4,
+                            fontSize: isMobile ? 44 : 56,
                             fontWeight: 900,
                             color:
                                 hovered ?
