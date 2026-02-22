@@ -61,19 +61,30 @@ const WaterAlertNotifier = () => {
         setupNotifications();
 
         const triggerAlertEffects = (level) => {
-            // Haptic/Vibration
             if ("vibrate" in navigator) {
                 window.navigator.vibrate([1000, 100, 1000, 100, 1000]);
             }
 
-            // Siren Sound
             if (sirenRef.current) {
-                sirenRef.current.currentTime = 0;
-                sirenRef.current.volume = 1.0;
-                sirenRef.current.play().catch(() => {});
+                let playCount = 0;
+                const maxPlays = 3;
+
+                const playNext = () => {
+                    if (playCount < maxPlays) {
+                        playCount++;
+                        sirenRef.current.currentTime = 0;
+                        sirenRef.current.volume = 1.0;
+                        sirenRef.current.play().catch(() => {});
+                    } else {
+                        sirenRef.current.removeEventListener("ended", playNext);
+                    }
+                };
+
+                sirenRef.current.removeEventListener("ended", playNext); // clean up any old listener
+                sirenRef.current.addEventListener("ended", playNext);
+                playNext();
             }
 
-            // Voice Alert
             if ("speechSynthesis" in window) {
                 window.speechSynthesis.cancel();
                 const msg = new SpeechSynthesisUtterance(
@@ -82,7 +93,6 @@ const WaterAlertNotifier = () => {
                 setTimeout(() => window.speechSynthesis.speak(msg), 2000);
             }
         };
-
         const channel = supabase
             .channel("water_alerts_room")
             .on(
