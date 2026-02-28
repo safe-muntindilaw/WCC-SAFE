@@ -53,9 +53,10 @@ const UNIT = "m";
 ========================= */
 const ROLE_CONFIG = {
     Admin: {
-        canEditThresholds: true,
         canViewRoleCounts: true,
         canViewReadings: false,
+        canViewHotlines: false,
+        canEditThresholds: true,
         canEditDefaultPassword: true,
         canEditMaxRange: true,
         showThresholds: true,
@@ -63,9 +64,10 @@ const ROLE_CONFIG = {
         sectionTitle: "System Management",
     },
     Official: {
-        canEditThresholds: true,
         canViewRoleCounts: true,
         canViewReadings: true,
+        canViewHotlines: true,
+        canEditThresholds: true,
         canEditDefaultPassword: false,
         canEditMaxRange: false,
         showThresholds: true,
@@ -73,9 +75,10 @@ const ROLE_CONFIG = {
         sectionTitle: "Live Data Overview & Monitoring",
     },
     Resident: {
-        canEditThresholds: false,
         canViewRoleCounts: false,
         canViewReadings: true,
+        canViewHotlines: true,
+        canEditThresholds: false,
         canEditDefaultPassword: false,
         canEditMaxRange: false,
         showThresholds: false,
@@ -101,28 +104,58 @@ const STATUS_CONFIG = {
 ========================= */
 const EMERGENCY_HOTLINES = [
     {
-        name: "BDRRMO",
-        fullName: "Disaster Risk Reduction",
-        number: "89254351",
-        color: THEME.RED_CRITICAL,
-    },
-    {
-        name: "PNP",
-        fullName: "Police Station",
-        number: "88622611",
+        name: "Emergency Line",
+        fullName: "Antipolo Emergency Hotline",
+        number: "86969911",
         color: THEME.BLUE_AUTHORITY,
     },
     {
-        name: "BFP",
-        fullName: "Fire Protection",
-        number: "88422201",
-        color: THEME.ORANGE_ALERT,
+        name: "PNP",
+        fullName: "Antipolo Police Station",
+        number: "86972409",
+        color: THEME.BLUE_AUTHORITY,
+    },
+    // {
+    //     name: "BFP",
+    //     fullName: "Bureau of Fire Protection",
+    //     number: "88712865",
+    //     color: THEME.ORANGE_ALERT,
+    // },
+    {
+        name: "OPSS",
+        fullName: "Office of Public Safety and Security",
+        number: "87342470",
+        color: THEME.BLUE_AUTHORITY,
     },
     {
-        name: "911",
-        fullName: "Emergency Hotline",
-        number: "911",
-        color: THEME.GREEN_SAFE,
+        name: "Command Center",
+        fullName: "Antipolo Command Center",
+        number: "86894564",
+        color: THEME.BLUE_AUTHORITY,
+    },
+    {
+        name: "Secretary's Office",
+        fullName: "Secretary's Office",
+        number: "84630534",
+        color: THEME.BLUE_AUTHORITY,
+    },
+    {
+        name: "Tanod's Office",
+        fullName: "Barangay Tanod Office",
+        number: "70019060",
+        color: THEME.BLUE_AUTHORITY,
+    },
+    {
+        name: "Chief Tanod",
+        fullName: "Sir Oscar Picache",
+        number: "09560641782",
+        color: THEME.BLUE_AUTHORITY,
+    },
+    {
+        name: "Kagawad",
+        fullName: "Kagawad Samuel Mejia",
+        number: "09076304977",
+        color: THEME.BLUE_AUTHORITY,
     },
 ];
 
@@ -1039,7 +1072,7 @@ const HotlineCard = React.memo(({ hotline, isMobile }) => {
                             position: "absolute",
                             bottom: -2,
                             right: 4,
-                            fontSize: isMobile ? 44 : 56,
+                            fontSize: isMobile ? 32 : 36,
                             fontWeight: 900,
                             color:
                                 hovered ?
@@ -1781,7 +1814,9 @@ const DashboardPage = () => {
                 )}
 
                 {/* EMERGENCY HOTLINES */}
-                <EmergencyHotlines isMobile={isMobile} />
+                {roleConfig.canViewHotlines && (
+                    <EmergencyHotlines isMobile={isMobile} />
+                )}
             </Space>
 
             <ThresholdSettingsModal

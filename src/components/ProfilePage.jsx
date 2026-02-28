@@ -516,16 +516,26 @@ const ProfilePage = () => {
                 margin: "0 auto",
             }}>
             <header style={{ marginBottom: THEME.SPACING_LG }}>
-                <Title
-                    level={isMobile ? 3 : 1}
+                <Card
                     style={{
-                        margin: 0,
-                        marginBottom: THEME.SPACING_XS,
-                        color: THEME.BLUE_AUTHORITY,
+                        ...cardStyleAdaptive,
+                        background: THEME.BLUE_PRIMARY,
+                        border: "none",
                     }}>
-                    <UserOutlined style={{ marginRight: THEME.SPACING_XS }} />
-                    Account Settings
-                </Title>
+                    <Space align="center" size={12}>
+                        <div>
+                            <Title
+                                level={isMobile ? 4 : 2}
+                                style={{ color: "#fff", margin: 0 }}>
+                                My Profile
+                            </Title>
+                            <Text style={{ color: "rgba(255,255,255,0.85)" }}>
+                                Manage your personal information and account
+                                settings
+                            </Text>
+                        </div>
+                    </Space>
+                </Card>
             </header>
 
             <Row gutter={[THEME.SPACING_MD, THEME.SPACING_MD]}>
@@ -535,7 +545,7 @@ const ProfilePage = () => {
                         title={
                             <Space size={THEME.SPACING_XS}>
                                 <EnvironmentOutlined
-                                    style={{ color: THEME.BLUE_AUTHORITY }}
+                                    style={{ color: THEME.BLUE_PRIMARY }}
                                 />
                                 <Text strong>Personal Information</Text>
                             </Space>
