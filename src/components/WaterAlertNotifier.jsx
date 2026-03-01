@@ -10,39 +10,35 @@ const WaterAlertNotifier = () => {
     const [alertLevel, setAlertLevel] = useState(null);
     const [alertType, setAlertType] = useState(null);
     const [timestamp, setTimestamp] = useState(null);
+    const [thresholds, setThresholds] = useState([]);
 
     const { isMobile } = useResponsive();
 
-    const THRESHOLDS = {
-        advisory: 0.6,
-        warning: 0.8,
-        critical: 1.0,
-    };
+    // 🔥 Fetch thresholds from DB
+    useEffect(() => {
+        const fetchThresholds = async () => {
+            const { data, error } = await supabase
+                .from("water_thresholds")
+                .select("*")
+                .order("converted_min_level", { ascending: true });
 
+            if (!error && data) {
+                setThresholds(data);
+            }
+        };
+
+        fetchThresholds();
+    }, []);
+
+    // 🔥 Determine threshold dynamically
     const getThresholdLevel = (level) => {
-        if (level >= THRESHOLDS.critical) {
-            return {
-                key: "critical",
-                label: "CRITICAL",
-                color: "#991b1b",
-                border: "#dc2626",
-            };
-        }
-        if (level >= THRESHOLDS.warning) {
-            return {
-                key: "warning",
-                label: "WARNING",
-                color: "#92400e",
-                border: "#f59e0b",
-            };
-        }
-        if (level >= THRESHOLDS.advisory) {
-            return {
-                key: "advisory",
-                label: "ADVISORY",
-                color: "#1e3a8a",
-                border: "#3b82f6",
-            };
+        for (const threshold of thresholds) {
+            if (
+                level >= threshold.converted_min_level &&
+                level <= threshold.converted_max_level
+            ) {
+                return threshold;
+            }
         }
         return null;
     };
@@ -50,14 +46,14 @@ const WaterAlertNotifier = () => {
     useEffect(() => {
         sirenRef.current = new Audio("/siren.mp3");
 
-        const sendLocalNotification = async (level, type) => {
+        const sendLocalNotification = async (level, threshold) => {
             const registration = await navigator.serviceWorker.ready;
 
             if (Notification.permission === "granted") {
                 registration.showNotification(
-                    `LGU Flood Alert - ${type.label}`,
+                    `LGU Flood Alert - ${threshold.name}`,
                     {
-                        body: `Water level recorded at ${level}m.`,
+                        body: `Water level recorded at ${level} meters.`,
                         icon: "/logo.png",
                         tag: "lgu-water-alert",
                         renotify: true,
@@ -67,12 +63,12 @@ const WaterAlertNotifier = () => {
             }
         };
 
-        const triggerAlertEffects = (level, type) => {
+        const triggerAlertEffects = (level, threshold) => {
             if (!sirenRef.current || alertActiveRef.current) return;
 
             alertActiveRef.current = true;
 
-            const message = `${type.label} flood alert. Water level recorded at ${level} meters. Please take precautionary measures.`;
+            const message = `${threshold.name} flood alert. Water level recorded at ${level} meters.`;
 
             const speak = () => {
                 if (!alertActiveRef.current) return;
@@ -115,7 +111,14 @@ const WaterAlertNotifier = () => {
             }
         };
 
-        const checkSubscriptionAndNotify = async (level, type) => {
+        const checkSubscriptionAndNotify = async (level) => {
+            const threshold = getThresholdLevel(level);
+            if (!threshold) {
+                stopAlertEffects();
+                setAlertVisible(false);
+                return;
+            }
+
             const {
                 data: { user },
             } = await supabase.auth.getUser();
@@ -129,11 +132,11 @@ const WaterAlertNotifier = () => {
                 .single();
 
             if (contact?.subscribed) {
-                sendLocalNotification(level, type);
-                triggerAlertEffects(level, type);
+                sendLocalNotification(level, threshold);
+                triggerAlertEffects(level, threshold);
 
                 setAlertLevel(level);
-                setAlertType(type);
+                setAlertType(threshold);
                 setTimestamp(new Date().toLocaleString());
                 setAlertVisible(true);
             }
@@ -146,14 +149,7 @@ const WaterAlertNotifier = () => {
                 { event: "INSERT", schema: "public", table: "water_alerts" },
                 (payload) => {
                     const level = payload.new.water_level;
-                    const type = getThresholdLevel(level);
-
-                    if (type) {
-                        checkSubscriptionAndNotify(level, type);
-                    } else {
-                        stopAlertEffects();
-                        setAlertVisible(false);
-                    }
+                    checkSubscriptionAndNotify(level);
                 },
             )
             .subscribe();
@@ -162,7 +158,7 @@ const WaterAlertNotifier = () => {
             stopAlertEffects();
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [thresholds]);
 
     const handleDismiss = () => {
         alertActiveRef.current = false;
@@ -183,7 +179,7 @@ const WaterAlertNotifier = () => {
                     style={{
                         position: "fixed",
                         inset: 0,
-                        backgroundColor: "rgba(0,0,0,0.7)",
+                        backgroundColor: "rgba(0,0,0,0.75)",
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
@@ -192,11 +188,11 @@ const WaterAlertNotifier = () => {
                     <div
                         style={{
                             backgroundColor: "#ffffff",
-                            width: isMobile ? "92vw" : "480px",
+                            width: isMobile ? "92vw" : "500px",
                             borderRadius: "6px",
-                            borderTop: `6px solid ${alertType.border}`,
+                            borderTop: "6px solid #b91c1c",
                             padding: "28px",
-                            boxShadow: "0 25px 60px rgba(0,0,0,0.25)",
+                            boxShadow: "0 30px 70px rgba(0,0,0,0.3)",
                             fontFamily: "Arial, sans-serif",
                         }}>
                         <p
@@ -204,8 +200,7 @@ const WaterAlertNotifier = () => {
                                 fontSize: "12px",
                                 fontWeight: "700",
                                 letterSpacing: "1px",
-                                color: alertType.color,
-                                marginBottom: "8px",
+                                marginBottom: "6px",
                             }}>
                             LOCAL GOVERNMENT UNIT
                         </p>
@@ -215,7 +210,6 @@ const WaterAlertNotifier = () => {
                                 fontSize: "20px",
                                 fontWeight: "700",
                                 marginBottom: "16px",
-                                color: "#111827",
                             }}>
                             FLOOD ALERT BULLETIN
                         </h2>
@@ -227,35 +221,27 @@ const WaterAlertNotifier = () => {
                                 borderRadius: "4px",
                                 marginBottom: "20px",
                             }}>
-                            <p style={{ margin: 0, fontSize: "14px" }}>
-                                <strong>Alert Level:</strong>{" "}
-                                <span style={{ color: alertType.color }}>
-                                    {alertType.label}
-                                </span>
+                            <p>
+                                <strong>Alert Level:</strong> {alertType.name}
                             </p>
-                            <p style={{ margin: 0, fontSize: "14px" }}>
+                            <p>
                                 <strong>Recorded Water Level:</strong>{" "}
                                 {alertLevel} meters
                             </p>
-                            <p style={{ margin: 0, fontSize: "14px" }}>
-                                <strong>Threshold:</strong> ≥{" "}
-                                {THRESHOLDS[alertType.key]} meters
+                            <p>
+                                <strong>Threshold Range:</strong>{" "}
+                                {alertType.converted_min_level}m –{" "}
+                                {alertType.converted_max_level}m
                             </p>
-                            <p style={{ margin: 0, fontSize: "13px" }}>
+                            <p>
                                 <strong>Date & Time:</strong> {timestamp}
                             </p>
                         </div>
 
-                        <p
-                            style={{
-                                fontSize: "14px",
-                                color: "#374151",
-                                marginBottom: "24px",
-                            }}>
-                            Residents in low-lying and flood-prone areas are
-                            advised to remain alert and take precautionary
-                            measures as necessary. Continue monitoring official
-                            LGU channels for updates.
+                        <p style={{ marginBottom: "24px" }}>
+                            Residents in flood-prone areas are advised to remain
+                            alert and monitor official LGU advisories for
+                            further updates.
                         </p>
 
                         <button
@@ -263,7 +249,7 @@ const WaterAlertNotifier = () => {
                             style={{
                                 width: "100%",
                                 padding: "12px",
-                                backgroundColor: alertType.border,
+                                backgroundColor: "#b91c1c",
                                 color: "#fff",
                                 border: "none",
                                 borderRadius: "4px",
