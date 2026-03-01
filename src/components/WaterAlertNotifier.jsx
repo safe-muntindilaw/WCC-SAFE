@@ -177,7 +177,7 @@ const WaterAlertNotifier = () => {
                         position: "fixed",
                         inset: 0,
                         zIndex: 9998,
-                        backgroundColor: "rgba(255, 0, 0, 0.25)",
+                        backgroundColor: "rgba(0, 0, 0, 0.5)",
                         backdropFilter: "blur(6px)",
                         WebkitBackdropFilter: "blur(6px)",
                         display: "flex",
@@ -190,7 +190,9 @@ const WaterAlertNotifier = () => {
                         style={{
                             zIndex: 9999,
                             backgroundColor: "#1a1a1a",
-                            border: "2px solid #ef4444",
+                            borderStyle: "solid",
+                            borderWidth: "4px 1px 1px 1px",
+                            borderColor: "#ef4444",
                             borderRadius: "16px",
                             padding: isMobile ? "24px 20px" : "32px 36px",
                             boxShadow: "0 8px 40px rgba(239, 68, 68, 0.35)",
@@ -275,7 +277,7 @@ const WaterAlertNotifier = () => {
                             onMouseLeave={(e) =>
                                 (e.target.style.backgroundColor = "#ef4444")
                             }>
-                            Acknowledge &amp; Suppress Alert
+                            Stop Alert
                         </button>
 
                         {/* Disclaimer */}
