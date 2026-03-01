@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/globals";
+import { useResponsive } from "@/utils/useResponsive";
 
 const WaterAlertNotifier = () => {
     const sirenRef = useRef(null);
     const alertActiveRef = useRef(false);
     const [alertVisible, setAlertVisible] = useState(false);
     const [alertLevel, setAlertLevel] = useState(null);
+    const { isMobile } = useResponsive();
 
     useEffect(() => {
         sirenRef.current = new Audio("/siren.mp3");
@@ -26,7 +28,7 @@ const WaterAlertNotifier = () => {
         const sendLocalNotification = async (level) => {
             const registration = await navigator.serviceWorker.ready;
             if (Notification.permission === "granted") {
-                registration.showNotification("⚠️ Water Level Alert", {
+                registration.showNotification("Water Level Alert", {
                     body: `Water level has reached ${level}m!`,
                     icon: "/logo.png",
                     tag: "water-alert",
@@ -120,7 +122,7 @@ const WaterAlertNotifier = () => {
                 sendLocalNotification(waterLevel);
                 triggerAlertEffects(waterLevel);
                 setAlertLevel(waterLevel);
-                setAlertVisible(true); // 👈 show the popout
+                setAlertVisible(true);
             } else {
                 console.log(
                     "User is logged in but has notifications disabled.",
@@ -141,7 +143,7 @@ const WaterAlertNotifier = () => {
                         checkSubscriptionAndNotify(level);
                     } else {
                         stopAlertEffects();
-                        setAlertVisible(false); // 👈 auto-hide when water subsides
+                        setAlertVisible(false);
                     }
                 },
             )
@@ -162,125 +164,142 @@ const WaterAlertNotifier = () => {
             sirenRef.current.onended = null;
         }
         if ("vibrate" in navigator) navigator.vibrate(0);
-        setAlertVisible(false); // 👈 hide the popout
+        setAlertVisible(false);
     };
 
     return (
         <>
             {alertVisible && (
+                // Backdrop — blurred + dimmed, covers entire screen
                 <div
+                    onClick={handleSuppress}
                     style={{
                         position: "fixed",
-                        bottom: "24px",
-                        right: "24px",
-                        zIndex: 9999,
-                        backgroundColor: "#1a1a1a",
-                        border: "2px solid #ef4444",
-                        borderRadius: "16px",
-                        padding: "20px 24px",
-                        boxShadow: "0 8px 32px rgba(239,68,68,0.4)",
-                        minWidth: "300px",
-                        maxWidth: "360px",
-                        animation: "slideIn 0.3s ease-out",
-                        fontFamily: "sans-serif",
+                        inset: 0,
+                        zIndex: 9998,
+                        backgroundColor: "rgba(0, 0, 0, 0.55)",
+                        backdropFilter: "blur(6px)",
+                        WebkitBackdropFilter: "blur(6px)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                     }}>
-                    {/* Pulsing red dot */}
+                    {/* Card — stop click from bubbling to backdrop dismiss */}
                     <div
+                        onClick={(e) => e.stopPropagation()}
                         style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "10px",
-                            marginBottom: "12px",
+                            zIndex: 9999,
+                            backgroundColor: "#1a1a1a",
+                            border: "2px solid #ef4444",
+                            borderRadius: "16px",
+                            padding: isMobile ? "24px 20px" : "32px 36px",
+                            boxShadow: "0 8px 40px rgba(239, 68, 68, 0.35)",
+                            width: isMobile ? "90vw" : "380px",
+                            animation: "scaleIn 0.25s ease-out",
+                            fontFamily: "sans-serif",
                         }}>
-                        <span
+                        {/* Header row */}
+                        <div
                             style={{
-                                width: "12px",
-                                height: "12px",
-                                borderRadius: "50%",
-                                backgroundColor: "#ef4444",
-                                display: "inline-block",
-                                animation: "pulse 1s infinite",
-                            }}
-                        />
-                        <span
-                            style={{
-                                color: "#ef4444",
-                                fontWeight: "700",
-                                fontSize: "14px",
-                                letterSpacing: "0.05em",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "10px",
+                                marginBottom: "16px",
                             }}>
-                            ACTIVE ALERT
-                        </span>
+                            <span
+                                style={{
+                                    width: "11px",
+                                    height: "11px",
+                                    borderRadius: "50%",
+                                    backgroundColor: "#ef4444",
+                                    display: "inline-block",
+                                    flexShrink: 0,
+                                    animation: "pulse 1s infinite",
+                                }}
+                            />
+                            <span
+                                style={{
+                                    color: "#ef4444",
+                                    fontWeight: "700",
+                                    fontSize: "12px",
+                                    letterSpacing: "0.1em",
+                                    textTransform: "uppercase",
+                                }}>
+                                Active Alert
+                            </span>
+                        </div>
+
+                        {/* Title */}
+                        <p
+                            style={{
+                                color: "#ffffff",
+                                fontSize: isMobile ? "18px" : "20px",
+                                fontWeight: "700",
+                                margin: "0 0 6px 0",
+                            }}>
+                            Water Level Warning
+                        </p>
+
+                        {/* Level */}
+                        <p
+                            style={{
+                                color: "#9ca3af",
+                                fontSize: "14px",
+                                margin: "0 0 24px 0",
+                            }}>
+                            Current level:{" "}
+                            <strong style={{ color: "#fbbf24" }}>
+                                {alertLevel}m
+                            </strong>
+                        </p>
+
+                        {/* Suppress button */}
+                        <button
+                            onClick={handleSuppress}
+                            style={{
+                                width: "100%",
+                                padding: "12px 0",
+                                backgroundColor: "#ef4444",
+                                color: "#ffffff",
+                                border: "none",
+                                borderRadius: "8px",
+                                fontSize: "14px",
+                                fontWeight: "600",
+                                cursor: "pointer",
+                                transition: "background-color 0.2s",
+                                letterSpacing: "0.02em",
+                            }}
+                            onMouseEnter={(e) =>
+                                (e.target.style.backgroundColor = "#b91c1c")
+                            }
+                            onMouseLeave={(e) =>
+                                (e.target.style.backgroundColor = "#ef4444")
+                            }>
+                            Acknowledge &amp; Suppress Alert
+                        </button>
+
+                        {/* Disclaimer */}
+                        <p
+                            style={{
+                                color: "#6b7280",
+                                fontSize: "11px",
+                                textAlign: "center",
+                                margin: "12px 0 0 0",
+                            }}>
+                            Alert will resume if water level rises again
+                        </p>
                     </div>
-
-                    {/* Alert message */}
-                    <p
-                        style={{
-                            color: "#ffffff",
-                            fontSize: "16px",
-                            fontWeight: "600",
-                            margin: "0 0 4px 0",
-                        }}>
-                        ⚠️ Water Level Warning
-                    </p>
-                    <p
-                        style={{
-                            color: "#9ca3af",
-                            fontSize: "14px",
-                            margin: "0 0 16px 0",
-                        }}>
-                        Current level:{" "}
-                        <strong style={{ color: "#fbbf24" }}>
-                            {alertLevel}m
-                        </strong>
-                    </p>
-
-                    {/* Suppress button */}
-                    <button
-                        onClick={handleSuppress}
-                        style={{
-                            width: "100%",
-                            padding: "10px 0",
-                            backgroundColor: "#ef4444",
-                            color: "#ffffff",
-                            border: "none",
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            fontWeight: "600",
-                            cursor: "pointer",
-                            transition: "background-color 0.2s",
-                        }}
-                        onMouseEnter={(e) =>
-                            (e.target.style.backgroundColor = "#b91c1c")
-                        }
-                        onMouseLeave={(e) =>
-                            (e.target.style.backgroundColor = "#ef4444")
-                        }>
-                        ✓ Acknowledge & Suppress Alert
-                    </button>
-
-                    {/* Small disclaimer */}
-                    <p
-                        style={{
-                            color: "#6b7280",
-                            fontSize: "11px",
-                            textAlign: "center",
-                            margin: "10px 0 0 0",
-                        }}>
-                        Alert will resume if water level rises again
-                    </p>
                 </div>
             )}
 
-            {/* Keyframe animations injected via style tag */}
             <style>{`
-                @keyframes slideIn {
-                    from { opacity: 0; transform: translateY(20px); }
-                    to   { opacity: 1; transform: translateY(0); }
+                @keyframes scaleIn {
+                    from { opacity: 0; transform: scale(0.92); }
+                    to   { opacity: 1; transform: scale(1); }
                 }
                 @keyframes pulse {
-                    0%, 100% { opacity: 1; transform: scale(1); }
-                    50%       { opacity: 0.4; transform: scale(1.4); }
+                    0%, 100% { opacity: 1;   transform: scale(1);   }
+                    50%       { opacity: 0.4; transform: scale(1.5); }
                 }
             `}</style>
         </>
