@@ -28,7 +28,7 @@ const WaterAlertNotifier = () => {
         const sendLocalNotification = async (level) => {
             const registration = await navigator.serviceWorker.ready;
             if (Notification.permission === "granted") {
-                registration.showNotification("Water Level Alert", {
+                registration.showNotification("⚠️ Water Level Alert", {
                     body: `Water level has reached ${level}m!`,
                     icon: "/logo.png",
                     tag: "water-alert",
@@ -177,7 +177,7 @@ const WaterAlertNotifier = () => {
                         position: "fixed",
                         inset: 0,
                         zIndex: 9998,
-                        backgroundColor: "rgba(255, 0, 0, 0.55)",
+                        backgroundColor: "rgba(255, 0, 0, 0.25)",
                         backdropFilter: "blur(6px)",
                         WebkitBackdropFilter: "blur(6px)",
                         display: "flex",
