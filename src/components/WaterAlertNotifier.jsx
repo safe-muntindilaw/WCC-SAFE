@@ -13,9 +13,7 @@ const WaterAlertNotifier = () => {
 
     const { isMobile } = useResponsive();
 
-    // ===============================
-    // LOAD SIREN
-    // ===============================
+    // Load siren
     useEffect(() => {
         sirenRef.current = new Audio("/siren.mp3");
     }, []);
@@ -24,16 +22,18 @@ const WaterAlertNotifier = () => {
     // ALERT EFFECTS
     // ===============================
     const triggerAlertEffects = (level, threshold) => {
-        if (!sirenRef.current || alertActiveRef.current) return;
-
         const levelName = threshold.name.toUpperCase();
-
-        // L1 → Notification only
-        if (levelName === "L1") return;
+        if (
+            !sirenRef.current ||
+            alertActiveRef.current ||
+            levelName === "L0" ||
+            levelName === "L1"
+        )
+            return;
 
         alertActiveRef.current = true;
 
-        const message = `${threshold.name} flood alert. Water level recorded at ${level} meters. Please take precautionary measures.`;
+        const message = `Flood alert ${threshold.name}. Water level: ${level} meters. Please take precautionary measures.`;
 
         const vibratePattern =
             levelName === "L3" ? [1000, 200, 1000, 200, 1000] : [600, 150, 600];
@@ -43,30 +43,21 @@ const WaterAlertNotifier = () => {
 
             window.speechSynthesis.cancel();
             const utter = new SpeechSynthesisUtterance(message);
-
             utter.onend = () => {
-                if (alertActiveRef.current) {
-                    setTimeout(playSiren, 300);
-                }
+                if (alertActiveRef.current) setTimeout(playSiren, 300);
             };
-
             window.speechSynthesis.speak(utter);
         };
 
         const playSiren = () => {
             if (!alertActiveRef.current) return;
 
-            if ("vibrate" in navigator) {
-                navigator.vibrate(vibratePattern);
-            }
+            if ("vibrate" in navigator) navigator.vibrate(vibratePattern);
 
             sirenRef.current.currentTime = 0;
             sirenRef.current.play().catch(() => {});
-
             sirenRef.current.onended = () => {
-                if (alertActiveRef.current) {
-                    setTimeout(speak, 300);
-                }
+                if (alertActiveRef.current) setTimeout(speak, 300);
             };
         };
 
@@ -76,38 +67,37 @@ const WaterAlertNotifier = () => {
     const stopAlertEffects = () => {
         alertActiveRef.current = false;
         window.speechSynthesis.cancel();
-
         if (sirenRef.current) {
             sirenRef.current.pause();
             sirenRef.current.currentTime = 0;
             sirenRef.current.onended = null;
         }
-
-        if ("vibrate" in navigator) {
-            navigator.vibrate(0);
-        }
+        if ("vibrate" in navigator) navigator.vibrate(0);
     };
 
     // ===============================
     // LOCAL PUSH NOTIFICATION
     // ===============================
     const sendLocalNotification = async (level, threshold) => {
-        const registration = await navigator.serviceWorker.ready;
+        if (threshold.name.toUpperCase() === "L0") return;
 
+        const registration = await navigator.serviceWorker.ready;
         if (Notification.permission === "granted") {
+            const vibratePattern =
+                threshold.name.toUpperCase() === "L3" ?
+                    [1000, 200, 1000]
+                :   [500, 100, 500];
             registration.showNotification(
                 `LGU Flood Alert - ${threshold.name}`,
                 {
-                    body: `Water level recorded at ${level} meters.`,
+                    body: `Water level: ${level} meters.`,
                     icon: "/logo.png",
                     tag: "lgu-water-alert",
                     renotify: true,
-                    requireInteraction:
-                        threshold.name === "L2" || threshold.name === "L3",
-                    vibrate:
-                        threshold.name === "L3" ?
-                            [1000, 200, 1000]
-                        :   [500, 100, 500],
+                    requireInteraction: ["L2", "L3"].includes(
+                        threshold.name.toUpperCase(),
+                    ),
+                    vibrate: vibratePattern,
                 },
             );
         }
@@ -125,13 +115,15 @@ const WaterAlertNotifier = () => {
                 async (payload) => {
                     const { water_level, threshold_level } = payload.new;
 
-                    if (!threshold_level) {
+                    if (
+                        !threshold_level ||
+                        threshold_level.toUpperCase() === "L0"
+                    ) {
                         stopAlertEffects();
                         setAlertVisible(false);
                         return;
                     }
 
-                    // Fetch threshold details directly from DB
                     const { data: threshold } = await supabase
                         .from("water_thresholds")
                         .select("*")
@@ -143,7 +135,6 @@ const WaterAlertNotifier = () => {
                     const {
                         data: { user },
                     } = await supabase.auth.getUser();
-
                     if (!user) return;
 
                     const { data: contact } = await supabase
@@ -154,17 +145,17 @@ const WaterAlertNotifier = () => {
 
                     if (!contact?.subscribed) return;
 
-                    // Send push
+                    // Send push notification
                     sendLocalNotification(water_level, threshold);
 
-                    // Trigger effects
-                    triggerAlertEffects(water_level, threshold);
-
-                    // Show modal
-                    setAlertLevel(water_level);
-                    setAlertType(threshold);
-                    setTimestamp(new Date().toLocaleString());
-                    setAlertVisible(true);
+                    // Trigger effects and popup only for L2 and L3
+                    if (["L2", "L3"].includes(threshold.name.toUpperCase())) {
+                        triggerAlertEffects(water_level, threshold);
+                        setAlertLevel(water_level);
+                        setAlertType(threshold);
+                        setTimestamp(new Date().toLocaleString());
+                        setAlertVisible(true);
+                    }
                 },
             )
             .subscribe();
@@ -215,16 +206,15 @@ const WaterAlertNotifier = () => {
                                 letterSpacing: "1px",
                                 marginBottom: "6px",
                             }}>
-                            LOCAL GOVERNMENT UNIT
+                            Barangay Muntindilaw
                         </p>
-
                         <h2
                             style={{
                                 fontSize: "20px",
                                 fontWeight: "700",
                                 marginBottom: "16px",
                             }}>
-                            FLOOD ALERT BULLETIN
+                            FLOOD ALERT
                         </h2>
 
                         <div
