@@ -57,7 +57,7 @@ import { THEME, cardStyleAdaptive } from "@/utils/theme";
 import { showError, showWarning } from "@/utils/notifications";
 import { useResponsive } from "@/utils/useResponsive";
 import { ReportGeneratorModal } from "@/utils/ReportGeneratorModal";
-import { ForecastPanel } from "@/utils/ForecastPanel";
+import { ForecastPanel } from "@/utils/Forecastpanel";
 
 dayjs.extend(isoWeek);
 
