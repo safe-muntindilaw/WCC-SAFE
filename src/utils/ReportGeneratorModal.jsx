@@ -24,7 +24,7 @@ import {
 } from "@ant-design/icons";
 import { generatePDFReport } from "./pdfReportGenerator";
 import { computeForecast, getThresholdStatus } from "./ForecastEngine";
-import { OffscreenChart } from "./OffscreenChart";
+import { OffscreenChart } from "./Offscreenchart";
 import { THEME } from "@/utils/theme";
 
 const { Text } = Typography;
