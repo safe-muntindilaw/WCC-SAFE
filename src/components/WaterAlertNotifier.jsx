@@ -177,7 +177,7 @@ const WaterAlertNotifier = () => {
                         position: "fixed",
                         inset: 0,
                         zIndex: 9998,
-                        backgroundColor: "rgba(0, 0, 0, 0.55)",
+                        backgroundColor: "rgba(255, 0, 0, 0.55)",
                         backdropFilter: "blur(6px)",
                         WebkitBackdropFilter: "blur(6px)",
                         display: "flex",
