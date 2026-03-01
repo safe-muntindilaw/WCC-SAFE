@@ -191,11 +191,8 @@ const WaterAlertNotifier = () => {
                             backgroundColor: "#ffffff",
                             width: isMobile ? "92vw" : "500px",
                             borderRadius: "6px",
-                            border: "1px solid #e5e7eb",
-                            borderTop:
-                                alertType.name === "L3" ?
-                                    "4px solid #ef4444"
-                                :   "4px solid #f87171",
+                            border: "1px solid #ef4444",
+                            borderTop: "4px solid #ef4444",
                             padding: "28px",
                             boxShadow: "0 30px 70px rgba(0,0,0,0.3)",
                         }}>
@@ -221,7 +218,7 @@ const WaterAlertNotifier = () => {
 
                         <div
                             style={{
-                                backgroundColor: "#f9fafb",
+                                backgroundColor: "#ffffff",
                                 padding: "16px",
                                 borderRadius: "4px",
                                 marginBottom: "20px",
@@ -255,11 +252,8 @@ const WaterAlertNotifier = () => {
                             style={{
                                 width: "100%",
                                 padding: "12px",
-                                backgroundColor:
-                                    alertType.name === "L3" ?
-                                        "#ef4444"
-                                    :   "#f87171",
-                                color: "#fff",
+                                backgroundColor: "#ef4444",
+                                color: "#ffffff",
                                 border: "none",
                                 borderRadius: "4px",
                                 fontWeight: "600",
