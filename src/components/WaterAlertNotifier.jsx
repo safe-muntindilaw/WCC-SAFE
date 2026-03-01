@@ -14,7 +14,9 @@ const WaterAlertNotifier = () => {
 
     const { isMobile } = useResponsive();
 
-    // 🔥 Fetch thresholds from DB
+    // ===============================
+    // FETCH THRESHOLDS FROM DATABASE
+    // ===============================
     useEffect(() => {
         const fetchThresholds = async () => {
             const { data, error } = await supabase
@@ -30,7 +32,9 @@ const WaterAlertNotifier = () => {
         fetchThresholds();
     }, []);
 
-    // 🔥 Determine threshold dynamically
+    // ===============================
+    // FIND MATCHING THRESHOLD
+    // ===============================
     const getThresholdLevel = (level) => {
         for (const threshold of thresholds) {
             if (
@@ -43,6 +47,9 @@ const WaterAlertNotifier = () => {
         return null;
     };
 
+    // ===============================
+    // MAIN ALERT LISTENER
+    // ===============================
     useEffect(() => {
         sirenRef.current = new Audio("/siren.mp3");
 
@@ -57,7 +64,7 @@ const WaterAlertNotifier = () => {
                         icon: "/logo.png",
                         tag: "lgu-water-alert",
                         renotify: true,
-                        vibrate: [1000, 100, 1000],
+                        vibrate: [500, 100, 500],
                     },
                 );
             }
@@ -66,9 +73,23 @@ const WaterAlertNotifier = () => {
         const triggerAlertEffects = (level, threshold) => {
             if (!sirenRef.current || alertActiveRef.current) return;
 
+            const levelName = threshold.name.toUpperCase();
+
+            // ===============================
+            // L1 = NOTIFICATION ONLY
+            // ===============================
+            if (levelName === "L1" || levelName === "ADVISORY") {
+                return;
+            }
+
             alertActiveRef.current = true;
 
-            const message = `${threshold.name} flood alert. Water level recorded at ${level} meters.`;
+            const message = `${threshold.name} flood alert. Water level recorded at ${level} meters. Please take precautionary measures.`;
+
+            const vibratePattern =
+                levelName === "L3" || levelName === "CRITICAL" ?
+                    [1000, 200, 1000, 200, 1000] // Strong vibration
+                :   [600, 150, 600]; // Medium vibration
 
             const speak = () => {
                 if (!alertActiveRef.current) return;
@@ -88,8 +109,13 @@ const WaterAlertNotifier = () => {
             const playSiren = () => {
                 if (!alertActiveRef.current) return;
 
+                if ("vibrate" in navigator) {
+                    navigator.vibrate(vibratePattern);
+                }
+
                 sirenRef.current.currentTime = 0;
                 sirenRef.current.play().catch(() => {});
+
                 sirenRef.current.onended = () => {
                     if (alertActiveRef.current) {
                         setTimeout(speak, 300);
@@ -109,10 +135,15 @@ const WaterAlertNotifier = () => {
                 sirenRef.current.currentTime = 0;
                 sirenRef.current.onended = null;
             }
+
+            if ("vibrate" in navigator) {
+                navigator.vibrate(0);
+            }
         };
 
         const checkSubscriptionAndNotify = async (level) => {
             const threshold = getThresholdLevel(level);
+
             if (!threshold) {
                 stopAlertEffects();
                 setAlertVisible(false);
@@ -167,6 +198,10 @@ const WaterAlertNotifier = () => {
         if (sirenRef.current) {
             sirenRef.current.pause();
             sirenRef.current.currentTime = 0;
+        }
+
+        if ("vibrate" in navigator) {
+            navigator.vibrate(0);
         }
 
         setAlertVisible(false);
@@ -239,9 +274,9 @@ const WaterAlertNotifier = () => {
                         </div>
 
                         <p style={{ marginBottom: "24px" }}>
-                            Residents in flood-prone areas are advised to remain
-                            alert and monitor official LGU advisories for
-                            further updates.
+                            Residents in flood-prone and low-lying areas are
+                            advised to remain alert and monitor official LGU
+                            advisories for further updates.
                         </p>
 
                         <button
