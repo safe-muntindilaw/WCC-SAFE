@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/globals";
 import { useResponsive } from "@/utils/useResponsive";
+import { THEME } from "@/utils/theme";
 
 const WaterAlertNotifier = () => {
     const sirenRef = useRef(null);
@@ -170,123 +171,214 @@ const WaterAlertNotifier = () => {
     return (
         <>
             {alertVisible && (
-                // Backdrop — blurred + dimmed, covers entire screen
                 <div
                     onClick={handleSuppress}
                     style={{
                         position: "fixed",
                         inset: 0,
                         zIndex: 9998,
-                        backgroundColor: "rgba(0, 0, 0, 0.5)",
-                        backdropFilter: "blur(6px)",
-                        WebkitBackdropFilter: "blur(6px)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                    }}>
-                    {/* Card — stop click from bubbling to backdrop dismiss */}
+                        // Backdrop uses CSS animation class for breathing glow
+                    }}
+                    className="alert-backdrop">
+                    {/* Card */}
                     <div
                         onClick={(e) => e.stopPropagation()}
+                        className="alert-card"
                         style={{
                             zIndex: 9999,
-                            backgroundColor: "#1a1a1a",
-                            borderStyle: "solid",
-                            borderWidth: "4px 1px 1px 1px",
-                            borderColor: "#ef4444",
+                            backgroundColor: "#0f172a",
+                            border: "1px solid rgba(239,68,68,0.3)",
+                            borderTop: "3px solid #ef4444",
                             borderRadius: "16px",
                             padding: isMobile ? "24px 20px" : "32px 36px",
-                            boxShadow: "0 8px 40px rgba(239, 68, 68, 0.35)",
-                            width: isMobile ? "90vw" : "380px",
-                            animation: "scaleIn 0.25s ease-out",
-                            fontFamily: "sans-serif",
+                            width: isMobile ? "90vw" : "400px",
+                            boxShadow:
+                                "0 0 0 1px rgba(239,68,68,0.1), 0 24px 64px rgba(0,0,0,0.6)",
+                            position: "relative",
+                            overflow: "hidden",
                         }}>
+                        {/* Subtle inner glow top edge */}
+                        <div
+                            style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: "60px",
+                                background:
+                                    "linear-gradient(to bottom, rgba(239,68,68,0.08), transparent)",
+                                borderRadius: "16px 16px 0 0",
+                                pointerEvents: "none",
+                            }}
+                        />
+
                         {/* Header row */}
                         <div
                             style={{
                                 display: "flex",
                                 alignItems: "center",
-                                gap: "10px",
-                                marginBottom: "16px",
+                                gap: "8px",
+                                marginBottom: "20px",
                             }}>
                             <span
+                                className="pulse-dot"
                                 style={{
-                                    width: "11px",
-                                    height: "11px",
+                                    width: "9px",
+                                    height: "9px",
                                     borderRadius: "50%",
                                     backgroundColor: "#ef4444",
                                     display: "inline-block",
                                     flexShrink: 0,
-                                    animation: "pulse 1s infinite",
                                 }}
                             />
                             <span
                                 style={{
                                     color: "#ef4444",
                                     fontWeight: "700",
-                                    fontSize: "12px",
-                                    letterSpacing: "0.1em",
+                                    fontSize: "11px",
+                                    letterSpacing: "0.12em",
                                     textTransform: "uppercase",
                                 }}>
                                 Active Alert
                             </span>
+                            {/* Push badge to right */}
+                            <div style={{ marginLeft: "auto" }}>
+                                <span
+                                    style={{
+                                        backgroundColor: "rgba(239,68,68,0.12)",
+                                        color: "#ef4444",
+                                        border: "1px solid rgba(239,68,68,0.25)",
+                                        borderRadius: "999px",
+                                        fontSize: "11px",
+                                        fontWeight: "600",
+                                        padding: "2px 10px",
+                                        letterSpacing: "0.04em",
+                                    }}>
+                                    LIVE
+                                </span>
+                            </div>
                         </div>
+
+                        {/* Divider */}
+                        <div
+                            style={{
+                                height: "1px",
+                                background:
+                                    "linear-gradient(to right, rgba(239,68,68,0.3), rgba(239,68,68,0.05), transparent)",
+                                marginBottom: "20px",
+                            }}
+                        />
 
                         {/* Title */}
                         <p
                             style={{
-                                color: "#ffffff",
-                                fontSize: isMobile ? "18px" : "20px",
+                                color: "#f1f5f9",
+                                fontSize: isMobile ? "20px" : "22px",
                                 fontWeight: "700",
-                                margin: "0 0 6px 0",
+                                margin: "0 0 8px 0",
+                                letterSpacing: "-0.01em",
                             }}>
-                            Water Level Warning
+                            ⚠️ Water Level Warning
                         </p>
 
-                        {/* Level */}
+                        {/* Subtitle */}
                         <p
                             style={{
-                                color: "#9ca3af",
-                                fontSize: "14px",
+                                color: "#64748b",
+                                fontSize: "13px",
                                 margin: "0 0 24px 0",
+                                lineHeight: "1.5",
                             }}>
-                            Current level:{" "}
-                            <strong style={{ color: "#fbbf24" }}>
-                                {alertLevel}m
-                            </strong>
+                            Threshold has been exceeded. Take necessary
+                            precautions.
                         </p>
 
-                        {/* Suppress button */}
+                        {/* Level indicator */}
+                        <div
+                            style={{
+                                backgroundColor: "rgba(255,255,255,0.04)",
+                                border: "1px solid rgba(255,255,255,0.07)",
+                                borderRadius: "10px",
+                                padding: "14px 16px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                marginBottom: "24px",
+                            }}>
+                            <span
+                                style={{
+                                    color: "#64748b",
+                                    fontSize: "12px",
+                                    fontWeight: "600",
+                                    letterSpacing: "0.06em",
+                                    textTransform: "uppercase",
+                                }}>
+                                Current Level
+                            </span>
+                            <span
+                                style={{
+                                    color: "#fbbf24",
+                                    fontSize: "22px",
+                                    fontWeight: "800",
+                                    letterSpacing: "-0.02em",
+                                }}>
+                                {alertLevel}
+                                <span
+                                    style={{
+                                        fontSize: "13px",
+                                        fontWeight: "500",
+                                        color: "#92400e",
+                                        marginLeft: "2px",
+                                    }}>
+                                    m
+                                </span>
+                            </span>
+                        </div>
+
+                        {/* Stop button */}
                         <button
                             onClick={handleSuppress}
+                            className="stop-btn"
                             style={{
                                 width: "100%",
-                                padding: "12px 0",
+                                padding: "13px 0",
                                 backgroundColor: "#ef4444",
                                 color: "#ffffff",
                                 border: "none",
-                                borderRadius: "8px",
+                                borderRadius: "10px",
                                 fontSize: "14px",
-                                fontWeight: "600",
+                                fontWeight: "700",
                                 cursor: "pointer",
-                                transition: "background-color 0.2s",
-                                letterSpacing: "0.02em",
+                                letterSpacing: "0.04em",
+                                textTransform: "uppercase",
+                                transition:
+                                    "background-color 0.15s, transform 0.1s",
                             }}
-                            onMouseEnter={(e) =>
-                                (e.target.style.backgroundColor = "#b91c1c")
-                            }
-                            onMouseLeave={(e) =>
-                                (e.target.style.backgroundColor = "#ef4444")
-                            }>
+                            onMouseEnter={(e) => {
+                                e.target.style.backgroundColor = "#dc2626";
+                                e.target.style.transform = "translateY(-1px)";
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.backgroundColor = "#ef4444";
+                                e.target.style.transform = "translateY(0)";
+                            }}
+                            onMouseDown={(e) => {
+                                e.target.style.transform = "translateY(1px)";
+                            }}>
                             Stop Alert
                         </button>
 
                         {/* Disclaimer */}
                         <p
                             style={{
-                                color: "#6b7280",
+                                color: "#334155",
                                 fontSize: "11px",
                                 textAlign: "center",
                                 margin: "12px 0 0 0",
+                                letterSpacing: "0.01em",
                             }}>
                             Alert will resume if water level rises again
                         </p>
@@ -295,13 +387,33 @@ const WaterAlertNotifier = () => {
             )}
 
             <style>{`
-                @keyframes scaleIn {
-                    from { opacity: 0; transform: scale(0.92); }
-                    to   { opacity: 1; transform: scale(1); }
+                /* Backdrop: breathing color between black and deep red */
+                @keyframes breatheBackdrop {
+                    0%   { background-color: rgba(0, 0, 0, 0.65);   backdrop-filter: blur(6px); }
+                    50%  { background-color: rgba(80, 5, 5, 0.72);  backdrop-filter: blur(8px); }
+                    100% { background-color: rgba(0, 0, 0, 0.65);   backdrop-filter: blur(6px); }
                 }
-                @keyframes pulse {
-                    0%, 100% { opacity: 1;   transform: scale(1);   }
-                    50%       { opacity: 0.4; transform: scale(1.5); }
+                .alert-backdrop {
+                    animation: breatheBackdrop 2s ease-in-out infinite;
+                    -webkit-backdrop-filter: blur(6px);
+                }
+
+                /* Card entrance */
+                @keyframes cardIn {
+                    from { opacity: 0; transform: scale(0.94) translateY(8px); }
+                    to   { opacity: 1; transform: scale(1)    translateY(0);   }
+                }
+                .alert-card {
+                    animation: cardIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+                }
+
+                /* Pulsing dot */
+                @keyframes dotPulse {
+                    0%, 100% { opacity: 1;   transform: scale(1);    box-shadow: 0 0 0 0 rgba(239,68,68,0.6); }
+                    50%       { opacity: 0.6; transform: scale(1.4);  box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+                }
+                .pulse-dot {
+                    animation: dotPulse 1.2s ease-in-out infinite;
                 }
             `}</style>
         </>
