@@ -1,4 +1,4 @@
-// ReportPage.jsx
+// ReportPage.jsx  — with PDF Report Generation
 import React, {
     useEffect,
     useState,
@@ -35,6 +35,7 @@ import {
     Flex,
     Badge,
     Skeleton,
+    Tooltip as AntTooltip,
 } from "antd";
 import {
     ReloadOutlined,
@@ -46,6 +47,8 @@ import {
     FallOutlined,
     DotChartOutlined,
     LoadingOutlined,
+    FilePdfOutlined,
+    BarChartOutlined,
 } from "@ant-design/icons";
 import { supabase } from "@/globals";
 import dayjs from "dayjs";
@@ -53,6 +56,8 @@ import isoWeek from "dayjs/plugin/isoWeek";
 import { THEME, cardStyleAdaptive } from "@/utils/theme";
 import { showError, showWarning } from "@/utils/notifications";
 import { useResponsive } from "@/utils/useResponsive";
+import { ReportGeneratorModal } from "@/utils/ReportGeneratorModal";
+import { ForecastPanel } from "@/utils/ForecastPanel";
 
 dayjs.extend(isoWeek);
 
@@ -96,7 +101,7 @@ const getStatusColor = (statusName) => {
     return colors[statusName] || THEME.BLUE_AUTHORITY;
 };
 
-// Memoized averaging functions
+// ─── Averaging helpers ─────────────────────────────────────────────
 const averageBy = (readings, keyFn) => {
     const grouped = readings.reduce((acc, r) => {
         const key = keyFn(r);
@@ -122,7 +127,7 @@ const averageByWeek = (readings) =>
         (r) => `Week ${Math.ceil(dayjs(r.created_at).date() / 7)}`,
     );
 
-// Memoized RefreshButton component
+// ─── Sub-components ────────────────────────────────────────────────
 const RefreshButton = React.memo(({ refreshing, onRefresh }) => (
     <Button
         type="default"
@@ -135,10 +140,8 @@ const RefreshButton = React.memo(({ refreshing, onRefresh }) => (
 ));
 RefreshButton.displayName = "RefreshButton";
 
-// Memoized CustomTooltip component
 const CustomTooltip = React.memo(({ active, payload, label }) => {
     if (!active || !payload || !payload.length) return null;
-
     return (
         <div
             style={{
@@ -202,7 +205,6 @@ const CustomTooltip = React.memo(({ active, payload, label }) => {
 });
 CustomTooltip.displayName = "CustomTooltip";
 
-// Memoized BadgeDisplay component
 const BadgeDisplay = React.memo(
     ({ isFetchingData, currentLevel, dataStats, badgeIndex }) => {
         if (isFetchingData) {
@@ -213,9 +215,7 @@ const BadgeDisplay = React.memo(
                 </Space>
             );
         }
-
         if (currentLevel === null || !dataStats) return null;
-
         if (badgeIndex === 0) {
             return (
                 <Space size={4}>
@@ -223,7 +223,6 @@ const BadgeDisplay = React.memo(
                 </Space>
             );
         }
-
         if (badgeIndex === 1) {
             return (
                 <Space size={4}>
@@ -237,7 +236,6 @@ const BadgeDisplay = React.memo(
                 </Space>
             );
         }
-
         return (
             <Space size={4}>
                 <span>Prediction: {dataStats.prediction.toFixed(2)}m</span>
@@ -247,7 +245,6 @@ const BadgeDisplay = React.memo(
 );
 BadgeDisplay.displayName = "BadgeDisplay";
 
-// Memoized StatsLegend component
 const StatsLegend = React.memo(({ dataStats }) => (
     <div style={{ marginTop: 20 }}>
         <Space
@@ -312,6 +309,7 @@ const StatsLegend = React.memo(({ dataStats }) => (
 ));
 StatsLegend.displayName = "StatsLegend";
 
+// ─── Main Page ─────────────────────────────────────────────────────
 const ReportPage = () => {
     const [reportType, setReportType] = useState("today");
     const [monthView, setMonthView] = useState("day");
@@ -330,8 +328,15 @@ const ReportPage = () => {
     const [isFetchingData, setIsFetchingData] = useState(false);
     const [currentLevel, setCurrentLevel] = useState(null);
     const [badgeIndex, setBadgeIndex] = useState(0);
-    const { isMobile } = useResponsive();
 
+    const [pdfModalOpen, setPdfModalOpen] = useState(false);
+    const chartContainerRef = useRef(null);
+    const forecastRef = useRef(null);
+    const [showForecast, setShowForecast] = useState(false);
+    // Tracks whether user has scrolled past the chart (to show persistent close btn)
+    const [forecastScrolled, setForecastScrolled] = useState(false);
+
+    const { isMobile } = useResponsive();
     const isRealtimeUpdate = useRef(false);
 
     useEffect(() => {
@@ -341,6 +346,30 @@ const ReportPage = () => {
         return () => clearInterval(interval);
     }, []);
 
+    // ── Scroll listener: show persistent close btn whenever forecast panel is visible
+    useEffect(() => {
+        if (!showForecast) {
+            setForecastScrolled(false);
+            return;
+        }
+        const checkVisibility = () => {
+            if (!forecastRef.current) return;
+            const rect = forecastRef.current.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            // Show button whenever any part of the forecast panel is visible in viewport
+            const isVisible = rect.top < viewportHeight && rect.bottom > 0;
+            setForecastScrolled(isVisible);
+        };
+        // Check immediately after render in case forecast is already visible
+        setTimeout(checkVisibility, 100);
+        window.addEventListener("scroll", checkVisibility, { passive: true });
+        window.addEventListener("resize", checkVisibility, { passive: true });
+        return () => {
+            window.removeEventListener("scroll", checkVisibility);
+            window.removeEventListener("resize", checkVisibility);
+        };
+    }, [showForecast]);
+
     const fetchCurrentLevel = useCallback(async () => {
         try {
             const { data, error } = await supabase
@@ -349,11 +378,8 @@ const ReportPage = () => {
                 .order("created_at", { ascending: false })
                 .limit(1)
                 .single();
-
             if (error) throw error;
-            if (data) {
-                setCurrentLevel(parseFloat(data.converted_water_level));
-            }
+            if (data) setCurrentLevel(parseFloat(data.converted_water_level));
         } catch (error) {
             console.error("Failed to fetch current level:", error);
         }
@@ -366,12 +392,9 @@ const ReportPage = () => {
                 .select("*")
                 .order("converted_min_level", { ascending: true });
             if (error) throw error;
-
             const firstThreshold = thresholdData?.[0];
-            if (firstThreshold?.max_range) {
+            if (firstThreshold?.max_range)
                 setMaxRange(parseFloat(firstThreshold.max_range));
-            }
-
             const sortedThresholds = (thresholdData || []).map((t) => ({
                 ...t,
                 converted_min_level: parseFloat(t.converted_min_level),
@@ -393,7 +416,6 @@ const ReportPage = () => {
             const step = 500;
             let to = step - 1;
             let hasMore = true;
-
             while (hasMore) {
                 const { data: readings, error } = await supabase
                     .from("sensor_readings")
@@ -402,22 +424,17 @@ const ReportPage = () => {
                     .lt("created_at", end.toISOString())
                     .order("created_at", { ascending: true })
                     .range(from, to);
-
                 if (error) throw error;
-
                 if (readings && readings.length > 0) {
                     allReadings = [...allReadings, ...readings];
                     if (readings.length === step) {
                         from += step;
                         to += step;
-                    } else {
-                        hasMore = false;
-                    }
+                    } else hasMore = false;
                 } else {
                     hasMore = false;
                 }
             }
-
             return allReadings;
         } catch (error) {
             console.error(error);
@@ -453,9 +470,7 @@ const ReportPage = () => {
             case "today":
                 return today.format("MM DD, YYYY");
             case "weekly":
-                return `${today.startOf("isoWeek").format("MMM DD")} - ${today
-                    .endOf("isoWeek")
-                    .format("MMM DD, YYYY")}`;
+                return `${today.startOf("isoWeek").format("MMM DD")} - ${today.endOf("isoWeek").format("MMM DD, YYYY")}`;
             case "monthly":
                 return monthView === "week" ? "Weekly Averages" : (
                         "Daily Averages"
@@ -469,11 +484,8 @@ const ReportPage = () => {
 
     const fetchSensorData = useCallback(
         async (isRefresh = false) => {
-            if (isRefresh && !isRealtimeUpdate.current) {
-                setRefreshing(true);
-            } else if (!isRefresh) {
-                setLoading(true);
-            }
+            if (isRefresh && !isRealtimeUpdate.current) setRefreshing(true);
+            else if (!isRefresh) setLoading(true);
 
             setData([]);
             setLineKeys([]);
@@ -482,11 +494,9 @@ const ReportPage = () => {
             const today = dayjs();
             let chartData = [];
             let keys = [];
-
             let currentThresholds = thresholds;
-            if (!currentThresholds.length) {
+            if (!currentThresholds.length)
                 currentThresholds = await fetchThresholds();
-            }
 
             try {
                 switch (reportType) {
@@ -529,10 +539,8 @@ const ReportPage = () => {
                             showWarning("Please select at least one year");
                             break;
                         }
-
                         const merged = [];
                         const currentKeys = [];
-
                         for (const year of selectedYears) {
                             const start = dayjs(`${year}-01-01T00:00:00Z`);
                             const end = dayjs(`${year}-12-31T23:59:59Z`);
@@ -547,11 +555,8 @@ const ReportPage = () => {
                                 showError(`Failed to load data for ${year}`);
                                 continue;
                             }
-
                             const lineKey = `${year}`;
                             currentKeys.push(lineKey);
-
-                            // FIX: merge by month name, not array index
                             (rpcData || []).forEach((row) => {
                                 const [yr, mon] = row.month_label.split("-");
                                 const month = dayjs(`${yr}-${mon}-01`).format(
@@ -560,22 +565,17 @@ const ReportPage = () => {
                                 const value = +parseFloat(
                                     row.avg_converted_level || row.avg_level,
                                 ).toFixed(2);
-
                                 const existing = merged.find(
                                     (m) => m.date === month,
                                 );
-                                if (existing) {
-                                    existing[lineKey] = value;
-                                } else {
+                                if (existing) existing[lineKey] = value;
+                                else
                                     merged.push({
                                         date: month,
                                         [lineKey]: value,
                                     });
-                                }
                             });
                         }
-
-                        // FIX: fill missing year slots with null so recharts skips them cleanly
                         chartData = merged
                             .sort(
                                 (a, b) =>
@@ -590,7 +590,6 @@ const ReportPage = () => {
                                 });
                                 return filled;
                             });
-
                         keys = currentKeys;
                         break;
                     }
@@ -625,7 +624,6 @@ const ReportPage = () => {
         fetchThresholds();
         fetchCurrentLevel();
     }, [fetchThresholds, fetchCurrentLevel]);
-
     useEffect(() => {
         if (thresholds.length > 0) fetchSensorData();
     }, [fetchSensorData, thresholds]);
@@ -654,38 +652,66 @@ const ReportPage = () => {
         setMonthView("day");
         setSelectedMonth(dayjs());
     }, []);
-
     const resetAnnual = useCallback(() => {
         setSelectedYears([dayjs().year().toString()]);
     }, []);
-
     const handleReportTypeChange = useCallback((e) => {
         setReportType(e.target.value);
     }, []);
-
     const handleMonthViewChange = useCallback((value) => {
         setMonthView(value);
     }, []);
-
     const handleSelectedMonthChange = useCallback((value) => {
         setSelectedMonth(value);
     }, []);
-
     const handleSelectedYearsChange = useCallback((value) => {
         setSelectedYears(value);
     }, []);
-
     const handleFilterDrawerClose = useCallback(() => {
         setFilterDrawerVisible(false);
     }, []);
-
     const handleFilterDrawerOpen = useCallback(() => {
         setFilterDrawerVisible(true);
     }, []);
-
     const handleRefresh = useCallback(() => {
         fetchSensorData(true);
     }, [fetchSensorData]);
+
+    const handleOpenPdfModal = useCallback(() => {
+        setPdfModalOpen(true);
+    }, []);
+    const handleClosePdfModal = useCallback(() => {
+        setPdfModalOpen(false);
+    }, []);
+
+    // ── Open forecast and scroll to it
+    const handleToggleForecast = useCallback(() => {
+        setShowForecast((prev) => {
+            const next = !prev;
+            if (next) {
+                // Wait for render then scroll
+                setTimeout(() => {
+                    forecastRef.current?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                    });
+                }, 80);
+            } else {
+                setForecastScrolled(false);
+            }
+            return next;
+        });
+    }, []);
+
+    // ── Close forecast and scroll back up
+    const handleCloseForecast = useCallback(() => {
+        // Scroll all the way to top first, then close after scroll animation completes
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setTimeout(() => {
+            setShowForecast(false);
+            setForecastScrolled(false);
+        }, 600);
+    }, []);
 
     const getYAxisDomain = useMemo(() => {
         const FIXED_MAX = maxRange;
@@ -703,10 +729,8 @@ const ReportPage = () => {
 
     const yAxisTicks = useMemo(() => {
         if (!thresholds.length) return undefined;
-
         const tickSet = new Set();
         const ticks = [];
-
         thresholds.forEach((t) => {
             const value = Number(t.converted_min_level.toFixed(2));
             if (!tickSet.has(value)) {
@@ -714,41 +738,33 @@ const ReportPage = () => {
                 ticks.push(value);
             }
         });
-
         const maxValue = Number(maxRange.toFixed(2));
         if (!tickSet.has(maxValue)) {
             tickSet.add(maxValue);
             ticks.push(maxValue);
         }
-
         return ticks.sort((a, b) => a - b);
     }, [thresholds, maxRange]);
 
     const dataStats = useMemo(() => {
         if (!data.length) return null;
-
         const values = data.flatMap((d) =>
             Object.entries(d)
                 .filter(([k]) => k !== "date")
                 .map(([, v]) => v)
                 .filter((v) => v !== null && !isNaN(v)),
         );
-
         if (!values.length) return null;
-
         const max = Math.max(...values);
         const min = Math.min(...values);
         const avg = values.reduce((a, b) => a + b, 0) / values.length;
-
-        // FIX: safe helper — handles both "Water Level" key and annual year keys
         const getPointValue = (point) => {
             if (
                 point["Water Level"] !== undefined &&
                 point["Water Level"] !== null &&
                 !isNaN(point["Water Level"])
-            ) {
+            )
                 return point["Water Level"];
-            }
             const vals = Object.entries(point)
                 .filter(([k]) => k !== "date")
                 .map(([, v]) => v)
@@ -757,30 +773,23 @@ const ReportPage = () => {
                 );
             return vals.length > 0 ? vals[vals.length - 1] : 0;
         };
-
         const recent = getPointValue(data[data.length - 1]);
         const trend = data.length > 1 ? recent - getPointValue(data[0]) : 0;
-
         let prediction = avg;
-
         if (data.length > 3) {
             const alpha = 0.3;
             let ewma = values[0];
-            for (let i = 1; i < values.length; i++) {
+            for (let i = 1; i < values.length; i++)
                 ewma = alpha * values[i] + (1 - alpha) * ewma;
-            }
-
             const recentValues = values.slice(-Math.min(5, values.length));
             const momentum =
                 recentValues.length > 1 ?
                     (recentValues[recentValues.length - 1] - recentValues[0]) /
                     recentValues.length
                 :   0;
-
             const changes = [];
-            for (let i = 1; i < values.length; i++) {
+            for (let i = 1; i < values.length; i++)
                 changes.push(values[i] - values[i - 1]);
-            }
             const volatility =
                 changes.length > 0 ?
                     Math.sqrt(
@@ -790,22 +799,12 @@ const ReportPage = () => {
                         ) / changes.length,
                     )
                 :   0;
-
-            const ewmaComponent = 0.4 * ewma;
-            const momentumComponent = 0.3 * (recent + momentum * 2);
-            const trendComponent = 0.2 * (recent + (trend / data.length) * 3);
-            const avgComponent = 0.1 * avg;
-
             prediction =
-                ewmaComponent +
-                momentumComponent +
-                trendComponent +
-                avgComponent;
-
-            if (volatility > 0.1) {
-                prediction = 0.7 * prediction + 0.3 * recent;
-            }
-
+                0.4 * ewma +
+                0.3 * (recent + momentum * 2) +
+                0.2 * (recent + (trend / data.length) * 3) +
+                0.1 * avg;
+            if (volatility > 0.1) prediction = 0.7 * prediction + 0.3 * recent;
             if (reportType === "today" && data.length > 10) {
                 const now = dayjs();
                 const currentHour = now.hour();
@@ -816,7 +815,6 @@ const ReportPage = () => {
                     })
                     .map((d) => d["Water Level"])
                     .filter((v) => v !== null && !isNaN(v));
-
                 if (similarTimeReadings.length > 0) {
                     const timeBasedAvg =
                         similarTimeReadings.reduce((a, b) => a + b, 0) /
@@ -824,16 +822,12 @@ const ReportPage = () => {
                     prediction = 0.7 * prediction + 0.3 * timeBasedAvg;
                 }
             }
-
-            if (reportType === "weekly" || reportType === "monthly") {
+            if (reportType === "weekly" || reportType === "monthly")
                 prediction = 0.6 * prediction + 0.4 * ewma;
-            }
         } else {
             prediction = recent + trend * 0.5;
         }
-
         prediction = Math.max(0, Math.min(maxRange * 0.95, prediction));
-
         return { max, min, avg, trend, prediction, recent };
     }, [data, maxRange, reportType]);
 
@@ -845,12 +839,10 @@ const ReportPage = () => {
             lineKeys.length > 0 ?
                 lineKeys
             :   Object.keys(data[0] || {}).filter((k) => k !== "date");
-
         return keysToRender.map((key, idx) => {
             let color = ACCENT_COLOR;
             const gradientId = `gradient-${idx}`;
             let gradient = { start: ACCENT_COLOR, end: ACCENT_COLOR };
-
             if (isAnnual) {
                 gradient =
                     key === currentYear ?
@@ -859,7 +851,6 @@ const ReportPage = () => {
                 color = gradient.start;
                 colorIndex++;
             }
-
             return (
                 <React.Fragment key={key}>
                     {isAnnual && (
@@ -897,15 +888,12 @@ const ReportPage = () => {
                         }
                         dot={(props) => {
                             if (reportType === "today") return null;
-                            // FIX: guard phantom dots for null/missing data points
                             if (props.cy == null || isNaN(props.cy))
                                 return null;
                             if (props.value == null) return null;
-
                             const isLastPoint = props.index === data.length - 1;
                             const dotColor = isLastPoint ? ACCENT_COLOR : color;
                             const dotRadius = isAnnual ? 6 : 5;
-
                             return (
                                 <circle
                                     key={`dot-${key}-${props.index}`}
@@ -919,7 +907,6 @@ const ReportPage = () => {
                             );
                         }}
                         activeDot={(props) => {
-                            // FIX: guard phantom active dots
                             if (props.cy == null || isNaN(props.cy))
                                 return null;
                             if (props.value == null) return null;
@@ -947,15 +934,12 @@ const ReportPage = () => {
 
     const renderThresholdReferences = useCallback(() => {
         if (!thresholds.length) return null;
-
         const sortedThresholds = [...thresholds].sort(
             (a, b) => a.converted_min_level - b.converted_min_level,
         );
-
         return sortedThresholds.map((threshold, index) => {
             const color = getStatusColor(threshold.name);
             const isBottomThreshold = index === 0;
-
             return (
                 <React.Fragment key={threshold.id}>
                     <ReferenceArea
@@ -1018,6 +1002,8 @@ const ReportPage = () => {
         );
     }
 
+    const canInteract = data.length > 0 && !!dataStats;
+
     return (
         <Space
             direction="vertical"
@@ -1042,14 +1028,54 @@ const ReportPage = () => {
                         </Text>
                     </div>
                     {!isMobile && (
-                        <div>
-                            <Space direction="vertical" size={2}>
-                                <RefreshButton
-                                    refreshing={refreshing}
-                                    onRefresh={handleRefresh}
-                                />
-                            </Space>
-                        </div>
+                        <Space size={8}>
+                            {/* ── Forecast toggle ── */}
+                            <Button
+                                type="default"
+                                ghost
+                                icon={<BarChartOutlined />}
+                                onClick={handleToggleForecast}
+                                disabled={!canInteract}
+                                style={{
+                                    color:
+                                        canInteract ? "white" : (
+                                            "rgba(255,255,255,0.35)"
+                                        ),
+                                    borderColor:
+                                        canInteract ? "white" : (
+                                            "rgba(255,255,255,0.2)"
+                                        ),
+                                    background: "transparent",
+                                }}>
+                                Forecast
+                            </Button>
+
+                            {/* ── Export PDF ── */}
+                            <Button
+                                type="default"
+                                ghost
+                                icon={<FilePdfOutlined />}
+                                onClick={handleOpenPdfModal}
+                                disabled={!canInteract}
+                                style={{
+                                    color:
+                                        canInteract ? "white" : (
+                                            "rgba(255,255,255,0.35)"
+                                        ),
+                                    borderColor:
+                                        canInteract ? "white" : (
+                                            "rgba(255,255,255,0.2)"
+                                        ),
+                                    background: "transparent",
+                                }}>
+                                Export PDF
+                            </Button>
+
+                            <RefreshButton
+                                refreshing={refreshing}
+                                onRefresh={handleRefresh}
+                            />
+                        </Space>
                     )}
                 </Flex>
             </Card>
@@ -1071,6 +1097,36 @@ const ReportPage = () => {
                             </Col>
                             <Col>
                                 <Space size={8}>
+                                    {/* ── Mobile: icon-only buttons ── */}
+                                    <Button
+                                        type="text"
+                                        icon={<BarChartOutlined />}
+                                        onClick={handleToggleForecast}
+                                        disabled={!canInteract}
+                                        style={{
+                                            color:
+                                                canInteract ?
+                                                    THEME.BLUE_PRIMARY
+                                                :   "#ccc",
+                                            background:
+                                                showForecast ?
+                                                    "rgba(0,0,0,0.06)"
+                                                :   "transparent",
+                                            borderRadius: 6,
+                                        }}
+                                    />
+                                    <Button
+                                        type="text"
+                                        icon={<FilePdfOutlined />}
+                                        onClick={handleOpenPdfModal}
+                                        disabled={!canInteract}
+                                        style={{
+                                            color:
+                                                canInteract ?
+                                                    THEME.BLUE_PRIMARY
+                                                :   "#ccc",
+                                        }}
+                                    />
                                     <Button
                                         type="text"
                                         icon={<FilterOutlined />}
@@ -1095,7 +1151,7 @@ const ReportPage = () => {
                         </Row>
                     )
                 }>
-                {/* Report Type Selector - Desktop Only */}
+                {/* Report Type Selector - Desktop */}
                 {!isMobile && (
                     <div
                         style={{
@@ -1141,7 +1197,7 @@ const ReportPage = () => {
                     </div>
                 )}
 
-                {/* Monthly Controls - Desktop Only */}
+                {/* Monthly Controls - Desktop */}
                 {!isMobile && reportType === "monthly" && (
                     <Space
                         size="middle"
@@ -1183,7 +1239,7 @@ const ReportPage = () => {
                     </Space>
                 )}
 
-                {/* Annual Controls - Desktop Only */}
+                {/* Annual Controls - Desktop */}
                 {!isMobile && reportType === "annually" && (
                     <Space
                         size="middle"
@@ -1275,8 +1331,8 @@ const ReportPage = () => {
                             }
                         />
                     </div>
-                    // FIX: explicit height wrapper, aspectRatio removed from LineChart
                 :   <div
+                        ref={chartContainerRef}
                         style={{ width: "100%", height: isMobile ? 310 : 400 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart
@@ -1373,9 +1429,53 @@ const ReportPage = () => {
                     </div>
                 }
 
-                {/* Stats Legend - Desktop Only */}
+                {/* Stats Legend - Desktop */}
                 {!isMobile && thresholds.length > 0 && dataStats && (
                     <StatsLegend dataStats={dataStats} />
+                )}
+
+                {/* Toggleable Forecast Panel — ref for scroll target */}
+                {showForecast && data.length > 0 && dataStats && (
+                    <div ref={forecastRef}>
+                        <ForecastPanel
+                            data={data}
+                            dataStats={dataStats}
+                            thresholds={thresholds}
+                            reportType={reportType}
+                            isMobile={isMobile}
+                        />
+                    </div>
+                )}
+
+                {/* ── Persistent floating "Close Forecast" button ──
+                 Centered at bottom, visible on all screen sizes when
+                 forecast is open and user has scrolled into it        */}
+                {showForecast && forecastScrolled && (
+                    <div
+                        style={{
+                            position: "fixed",
+                            ...(isMobile ? { bottom: 28 } : { top: 80 }),
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            zIndex: 1000,
+                            filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.18))",
+                        }}>
+                        <Button
+                            type="primary"
+                            danger
+                            icon={<CloseOutlined />}
+                            onClick={handleCloseForecast}
+                            size="large"
+                            style={{
+                                borderRadius: 24,
+                                paddingInline: 24,
+                                height: 44,
+                                fontWeight: 600,
+                                boxShadow: "0 4px 16px rgba(0,0,0,0.22)",
+                            }}>
+                            Close Forecast
+                        </Button>
+                    </div>
                 )}
             </Card>
 
@@ -1447,7 +1547,6 @@ const ReportPage = () => {
                                 </Radio.Button>
                             </Radio.Group>
                         </div>
-
                         {reportType === "monthly" && (
                             <Space
                                 direction="vertical"
@@ -1503,7 +1602,6 @@ const ReportPage = () => {
                                 </Flex>
                             </Space>
                         )}
-
                         {reportType === "annually" && (
                             <Space
                                 direction="vertical"
@@ -1573,6 +1671,23 @@ const ReportPage = () => {
                     />
                 </div>
             </Drawer>
+
+            {/* ── PDF Report Modal ── */}
+            <ReportGeneratorModal
+                open={pdfModalOpen}
+                onClose={handleClosePdfModal}
+                chartTitle={chartTitle}
+                chartSubtitle={chartSubtitle}
+                reportType={reportType}
+                data={data}
+                dataStats={dataStats}
+                thresholds={thresholds}
+                lineKeys={lineKeys}
+                yDomain={getYAxisDomain}
+                yTicks={yAxisTicks}
+                selectedMonth={selectedMonth}
+                selectedYears={selectedYears}
+            />
         </Space>
     );
 };
