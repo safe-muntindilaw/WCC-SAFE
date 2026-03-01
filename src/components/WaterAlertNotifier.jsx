@@ -18,9 +18,19 @@ const WaterAlertNotifier = () => {
         sirenRef.current = new Audio("/siren.mp3");
     }, []);
 
-    // ===============================
-    // ALERT EFFECTS
-    // ===============================
+    const getLevelMessage = (levelName, waterLevel) => {
+        switch (levelName) {
+            case "L1":
+                return `Flood Alert Level 1. Water level has reached ${waterLevel} meters. Stay alert and monitor local advisories.`;
+            case "L2":
+                return `Flood Alert Level 2. Water level is at ${waterLevel} meters. Prepare for possible evacuation and follow LGU instructions.`;
+            case "L3":
+                return `Flood Alert Level 3. Water level is critically high at ${waterLevel} meters. Immediate evacuation is advised in low-lying areas.`;
+            default:
+                return "";
+        }
+    };
+
     const triggerAlertEffects = (level, threshold) => {
         const levelName = threshold.name.toUpperCase();
         if (
@@ -33,7 +43,7 @@ const WaterAlertNotifier = () => {
 
         alertActiveRef.current = true;
 
-        const message = `Flood alert ${threshold.name}. Water level: ${level} meters. Please take precautionary measures.`;
+        const message = getLevelMessage(levelName, level);
 
         const vibratePattern =
             levelName === "L3" ? [1000, 200, 1000, 200, 1000] : [600, 150, 600];
@@ -41,12 +51,15 @@ const WaterAlertNotifier = () => {
         const speak = () => {
             if (!alertActiveRef.current) return;
 
-            window.speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(message);
-            utter.onend = () => {
-                if (alertActiveRef.current) setTimeout(playSiren, 300);
-            };
-            window.speechSynthesis.speak(utter);
+            // Pause before announcing level
+            setTimeout(() => {
+                window.speechSynthesis.cancel();
+                const utter = new SpeechSynthesisUtterance(message);
+                utter.onend = () => {
+                    if (alertActiveRef.current) setTimeout(playSiren, 300);
+                };
+                window.speechSynthesis.speak(utter);
+            }, 300); // 0.3s pause
         };
 
         const playSiren = () => {
@@ -75,37 +88,28 @@ const WaterAlertNotifier = () => {
         if ("vibrate" in navigator) navigator.vibrate(0);
     };
 
-    // ===============================
-    // LOCAL PUSH NOTIFICATION
-    // ===============================
     const sendLocalNotification = async (level, threshold) => {
-        if (threshold.name.toUpperCase() === "L0") return;
+        const levelName = threshold.name.toUpperCase();
+        if (levelName === "L0") return;
 
         const registration = await navigator.serviceWorker.ready;
+
+        const message = getLevelMessage(levelName, level);
+        const vibratePattern =
+            levelName === "L3" ? [1000, 200, 1000] : [500, 100, 500];
+
         if (Notification.permission === "granted") {
-            const vibratePattern =
-                threshold.name.toUpperCase() === "L3" ?
-                    [1000, 200, 1000]
-                :   [500, 100, 500];
-            registration.showNotification(
-                `LGU Flood Alert - ${threshold.name}`,
-                {
-                    body: `Water level: ${level} meters.`,
-                    icon: "/logo.png",
-                    tag: "lgu-water-alert",
-                    renotify: true,
-                    requireInteraction: ["L2", "L3"].includes(
-                        threshold.name.toUpperCase(),
-                    ),
-                    vibrate: vibratePattern,
-                },
-            );
+            registration.showNotification(`LGU Flood Alert - ${levelName}`, {
+                body: message,
+                icon: "/logo.png",
+                tag: "lgu-water-alert",
+                renotify: true,
+                requireInteraction: ["L2", "L3"].includes(levelName),
+                vibrate: vibratePattern,
+            });
         }
     };
 
-    // ===============================
-    // REALTIME LISTENER
-    // ===============================
     useEffect(() => {
         const channel = supabase
             .channel("water_alerts_room")
@@ -114,11 +118,9 @@ const WaterAlertNotifier = () => {
                 { event: "INSERT", schema: "public", table: "water_alerts" },
                 async (payload) => {
                     const { water_level, threshold_level } = payload.new;
+                    const levelName = threshold_level?.toUpperCase();
 
-                    if (
-                        !threshold_level ||
-                        threshold_level.toUpperCase() === "L0"
-                    ) {
+                    if (!levelName || levelName === "L0") {
                         stopAlertEffects();
                         setAlertVisible(false);
                         return;
@@ -148,8 +150,8 @@ const WaterAlertNotifier = () => {
                     // Send push notification
                     sendLocalNotification(water_level, threshold);
 
-                    // Trigger effects and popup only for L2 and L3
-                    if (["L2", "L3"].includes(threshold.name.toUpperCase())) {
+                    // Show popup and effects for L2/L3 only
+                    if (["L2", "L3"].includes(levelName)) {
                         triggerAlertEffects(water_level, threshold);
                         setAlertLevel(water_level);
                         setAlertType(threshold);
@@ -166,9 +168,6 @@ const WaterAlertNotifier = () => {
         };
     }, []);
 
-    // ===============================
-    // DISMISS HANDLER
-    // ===============================
     const handleDismiss = () => {
         stopAlertEffects();
         setAlertVisible(false);
@@ -192,10 +191,11 @@ const WaterAlertNotifier = () => {
                             backgroundColor: "#ffffff",
                             width: isMobile ? "92vw" : "500px",
                             borderRadius: "6px",
+                            border: "1px solid #e5e7eb",
                             borderTop:
                                 alertType.name === "L3" ?
-                                    "6px solid #7f1d1d"
-                                :   "6px solid #b91c1c",
+                                    "4px solid #ef4444"
+                                :   "4px solid #f87171",
                             padding: "28px",
                             boxShadow: "0 30px 70px rgba(0,0,0,0.3)",
                         }}>
@@ -205,16 +205,18 @@ const WaterAlertNotifier = () => {
                                 fontWeight: "700",
                                 letterSpacing: "1px",
                                 marginBottom: "6px",
+                                color: "#ef4444",
                             }}>
-                            Barangay Muntindilaw
+                            LOCAL GOVERNMENT UNIT
                         </p>
                         <h2
                             style={{
                                 fontSize: "20px",
                                 fontWeight: "700",
                                 marginBottom: "16px",
+                                color: "#ef4444",
                             }}>
-                            FLOOD ALERT
+                            FLOOD ALERT BULLETIN
                         </h2>
 
                         <div
@@ -242,9 +244,10 @@ const WaterAlertNotifier = () => {
                         </div>
 
                         <p style={{ marginBottom: "24px" }}>
-                            Residents in flood-prone and low-lying areas are
-                            advised to remain alert and monitor official LGU
-                            advisories for further updates.
+                            {getLevelMessage(
+                                alertType.name.toUpperCase(),
+                                alertLevel,
+                            )}
                         </p>
 
                         <button
@@ -252,7 +255,10 @@ const WaterAlertNotifier = () => {
                             style={{
                                 width: "100%",
                                 padding: "12px",
-                                backgroundColor: "#b91c1c",
+                                backgroundColor:
+                                    alertType.name === "L3" ?
+                                        "#ef4444"
+                                    :   "#f87171",
                                 color: "#fff",
                                 border: "none",
                                 borderRadius: "4px",
