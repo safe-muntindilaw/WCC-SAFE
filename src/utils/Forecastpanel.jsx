@@ -1,6 +1,4 @@
 // ForecastPanel.jsx
-// Plain-language stats + forecast panel. No jargon shown to end users.
-
 import React, { useMemo } from "react";
 import { Flex, Typography, Tag, Divider, Table } from "antd";
 import {
