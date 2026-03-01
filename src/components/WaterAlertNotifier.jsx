@@ -1,79 +1,104 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/globals";
 import { useResponsive } from "@/utils/useResponsive";
-import { THEME } from "@/utils/theme";
 
 const WaterAlertNotifier = () => {
     const sirenRef = useRef(null);
     const alertActiveRef = useRef(false);
+
     const [alertVisible, setAlertVisible] = useState(false);
     const [alertLevel, setAlertLevel] = useState(null);
+    const [alertType, setAlertType] = useState(null);
+    const [timestamp, setTimestamp] = useState(null);
+
     const { isMobile } = useResponsive();
+
+    const THRESHOLDS = {
+        advisory: 0.6,
+        warning: 0.8,
+        critical: 1.0,
+    };
+
+    const getThresholdLevel = (level) => {
+        if (level >= THRESHOLDS.critical) {
+            return {
+                key: "critical",
+                label: "CRITICAL",
+                color: "#991b1b",
+                border: "#dc2626",
+            };
+        }
+        if (level >= THRESHOLDS.warning) {
+            return {
+                key: "warning",
+                label: "WARNING",
+                color: "#92400e",
+                border: "#f59e0b",
+            };
+        }
+        if (level >= THRESHOLDS.advisory) {
+            return {
+                key: "advisory",
+                label: "ADVISORY",
+                color: "#1e3a8a",
+                border: "#3b82f6",
+            };
+        }
+        return null;
+    };
 
     useEffect(() => {
         sirenRef.current = new Audio("/siren.mp3");
 
-        const SAFE_WATER_LEVEL = 1.0;
-
-        const setupNotifications = async () => {
-            if (!("serviceWorker" in navigator) || !("Notification" in window))
-                return;
-            try {
-                await navigator.serviceWorker.register("/sw.js");
-                if (Notification.permission === "default") {
-                    await Notification.requestPermission();
-                }
-            } catch (err) {}
-        };
-
-        const sendLocalNotification = async (level) => {
+        const sendLocalNotification = async (level, type) => {
             const registration = await navigator.serviceWorker.ready;
+
             if (Notification.permission === "granted") {
-                registration.showNotification("⚠️ Water Level Alert", {
-                    body: `Water level has reached ${level}m!`,
-                    icon: "/logo.png",
-                    tag: "water-alert",
-                    vibrate: [1000, 100, 1000],
-                    renotify: true,
-                });
+                registration.showNotification(
+                    `LGU Flood Alert - ${type.label}`,
+                    {
+                        body: `Water level recorded at ${level}m.`,
+                        icon: "/logo.png",
+                        tag: "lgu-water-alert",
+                        renotify: true,
+                        vibrate: [1000, 100, 1000],
+                    },
+                );
             }
         };
 
-        const triggerAlertEffects = (level) => {
-            if (!sirenRef.current || !("speechSynthesis" in window)) return;
-            if (alertActiveRef.current) return;
+        const triggerAlertEffects = (level, type) => {
+            if (!sirenRef.current || alertActiveRef.current) return;
 
             alertActiveRef.current = true;
-            const message = `Warning! Water level has reached ${level} meters!`;
 
-            const vibrate = () => {
-                if ("vibrate" in navigator) {
-                    navigator.vibrate([1000, 100, 1000, 100, 1000]);
-                }
-            };
+            const message = `${type.label} flood alert. Water level recorded at ${level} meters. Please take precautionary measures.`;
 
-            const playVoice = () => {
+            const speak = () => {
                 if (!alertActiveRef.current) return;
+
                 window.speechSynthesis.cancel();
-                const msg = new SpeechSynthesisUtterance(message);
-                msg.onend = () => {
+                const utter = new SpeechSynthesisUtterance(message);
+
+                utter.onend = () => {
                     if (alertActiveRef.current) {
-                        setTimeout(playSiren, 250);
+                        setTimeout(playSiren, 300);
                     }
                 };
-                window.speechSynthesis.speak(msg);
+
+                window.speechSynthesis.speak(utter);
             };
 
             const playSiren = () => {
                 if (!alertActiveRef.current) return;
-                vibrate();
+
                 sirenRef.current.currentTime = 0;
-                sirenRef.current.volume = 1.0;
-                sirenRef.current.onended = () => {
-                    sirenRef.current.onended = null;
-                    setTimeout(playVoice, 0);
-                };
                 sirenRef.current.play().catch(() => {});
+                sirenRef.current.onended = () => {
+                    if (alertActiveRef.current) {
+                        setTimeout(speak, 300);
+                    }
+                };
             };
 
             playSiren();
@@ -82,56 +107,37 @@ const WaterAlertNotifier = () => {
         const stopAlertEffects = () => {
             alertActiveRef.current = false;
             window.speechSynthesis.cancel();
+
             if (sirenRef.current) {
                 sirenRef.current.pause();
                 sirenRef.current.currentTime = 0;
                 sirenRef.current.onended = null;
             }
-            if ("vibrate" in navigator) {
-                navigator.vibrate(0);
-            }
         };
 
-        const checkSubscriptionAndNotify = async (waterLevel) => {
+        const checkSubscriptionAndNotify = async (level, type) => {
             const {
                 data: { user },
             } = await supabase.auth.getUser();
 
-            if (!user) {
-                console.log(
-                    "No logged-in user detected. Notification skipped.",
-                );
-                return;
-            }
+            if (!user) return;
 
-            const { data: contact, error } = await supabase
+            const { data: contact } = await supabase
                 .from("contacts")
                 .select("subscribed")
                 .eq("user_id", user.id)
                 .single();
 
-            if (error) {
-                console.error(
-                    "Error checking subscription status:",
-                    error.message,
-                );
-                return;
-            }
+            if (contact?.subscribed) {
+                sendLocalNotification(level, type);
+                triggerAlertEffects(level, type);
 
-            if (contact && contact.subscribed === true) {
-                console.log("User is subscribed. Dispatching alerts...");
-                sendLocalNotification(waterLevel);
-                triggerAlertEffects(waterLevel);
-                setAlertLevel(waterLevel);
+                setAlertLevel(level);
+                setAlertType(type);
+                setTimestamp(new Date().toLocaleString());
                 setAlertVisible(true);
-            } else {
-                console.log(
-                    "User is logged in but has notifications disabled.",
-                );
             }
         };
-
-        setupNotifications();
 
         const channel = supabase
             .channel("water_alerts_room")
@@ -140,8 +146,10 @@ const WaterAlertNotifier = () => {
                 { event: "INSERT", schema: "public", table: "water_alerts" },
                 (payload) => {
                     const level = payload.new.water_level;
-                    if (level > SAFE_WATER_LEVEL) {
-                        checkSubscriptionAndNotify(level);
+                    const type = getThresholdLevel(level);
+
+                    if (type) {
+                        checkSubscriptionAndNotify(level, type);
                     } else {
                         stopAlertEffects();
                         setAlertVisible(false);
@@ -156,266 +164,117 @@ const WaterAlertNotifier = () => {
         };
     }, []);
 
-    const handleSuppress = () => {
+    const handleDismiss = () => {
         alertActiveRef.current = false;
         window.speechSynthesis.cancel();
+
         if (sirenRef.current) {
             sirenRef.current.pause();
             sirenRef.current.currentTime = 0;
-            sirenRef.current.onended = null;
         }
-        if ("vibrate" in navigator) navigator.vibrate(0);
+
         setAlertVisible(false);
     };
 
     return (
         <>
-            {alertVisible && (
+            {alertVisible && alertType && (
                 <div
-                    onClick={handleSuppress}
                     style={{
                         position: "fixed",
                         inset: 0,
-                        zIndex: 9998,
+                        backgroundColor: "rgba(0,0,0,0.7)",
                         display: "flex",
-                        alignItems: "center",
                         justifyContent: "center",
-                        // Backdrop uses CSS animation class for breathing glow
-                    }}
-                    className="alert-backdrop">
-                    {/* Card */}
+                        alignItems: "center",
+                        zIndex: 9999,
+                    }}>
                     <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="alert-card"
                         style={{
-                            zIndex: 9999,
-                            backgroundColor: "#0f172a",
-                            border: "1px solid rgba(239,68,68,0.3)",
-                            borderTop: "3px solid #ef4444",
-                            borderRadius: "16px",
-                            padding: isMobile ? "24px 20px" : "32px 36px",
-                            width: isMobile ? "90vw" : "400px",
-                            boxShadow:
-                                "0 0 0 1px rgba(239,68,68,0.1), 0 24px 64px rgba(0,0,0,0.6)",
-                            position: "relative",
-                            overflow: "hidden",
+                            backgroundColor: "#ffffff",
+                            width: isMobile ? "92vw" : "480px",
+                            borderRadius: "6px",
+                            borderTop: `6px solid ${alertType.border}`,
+                            padding: "28px",
+                            boxShadow: "0 25px 60px rgba(0,0,0,0.25)",
+                            fontFamily: "Arial, sans-serif",
                         }}>
-                        {/* Subtle inner glow top edge */}
-                        <div
+                        <p
                             style={{
-                                position: "absolute",
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                height: "60px",
-                                background:
-                                    "linear-gradient(to bottom, rgba(239,68,68,0.08), transparent)",
-                                borderRadius: "16px 16px 0 0",
-                                pointerEvents: "none",
-                            }}
-                        />
+                                fontSize: "12px",
+                                fontWeight: "700",
+                                letterSpacing: "1px",
+                                color: alertType.color,
+                                marginBottom: "8px",
+                            }}>
+                            LOCAL GOVERNMENT UNIT
+                        </p>
 
-                        {/* Header row */}
+                        <h2
+                            style={{
+                                fontSize: "20px",
+                                fontWeight: "700",
+                                marginBottom: "16px",
+                                color: "#111827",
+                            }}>
+                            FLOOD ALERT BULLETIN
+                        </h2>
+
                         <div
                             style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
+                                backgroundColor: "#f9fafb",
+                                padding: "16px",
+                                borderRadius: "4px",
                                 marginBottom: "20px",
                             }}>
-                            <span
-                                className="pulse-dot"
-                                style={{
-                                    width: "9px",
-                                    height: "9px",
-                                    borderRadius: "50%",
-                                    backgroundColor: "#ef4444",
-                                    display: "inline-block",
-                                    flexShrink: 0,
-                                }}
-                            />
-                            <span
-                                style={{
-                                    color: "#ef4444",
-                                    fontWeight: "700",
-                                    fontSize: "11px",
-                                    letterSpacing: "0.12em",
-                                    textTransform: "uppercase",
-                                }}>
-                                Active Alert
-                            </span>
-                            {/* Push badge to right */}
-                            <div style={{ marginLeft: "auto" }}>
-                                <span
-                                    style={{
-                                        backgroundColor: "rgba(239,68,68,0.12)",
-                                        color: "#ef4444",
-                                        border: "1px solid rgba(239,68,68,0.25)",
-                                        borderRadius: "999px",
-                                        fontSize: "11px",
-                                        fontWeight: "600",
-                                        padding: "2px 10px",
-                                        letterSpacing: "0.04em",
-                                    }}>
-                                    LIVE
+                            <p style={{ margin: 0, fontSize: "14px" }}>
+                                <strong>Alert Level:</strong>{" "}
+                                <span style={{ color: alertType.color }}>
+                                    {alertType.label}
                                 </span>
-                            </div>
+                            </p>
+                            <p style={{ margin: 0, fontSize: "14px" }}>
+                                <strong>Recorded Water Level:</strong>{" "}
+                                {alertLevel} meters
+                            </p>
+                            <p style={{ margin: 0, fontSize: "14px" }}>
+                                <strong>Threshold:</strong> ≥{" "}
+                                {THRESHOLDS[alertType.key]} meters
+                            </p>
+                            <p style={{ margin: 0, fontSize: "13px" }}>
+                                <strong>Date & Time:</strong> {timestamp}
+                            </p>
                         </div>
 
-                        {/* Divider */}
-                        <div
-                            style={{
-                                height: "1px",
-                                background:
-                                    "linear-gradient(to right, rgba(239,68,68,0.3), rgba(239,68,68,0.05), transparent)",
-                                marginBottom: "20px",
-                            }}
-                        />
-
-                        {/* Title */}
                         <p
                             style={{
-                                color: "#f1f5f9",
-                                fontSize: isMobile ? "20px" : "22px",
-                                fontWeight: "700",
-                                margin: "0 0 8px 0",
-                                letterSpacing: "-0.01em",
-                            }}>
-                            ⚠️ Water Level Warning
-                        </p>
-
-                        {/* Subtitle */}
-                        <p
-                            style={{
-                                color: "#64748b",
-                                fontSize: "13px",
-                                margin: "0 0 24px 0",
-                                lineHeight: "1.5",
-                            }}>
-                            Threshold has been exceeded. Take necessary
-                            precautions.
-                        </p>
-
-                        {/* Level indicator */}
-                        <div
-                            style={{
-                                backgroundColor: "rgba(255,255,255,0.04)",
-                                border: "1px solid rgba(255,255,255,0.07)",
-                                borderRadius: "10px",
-                                padding: "14px 16px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
+                                fontSize: "14px",
+                                color: "#374151",
                                 marginBottom: "24px",
                             }}>
-                            <span
-                                style={{
-                                    color: "#64748b",
-                                    fontSize: "12px",
-                                    fontWeight: "600",
-                                    letterSpacing: "0.06em",
-                                    textTransform: "uppercase",
-                                }}>
-                                Current Level
-                            </span>
-                            <span
-                                style={{
-                                    color: "#fbbf24",
-                                    fontSize: "22px",
-                                    fontWeight: "800",
-                                    letterSpacing: "-0.02em",
-                                }}>
-                                {alertLevel}
-                                <span
-                                    style={{
-                                        fontSize: "13px",
-                                        fontWeight: "500",
-                                        color: "#92400e",
-                                        marginLeft: "2px",
-                                    }}>
-                                    m
-                                </span>
-                            </span>
-                        </div>
+                            Residents in low-lying and flood-prone areas are
+                            advised to remain alert and take precautionary
+                            measures as necessary. Continue monitoring official
+                            LGU channels for updates.
+                        </p>
 
-                        {/* Stop button */}
                         <button
-                            onClick={handleSuppress}
-                            className="stop-btn"
+                            onClick={handleDismiss}
                             style={{
                                 width: "100%",
-                                padding: "13px 0",
-                                backgroundColor: "#ef4444",
-                                color: "#ffffff",
+                                padding: "12px",
+                                backgroundColor: alertType.border,
+                                color: "#fff",
                                 border: "none",
-                                borderRadius: "10px",
-                                fontSize: "14px",
-                                fontWeight: "700",
+                                borderRadius: "4px",
+                                fontWeight: "600",
                                 cursor: "pointer",
-                                letterSpacing: "0.04em",
-                                textTransform: "uppercase",
-                                transition:
-                                    "background-color 0.15s, transform 0.1s",
-                            }}
-                            onMouseEnter={(e) => {
-                                e.target.style.backgroundColor = "#dc2626";
-                                e.target.style.transform = "translateY(-1px)";
-                            }}
-                            onMouseLeave={(e) => {
-                                e.target.style.backgroundColor = "#ef4444";
-                                e.target.style.transform = "translateY(0)";
-                            }}
-                            onMouseDown={(e) => {
-                                e.target.style.transform = "translateY(1px)";
                             }}>
-                            Stop Alert
+                            ACKNOWLEDGE
                         </button>
-
-                        {/* Disclaimer */}
-                        <p
-                            style={{
-                                color: "#334155",
-                                fontSize: "11px",
-                                textAlign: "center",
-                                margin: "12px 0 0 0",
-                                letterSpacing: "0.01em",
-                            }}>
-                            Alert will resume if water level rises again
-                        </p>
                     </div>
                 </div>
             )}
-
-            <style>{`
-                /* Backdrop: breathing color between black and deep red */
-                @keyframes breatheBackdrop {
-                    0%   { background-color: rgba(0, 0, 0, 0.65);   backdrop-filter: blur(6px); }
-                    50%  { background-color: rgba(80, 5, 5, 0.72);  backdrop-filter: blur(8px); }
-                    100% { background-color: rgba(0, 0, 0, 0.65);   backdrop-filter: blur(6px); }
-                }
-                .alert-backdrop {
-                    animation: breatheBackdrop 2s ease-in-out infinite;
-                    -webkit-backdrop-filter: blur(6px);
-                }
-
-                /* Card entrance */
-                @keyframes cardIn {
-                    from { opacity: 0; transform: scale(0.94) translateY(8px); }
-                    to   { opacity: 1; transform: scale(1)    translateY(0);   }
-                }
-                .alert-card {
-                    animation: cardIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-                }
-
-                /* Pulsing dot */
-                @keyframes dotPulse {
-                    0%, 100% { opacity: 1;   transform: scale(1);    box-shadow: 0 0 0 0 rgba(239,68,68,0.6); }
-                    50%       { opacity: 0.6; transform: scale(1.4);  box-shadow: 0 0 0 5px rgba(239,68,68,0); }
-                }
-                .pulse-dot {
-                    animation: dotPulse 1.2s ease-in-out infinite;
-                }
-            `}</style>
         </>
     );
 };
