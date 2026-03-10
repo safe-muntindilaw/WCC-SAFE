@@ -70,9 +70,8 @@ export const PasswordRequirements = ({
 
     if (showOnlyIncomplete && allMet) return null;
 
-    const displayRequirements = showOnlyIncomplete
-        ? incompletRequirements
-        : requirements;
+    const displayRequirements =
+        showOnlyIncomplete ? incompletRequirements : requirements;
 
     return (
         <Card
@@ -89,9 +88,9 @@ export const PasswordRequirements = ({
                         fontSize: 13,
                         color: allMet ? THEME.GREEN_SUCCESS : THEME.RED_ERROR,
                     }}>
-                    {allMet
-                        ? "Password Requirements Met!"
-                        : "Password Requirements:"}
+                    {allMet ?
+                        "Password Requirements Met!"
+                    :   "Password Requirements:"}
                 </Text>
                 <ul
                     style={{
@@ -102,21 +101,20 @@ export const PasswordRequirements = ({
                     }}>
                     {displayRequirements.map((req) => (
                         <li key={req.key}>
-                            {req.check ? (
+                            {req.check ?
                                 <CheckCircleOutlined
                                     style={{
                                         marginRight: 4,
                                         color: THEME.GREEN_SUCCESS,
                                     }}
                                 />
-                            ) : (
-                                <CloseCircleOutlined
+                            :   <CloseCircleOutlined
                                     style={{
                                         marginRight: 4,
                                         color: THEME.RED_ERROR,
                                     }}
                                 />
-                            )}
+                            }
                             {req.label}
                         </li>
                     ))}
@@ -189,7 +187,7 @@ export const InlineValidationText = ({
         <Text
             type={isValid ? "success" : "danger"}
             style={{ fontSize: 12, display: "block", marginTop: 4 }}>
-            {isValid ? `✓ ${validText}` : `✗ ${invalidText}`}
+            {isValid ? `${validText}` : `${invalidText}`}
         </Text>
     );
 };

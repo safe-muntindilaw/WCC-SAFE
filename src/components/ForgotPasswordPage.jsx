@@ -98,7 +98,6 @@ const ForgotPasswordPage = () => {
                     ...cardStyleAdaptive,
                     maxWidth: 450,
                     width: "100%",
-                    borderTop: `6px solid ${THEME.BLUE_PRIMARY}`,
                 }}>
                 <div
                     style={{
