@@ -530,15 +530,14 @@ const ProfilePage = () => {
                                 My Profile
                             </Title>
                             <Text style={{ color: "rgba(255,255,255,0.85)" }}>
-                                Manage your personal information and account
-                                settings
+                                Manage user information and account settings
                             </Text>
                         </div>
                     </Space>
                 </Card>
             </header>
 
-            <Row gutter={[THEME.SPACING_MD, THEME.SPACING_MD]}>
+            <Row gutter={[THEME.SPACING_LG, THEME.SPACING_LG]}>
                 {/* Personal Details Card */}
                 <Col xs={24} md={12} lg={8}>
                     <Card

@@ -220,7 +220,7 @@ const EmptyState = React.memo(
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    minHeight: isMobile ? "50vh" : "65vh",
+                    minHeight: isMobile ? "60.5dvh" : "65vh",
                     textAlign: "center",
                 }}>
                 <UserOutlined
@@ -1412,7 +1412,7 @@ const UserManagement = () => {
                             flexDirection: "column",
                             alignItems: "center",
                             justifyContent: "center",
-                            minHeight: isMobile ? "50vh" : "65vh",
+                            minHeight: isMobile ? "60.5dvh" : "65vh",
                             gap: 12,
                         }}>
                         <Spin size="large" />
@@ -1433,7 +1433,8 @@ const UserManagement = () => {
                         style={{
                             display: "flex",
                             flexDirection: "column",
-                            minHeight: isMobile ? "50vh" : "65vh",
+                            justifyContent: "space-between",
+                            minHeight: isMobile ? "60.5dvh" : "65vh",
                         }}>
                         <Table
                             columns={columns}
@@ -1453,8 +1454,6 @@ const UserManagement = () => {
                             }}
                             sticky={isMobile ? { offsetHeader: 0 } : false}
                         />
-
-                        <div style={{ flex: 1 }} />
 
                         <div
                             style={{

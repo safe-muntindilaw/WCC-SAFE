@@ -1301,7 +1301,7 @@ const ReportPage = () => {
                 {loading || isFetchingData ?
                     <div
                         style={{
-                            height: isMobile ? 310 : 400,
+                            height: isMobile ? "53dvh" : 400,
                             display: "flex",
                             justifyContent: "center",
                             alignItems: "center",
@@ -1313,7 +1313,7 @@ const ReportPage = () => {
                 : data.length === 0 ?
                     <div
                         style={{
-                            height: isMobile ? 310 : 400,
+                            height: isMobile ? "53dvh" : 400,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -1333,7 +1333,10 @@ const ReportPage = () => {
                     </div>
                 :   <div
                         ref={chartContainerRef}
-                        style={{ width: "100%", height: isMobile ? 310 : 400 }}>
+                        style={{
+                            width: "100%",
+                            height: isMobile ? "53dvh" : 400,
+                        }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart
                                 data={data}

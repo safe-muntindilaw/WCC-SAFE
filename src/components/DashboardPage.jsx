@@ -29,14 +29,12 @@ import {
     BankOutlined,
     HomeOutlined,
     AlertOutlined,
-    RiseOutlined,
     ReloadOutlined,
     EditOutlined,
     MessageOutlined,
     LockOutlined,
     EyeInvisibleOutlined,
     EyeTwoTone,
-    FallOutlined,
 } from "@ant-design/icons";
 import { supabase } from "@/globals";
 import { THEME, cardStyleAdaptive } from "@/utils/theme";
@@ -47,6 +45,7 @@ import { useConfirmDialog } from "@/utils/confirmDialog";
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const UNIT = "m";
+const SAFE_SENSOR_THRESHOLD = 0.0; // readings >= this mean sensor is submerged → show "Safe"
 
 /* =========================
    ROLE & STATUS CONFIG
@@ -115,12 +114,6 @@ const EMERGENCY_HOTLINES = [
         number: "86972409",
         color: THEME.BLUE_AUTHORITY,
     },
-    // {
-    //     name: "BFP",
-    //     fullName: "Bureau of Fire Protection",
-    //     number: "88712865",
-    //     color: THEME.ORANGE_ALERT,
-    // },
     {
         name: "OPSS",
         fullName: "Office of Public Safety and Security",
@@ -1466,6 +1459,10 @@ const DashboardPage = () => {
                 todayReadings[0].converted_water_level,
             );
 
+            // If the sensor reading is >= SAFE_SENSOR_THRESHOLD, the sensor is
+            // submerged / at max range → treat as "Safe" and skip numeric display.
+            const isSafeReading = lastReading >= SAFE_SENSOR_THRESHOLD;
+
             const avg = (
                 todayReadings.reduce(
                     (sum, r) => sum + parseFloat(r.converted_water_level),
@@ -1473,37 +1470,25 @@ const DashboardPage = () => {
                 ) / todayReadings.length
             ).toFixed(2);
 
-            const peak = Math.max(
-                ...todayReadings.map((r) =>
-                    parseFloat(r.converted_water_level),
-                ),
-            ).toFixed(2);
-
-            const lowest = Math.min(
-                ...todayReadings.map((r) =>
-                    parseFloat(r.converted_water_level),
-                ),
-            ).toFixed(2);
-
             const currentThreshold = getThresholdForLevel(lastReading);
             const avgThreshold = getThresholdForLevel(avg);
-            const peakThreshold = getThresholdForLevel(peak);
-            const lowestThreshold = getThresholdForLevel(lowest);
 
             return {
-                lastReadingValue: `${lastReading.toFixed(2)}${UNIT}`,
+                lastReadingValue:
+                    isSafeReading ? "Safe" : `${lastReading.toFixed(2)}${UNIT}`,
                 lastReadingTime: new Date(
                     todayReadings[0].created_at,
                 ).toLocaleTimeString(),
                 averageReading: `${avg}${UNIT}`,
-                peakReading: `${peak}${UNIT}`,
-                lowestReading: `${lowest}${UNIT}`,
                 totalReadings: todayReadings.length,
                 currentStatus: STATUS_CONFIG[currentThreshold].label,
                 currentStatusColor: STATUS_CONFIG[currentThreshold].color,
+                // When safe, force green for the Last Reading card colour
+                lastReadingColor:
+                    isSafeReading ?
+                        THEME.GREEN_SAFE
+                    :   STATUS_CONFIG[currentThreshold].color,
                 avgColor: STATUS_CONFIG[avgThreshold].color,
-                peakColor: STATUS_CONFIG[peakThreshold].color,
-                lowestColor: STATUS_CONFIG[lowestThreshold].color,
             };
         } catch (err) {
             console.error(err);
@@ -1679,7 +1664,7 @@ const DashboardPage = () => {
                             </Card>
                         :   <>
                                 <Row gutter={[24, 24]}>
-                                    <Col xs={12} md={8}>
+                                    <Col xs={12} sm={6}>
                                         <CardContainer
                                             title="Current Status"
                                             value={
@@ -1693,7 +1678,7 @@ const DashboardPage = () => {
                                             subText="Threshold Level"
                                         />
                                     </Col>
-                                    <Col xs={12} md={8}>
+                                    <Col xs={12} sm={6}>
                                         <CardContainer
                                             title="Last Reading"
                                             value={
@@ -1701,7 +1686,7 @@ const DashboardPage = () => {
                                                 "N/A"
                                             }
                                             color={
-                                                waterLevelStats.currentStatusColor
+                                                waterLevelStats.lastReadingColor
                                             }
                                             subText={`As of ${
                                                 waterLevelStats.lastReadingTime ||
@@ -1709,32 +1694,7 @@ const DashboardPage = () => {
                                             }`}
                                         />
                                     </Col>
-                                    <Col xs={12} md={8}>
-                                        <CardContainer
-                                            title="Peak Level"
-                                            value={
-                                                waterLevelStats.peakReading ||
-                                                "N/A"
-                                            }
-                                            prefix={<RiseOutlined />}
-                                            color={waterLevelStats.peakColor}
-                                            subText="Highest today"
-                                        />
-                                    </Col>
-                                    <Col xs={12} md={8}>
-                                        <CardContainer
-                                            title="Lowest Level"
-                                            value={
-                                                waterLevelStats.lowestReading ||
-                                                "N/A"
-                                            }
-                                            prefix={<FallOutlined />}
-                                            color={waterLevelStats.lowestColor}
-                                            subText="Lowest today"
-                                        />
-                                    </Col>
-
-                                    <Col xs={12} md={8}>
+                                    <Col xs={12} sm={6}>
                                         <CardContainer
                                             title="Average Today"
                                             value={
@@ -1748,7 +1708,7 @@ const DashboardPage = () => {
                                             } readings`}
                                         />
                                     </Col>
-                                    <Col xs={12} md={8}>
+                                    <Col xs={12} sm={6}>
                                         <CardContainer
                                             title="Total Readings"
                                             value={
