@@ -119,8 +119,10 @@ const averageBy = (readings, keyFn) => {
 
 const averageByDay = (readings) =>
     averageBy(readings, (r) => dayjs(r.created_at).format("ddd"));
-const averageByDayOfMonth = (readings) =>
-    averageBy(readings, (r) => dayjs(r.created_at).format("DD"));
+const averageByDayOfMonth = (readings) => {
+    const result = averageBy(readings, (r) => dayjs(r.created_at).format("DD"));
+    return result.sort((a, b) => parseInt(a.date) - parseInt(b.date));
+};
 const averageByWeek = (readings) =>
     averageBy(
         readings,
@@ -563,7 +565,7 @@ const ReportPage = () => {
                                     "MMM",
                                 );
                                 const value = +parseFloat(
-                                    row.avg_converted_level ?? row.avg_level,
+                                    maxRange - row.avg_level,
                                 ).toFixed(2);
                                 const existing = merged.find(
                                     (m) => m.date === month,
