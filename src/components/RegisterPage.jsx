@@ -50,32 +50,34 @@ const { Title, Text, Link } = Typography;
 const { Option } = Select;
 const INPUT_HEIGHT = { mobile: 32, desktop: 40 };
 
-const TERMS_TEXT = `By clicking "I agree" and registering for the SAFE MUNTINDILAW Resident Portal (the "Service"), you agree to be bound by these Terms and Conditions ("Terms"). If you do not agree to these Terms, you may not register or use the Service.
+const TERMS_TEXT = `By clicking "I agree" and registering for the SAFE MUNTINDILAW Resident Portal, you agree to be bound by these Terms and Conditions. If you do not agree, you may not register or use the Service.
 
-1. Eligibility and Registration
-  • The Service is strictly available only to bona fide and registered residents of Barangay Muntindilaw, Antipolo City.
-  • You represent and warrant that all information provided during registration is true, accurate, and complete.
+1. ELIGIBILITY AND REGISTRATION
+   • The Service is strictly available only to bona fide and registered residents of Barangay Muntindilaw, Antipolo City.
+   • You represent and warrant that all information provided during registration is true, accurate, and complete.
 
-2. Purpose of the Service
-The SAFE MUNTINDILAW Resident Portal is provided for:
-  • Facilitating official communication and advisories from the Barangay.
-  • Enabling efficient response during emergencies and disasters.
-  • Maintaining a secure, verified directory of residents for local governance and planning.
+2. PURPOSE OF THE SERVICE
+   The SAFE MUNTINDILAW Resident Portal is provided for:
+   • Facilitating official communication and advisories from the Barangay.
+   • Enabling efficient response during emergencies and disasters.
+   • Maintaining a secure, verified directory of residents for local governance and planning.
 
-3. Data Privacy and Use
-  • You explicitly consent to the collection, processing, and storage of your personal data by the Barangay office.
-  • The Barangay commits to taking reasonable measures to protect your personal data.
-  • Your personal data will not be sold, rented, or disclosed to third parties for marketing purposes.
+3. DATA PRIVACY AND USE
+   • You explicitly consent to the collection, processing, and storage of your personal data by the Barangay office.
+   • The Barangay commits to taking reasonable measures to protect your personal data.
+   • Your personal data will not be sold, rented, or disclosed to third parties for marketing purposes.
 
-4. User Responsibilities
-  • You are responsible for maintaining the confidentiality of your account password.
-  • You agree to notify the Barangay immediately of any unauthorized use of your account.
+4. USER RESPONSIBILITIES
+   • You are responsible for maintaining the confidentiality of your account password.
+   • You agree to notify the Barangay immediately of any unauthorized use of your account.
 
-5. Termination
-The Barangay reserves the right to suspend or terminate your account without prior notice if you breach these Terms.
+5. TERMINATION
+   The Barangay reserves the right to suspend or terminate your account without prior notice if you breach these Terms.
 
-6. Governing Law
-These Terms shall be governed by and construed in accordance with the laws of the Republic of the Philippines.`;
+6. GOVERNING LAW
+   These Terms shall be governed by and construed in accordance with the laws of the Republic of the Philippines.
+
+Last updated: ${new Date().getFullYear()} · SAFE MUNTINDILAW Team`;
 
 const RegisterPage = ({ onSuccess }) => {
     const navigate = useNavigate();
