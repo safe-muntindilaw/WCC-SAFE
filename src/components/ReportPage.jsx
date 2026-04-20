@@ -120,7 +120,7 @@ const averageBy = (readings, keyFn) => {
 const averageByDay = (readings) =>
     averageBy(readings, (r) => dayjs(r.created_at).format("ddd"));
 const averageByDayOfMonth = (readings) =>
-    averageBy(readings, (r) => dayjs(r.created_at).format("MMM DD"));
+    averageBy(readings, (r) => dayjs(r.created_at).format("DD"));
 const averageByWeek = (readings) =>
     averageBy(
         readings,
@@ -563,7 +563,7 @@ const ReportPage = () => {
                                     "MMM",
                                 );
                                 const value = +parseFloat(
-                                    row.avg_converted_level || row.avg_level,
+                                    row.avg_converted_level ?? row.avg_level,
                                 ).toFixed(2);
                                 const existing = merged.find(
                                     (m) => m.date === month,
