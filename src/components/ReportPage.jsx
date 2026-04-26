@@ -101,44 +101,6 @@ const getStatusColor = (n) =>
     })[n] || THEME.BLUE_AUTHORITY;
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
-const averageBy = (readings, keyFn) => {
-    const grouped = readings.reduce((acc, r) => {
-        const key = keyFn(r);
-        acc[key] ??= { sum: 0, count: 0 };
-        acc[key].sum += parseFloat(r.converted_water_level);
-        acc[key].count++;
-        return acc;
-    }, {});
-    return Object.entries(grouped).map(([key, val]) => ({
-        date: key,
-        "Water Level": +(val.sum / val.count).toFixed(2),
-    }));
-};
-const averageByDay = (r) =>
-    averageBy(r, (x) => dayjs(x.created_at).format("ddd"));
-const averageByDayOfMonth = (r) => {
-    const res = averageBy(r, (x) => dayjs(x.created_at).format("DD"));
-    return res.sort((a, b) => parseInt(a.date) - parseInt(b.date));
-};
-const averageByWeek = (r) =>
-    averageBy(r, (x) => `Week ${Math.ceil(dayjs(x.created_at).date() / 7)}`);
-const averageByHour = (readings) => {
-    const g = readings.reduce((acc, r) => {
-        const h = dayjs(r.created_at).format("HH:00");
-        acc[h] ??= [];
-        acc[h].push(parseFloat(r.converted_water_level));
-        return acc;
-    }, {});
-    return Object.entries(g)
-        .map(([h, vals]) => ({
-            date: h,
-            Max: +Math.max(...vals).toFixed(2),
-            Min: +Math.min(...vals).toFixed(2),
-            Avg: +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2),
-        }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-};
-
 const clusterData = (points, buckets) => {
     if (points.length <= buckets) return points;
     const size = Math.ceil(points.length / buckets);
@@ -413,7 +375,7 @@ const LIVE_WINDOWS = [
 const ReportPage = () => {
     const [reportType, setReportType] = useState("today");
     const [dailyView, setDailyView] = useState("live");
-    const [liveWindow, setLiveWindow] = useState(10); // minutes
+    const [liveWindow, setLiveWindow] = useState(10);
     const [monthView, setMonthView] = useState("day");
     const [selectedMonth, setSelectedMonth] = useState(dayjs());
     const [selectedYears, setSelectedYears] = useState([
@@ -515,33 +477,6 @@ const ReportPage = () => {
         }
     }, []);
 
-    const fetchReadings = useCallback(async (start, end) => {
-        if (fetchAbortRef.current) fetchAbortRef.current.abort();
-        const controller = new AbortController();
-        fetchAbortRef.current = controller;
-        let all = [],
-            from = 0;
-        const step = 1000;
-        let hasMore = true;
-        while (hasMore) {
-            if (controller.signal.aborted) return null;
-            const { data: rows, error } = await supabase
-                .from("sensor_readings")
-                .select("converted_water_level, created_at")
-                .gte("created_at", start.toISOString())
-                .lt("created_at", end.toISOString())
-                .order("created_at", { ascending: true })
-                .range(from, from + step - 1);
-            if (error) throw error;
-            if (rows?.length) {
-                all = [...all, ...rows];
-                hasMore = rows.length === step;
-                from += step;
-            } else hasMore = false;
-        }
-        return all;
-    }, []);
-
     // ── Titles ────────────────────────────────────────────────────────────────
     const chartTitle = useMemo(() => {
         switch (reportType) {
@@ -582,7 +517,7 @@ const ReportPage = () => {
         }
     }, [reportType, dailyView, liveWindow, selectedMonth, monthView]);
 
-    // ── Main fetch ────────────────────────────────────────────────────────────
+    // ── Main fetch — all views use server-side aggregation RPCs ──────────────
     const fetchSensorData = useCallback(
         async (isRefresh = false) => {
             const isRealtime = isRealtimeUpdate.current;
@@ -603,21 +538,26 @@ const ReportPage = () => {
 
             try {
                 switch (reportType) {
+                    // ── TODAY ────────────────────────────────────────────────
                     case "today": {
                         if (dailyView === "live") {
-                            const rows = await fetchReadings(
-                                today.subtract(liveWindow, "minute"),
-                                today.add(1, "minute"),
-                            );
-                            if (!rows) return;
-                            const incoming = rows.map((r) => ({
+                            // Live view: small window, raw rows are fine
+                            const start = today.subtract(liveWindow, "minute");
+                            const { data: rows, error } = await supabase
+                                .from("sensor_readings")
+                                .select("converted_water_level, created_at")
+                                .gte("created_at", start.toISOString())
+                                .order("created_at", { ascending: true });
+
+                            if (error) throw error;
+                            const incoming = (rows || []).map((r) => ({
                                 date: dayjs(r.created_at).format("HH:mm"),
                                 "Water Level": +parseFloat(
                                     r.converted_water_level,
                                 ).toFixed(2),
                             }));
+
                             if (isRealtime) {
-                                // Smooth scroll: keep existing points, append new tail, trim to window
                                 setData((prev) => {
                                     const merged = [...prev];
                                     for (const pt of incoming) {
@@ -628,47 +568,90 @@ const ReportPage = () => {
                                         )
                                             merged.push(pt);
                                     }
-                                    return merged.slice(-liveWindow); // max 1 pt/min
+                                    return merged.slice(-liveWindow);
                                 });
                                 setLineKeys(["Water Level"]);
-                                return; // skip the setData below
+                                return;
                             }
                             chartData = incoming;
                             keys = ["Water Level"];
                         } else {
-                            const rows = await fetchReadings(
-                                today.startOf("day"),
-                                today.add(1, "day").startOf("day"),
+                            // Hourly view: server-side aggregation — single RPC, 24 rows max
+                            const { data: rows, error } = await supabase.rpc(
+                                "get_hourly_aggregates",
+                                {
+                                    start_ts: today
+                                        .startOf("day")
+                                        .toISOString(),
+                                    end_ts: today
+                                        .add(1, "day")
+                                        .startOf("day")
+                                        .toISOString(),
+                                },
                             );
-                            if (!rows) return;
-                            chartData = averageByHour(rows);
+                            if (error) throw error;
+                            chartData = (rows || []).map((r) => ({
+                                date: r.hour_label,
+                                Max: +parseFloat(r.max_level).toFixed(2),
+                                Min: +parseFloat(r.min_level).toFixed(2),
+                                Avg: +parseFloat(r.avg_level).toFixed(2),
+                            }));
                             keys = ["Max", "Min", "Avg"];
                         }
                         break;
                     }
+
+                    // ── WEEKLY ───────────────────────────────────────────────
                     case "weekly": {
-                        const rows = await fetchReadings(
-                            today.startOf("isoWeek"),
-                            today.endOf("isoWeek"),
+                        // Server-side day-of-week aggregation — 7 rows max
+                        const { data: rows, error } = await supabase.rpc(
+                            "get_dow_averages_in_range",
+                            {
+                                start_date: today
+                                    .startOf("isoWeek")
+                                    .toISOString(),
+                                end_date: today.endOf("isoWeek").toISOString(),
+                            },
                         );
-                        if (!rows) return;
-                        chartData = averageByDay(rows);
+                        if (error) throw error;
+                        chartData = (rows || []).map((r) => ({
+                            date: r.dow_label,
+                            "Water Level": +parseFloat(r.avg_level).toFixed(2),
+                        }));
                         keys = ["Water Level"];
                         break;
                     }
+
+                    // ── MONTHLY ──────────────────────────────────────────────
                     case "monthly": {
-                        const rows = await fetchReadings(
-                            selectedMonth.startOf("month"),
-                            selectedMonth.endOf("month"),
-                        );
-                        if (!rows) return;
-                        chartData =
+                        // Server-side daily or weekly aggregation — 31 rows max
+                        const rpcName =
                             monthView === "week" ?
-                                averageByWeek(rows)
-                            :   averageByDayOfMonth(rows);
+                                "get_weekly_averages_in_range"
+                            :   "get_daily_averages_in_range";
+                        const { data: rows, error } = await supabase.rpc(
+                            rpcName,
+                            {
+                                start_date: selectedMonth
+                                    .startOf("month")
+                                    .toISOString(),
+                                end_date: selectedMonth
+                                    .endOf("month")
+                                    .toISOString(),
+                            },
+                        );
+                        if (error) throw error;
+                        const labelKey =
+                            monthView === "week" ? "week_label" : "day_label";
+                        chartData = (rows || []).map((r) => ({
+                            date: r[labelKey],
+                            "Water Level": +parseFloat(r.avg_level).toFixed(2),
+                        }));
                         keys = ["Water Level"];
                         break;
                     }
+
+                    // ── ANNUALLY ─────────────────────────────────────────────
                     case "annually": {
                         if (!selectedYears.length) {
                             showWarning("Please select at least one year");
@@ -732,6 +715,7 @@ const ReportPage = () => {
                         break;
                     }
                 }
+
                 setData(chartData);
                 setLineKeys(keys);
             } catch (e) {
@@ -752,7 +736,6 @@ const ReportPage = () => {
             selectedMonth,
             monthView,
             selectedYears,
-            fetchReadings,
             thresholds,
             fetchThresholds,
             maxRange,
@@ -935,13 +918,24 @@ const ReportPage = () => {
         return { max, min, avg, trend, prediction, recent };
     }, [data, maxRange, reportType]);
 
-    // ── Chart rendering ───────────────────────────────────────────────────────
+    // ── Chart state flags ─────────────────────────────────────────────────────
     const isLive = reportType === "today" && dailyView === "live";
     const isHourly = reportType === "today" && dailyView === "hourly";
     const isAnnual = reportType === "annually";
     const showLegend = isAnnual && displayData.length > 0;
     const canInteract = data.length > 0 && !!dataStats;
 
+    // ── Chart height — derives from CSS nav variables ─────────────────────────
+    // Desktop: subtract sticky top nav (64px) + page padding (32px top+bottom) + controls/title/stats (~260px)
+    // Mobile:  subtract bottom nav padding (56px, via .protected-container) + card header + title (~220px)
+    // Using CSS custom properties so it stays in sync if nav heights change.
+    const chartHeight =
+        isMobile ?
+            "calc(100svh - var(--nav-height-mobile) - 220px)"
+        :   "calc(100vh - var(--nav-height-desktop) - 32px - 260px)";
+    const chartMinHeight = isMobile ? 220 : 280;
+
+    // ── Chart rendering helpers ───────────────────────────────────────────────
     const renderDefs = () => (
         <defs>
             <linearGradient id="grad-main" x1="0" y1="0" x2="0" y2="1">
@@ -1084,7 +1078,6 @@ const ReportPage = () => {
 
             return (
                 <React.Fragment key={key}>
-                    {/* tooltipType="none" prevents Area from contributing to the tooltip payload */}
                     <Area
                         type="monotoneX"
                         dataKey={key}
@@ -1156,10 +1149,7 @@ const ReportPage = () => {
         [],
     );
 
-    const chartHeight =
-        isMobile ? "calc(100svh - 300px)" : "calc(100vh - 360px)";
-    const chartMinHeight = isMobile ? 200 : 260;
-
+    // ── Initial spinner ───────────────────────────────────────────────────────
     if (!initialLoadDone) {
         return (
             <div
@@ -1177,11 +1167,12 @@ const ReportPage = () => {
         );
     }
 
+    // ── Render ────────────────────────────────────────────────────────────────
     return (
         <Space
             direction="vertical"
-            style={{ width: "100%", padding: isMobile ? 10 : 20 }}
-            size={isMobile ? 8 : 14}>
+            style={{ width: "100%", padding: isMobile ? 16 : 32 }}
+            size={24}>
             {/* ── Header ───────────────────────────────────────────────────── */}
             <Card
                 style={{
@@ -1312,7 +1303,7 @@ const ReportPage = () => {
                         </Row>
                     )
                 }>
-                {/* Report type picker */}
+                {/* Report type picker — desktop */}
                 {!isMobile && (
                     <div
                         style={{
@@ -1357,7 +1348,7 @@ const ReportPage = () => {
                     </div>
                 )}
 
-                {/* Daily sub-mode */}
+                {/* Daily sub-mode — desktop */}
                 {!isMobile && reportType === "today" && (
                     <div
                         style={{
@@ -1398,7 +1389,7 @@ const ReportPage = () => {
                     </div>
                 )}
 
-                {/* Monthly controls */}
+                {/* Monthly controls — desktop */}
                 {!isMobile && reportType === "monthly" && (
                     <Space
                         size="middle"
@@ -1438,7 +1429,7 @@ const ReportPage = () => {
                     </Space>
                 )}
 
-                {/* Annual controls */}
+                {/* Annual controls — desktop */}
                 {!isMobile && reportType === "annually" && (
                     <Space
                         size="middle"
@@ -1495,27 +1486,20 @@ const ReportPage = () => {
                     </Text>
                 </div>
 
-                {/* Chart */}
-                {loading || (isFetchingData && !isRealtimeUpdate.current) ?
-                    <div
-                        style={{
-                            height: chartHeight,
-                            minHeight: chartMinHeight,
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                        }}>
+                {/* ── Unified chart area — loading / empty / chart share the same container ── */}
+                <div
+                    style={{
+                        width: "100%",
+                        height: chartHeight,
+                        minHeight: chartMinHeight,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        position: "relative",
+                    }}>
+                    {loading || (isFetchingData && !isRealtimeUpdate.current) ?
                         <Spin size="large" />
-                    </div>
-                : displayData.length === 0 ?
-                    <div
-                        style={{
-                            height: chartHeight,
-                            minHeight: chartMinHeight,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                        }}>
+                    : displayData.length === 0 ?
                         <Empty
                             description={
                                 <>
@@ -1529,92 +1513,95 @@ const ReportPage = () => {
                                 </>
                             }
                         />
-                    </div>
-                :   <div
-                        style={{
-                            width: "100%",
-                            height: chartHeight,
-                            minHeight: chartMinHeight,
-                        }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart
-                                data={displayData}
-                                margin={{
-                                    top: isMobile ? 4 : 16,
-                                    right: isMobile ? 18 : 44,
-                                    left: isMobile ? -30 : 0,
-                                    bottom: 0,
-                                }}>
-                                {renderDefs()}
-                                <CartesianGrid
-                                    strokeDasharray="3 3"
-                                    stroke="rgba(0,0,0,0.06)"
-                                    vertical={false}
-                                />
-                                {renderThresholdBands()}
-                                <XAxis
-                                    dataKey="date"
-                                    angle={-38}
-                                    textAnchor="end"
-                                    height={isMobile ? 48 : 58}
-                                    interval="preserveStartEnd"
-                                    tick={
-                                        isLive ? false : (
-                                            {
-                                                fontSize: isMobile ? 9 : 11,
-                                                fill: "#9ca3af",
-                                            }
-                                        )
-                                    }
-                                    axisLine={{ stroke: "rgba(0,0,0,0.07)" }}
-                                    tickLine={
-                                        isLive ? false : (
-                                            { stroke: "rgba(0,0,0,0.07)" }
-                                        )
-                                    }
-                                />
-                                <YAxis
-                                    domain={getYAxisDomain}
-                                    ticks={yAxisTicks}
-                                    label={{
-                                        value: "Water Level (m)",
-                                        angle: -90,
-                                        position: "insideLeft",
-                                        offset: isMobile ? -50 : 10,
-                                        style: {
-                                            fontSize: isMobile ? 10 : 12,
-                                            fontWeight: 600,
-                                            fill: THEME.BLUE_AUTHORITY,
-                                            textAnchor: "middle",
-                                        },
-                                    }}
-                                    tick={{
-                                        fontSize: isMobile ? 9 : 11,
-                                        fill: "#9ca3af",
-                                    }}
-                                    axisLine={{ stroke: "rgba(0,0,0,0.07)" }}
-                                    tickLine={{ stroke: "rgba(0,0,0,0.07)" }}
-                                />
-                                <Tooltip
-                                    content={<CustomTooltip />}
-                                    cursor={<CustomCursor />}
-                                />
-                                {showLegend && (
-                                    <Legend
-                                        verticalAlign="top"
-                                        height={38}
-                                        wrapperStyle={{
-                                            fontSize: 12,
-                                            fontWeight: 500,
-                                            paddingTop: 4,
+                        // position:absolute + inset:0 lets ResponsiveContainer fill the
+                        // sized parent without fighting the flex-center on the outer div
+                    :   <div style={{ position: "absolute", inset: 0 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart
+                                    data={displayData}
+                                    margin={{
+                                        top: isMobile ? 4 : 16,
+                                        right: isMobile ? 18 : 44,
+                                        left: isMobile ? -30 : 0,
+                                        bottom: 0,
+                                    }}>
+                                    {renderDefs()}
+                                    <CartesianGrid
+                                        strokeDasharray="3 3"
+                                        stroke="rgba(0,0,0,0.06)"
+                                        vertical={false}
+                                    />
+                                    {renderThresholdBands()}
+                                    <XAxis
+                                        dataKey="date"
+                                        angle={-38}
+                                        textAnchor="end"
+                                        height={isMobile ? 48 : 58}
+                                        interval="preserveStartEnd"
+                                        tick={
+                                            isLive ? false : (
+                                                {
+                                                    fontSize: isMobile ? 9 : 11,
+                                                    fill: "#9ca3af",
+                                                }
+                                            )
+                                        }
+                                        axisLine={{
+                                            stroke: "rgba(0,0,0,0.07)",
+                                        }}
+                                        tickLine={
+                                            isLive ? false : (
+                                                { stroke: "rgba(0,0,0,0.07)" }
+                                            )
+                                        }
+                                    />
+                                    <YAxis
+                                        domain={getYAxisDomain}
+                                        ticks={yAxisTicks}
+                                        label={{
+                                            value: "Water Level (m)",
+                                            angle: -90,
+                                            position: "insideLeft",
+                                            offset: isMobile ? -50 : 10,
+                                            style: {
+                                                fontSize: isMobile ? 10 : 12,
+                                                fontWeight: 600,
+                                                fill: THEME.BLUE_AUTHORITY,
+                                                textAnchor: "middle",
+                                            },
+                                        }}
+                                        tick={{
+                                            fontSize: isMobile ? 9 : 11,
+                                            fill: "#9ca3af",
+                                        }}
+                                        axisLine={{
+                                            stroke: "rgba(0,0,0,0.07)",
+                                        }}
+                                        tickLine={{
+                                            stroke: "rgba(0,0,0,0.07)",
                                         }}
                                     />
-                                )}
-                                {renderLines()}
-                            </ComposedChart>
-                        </ResponsiveContainer>
-                    </div>
-                }
+                                    <Tooltip
+                                        content={<CustomTooltip />}
+                                        cursor={<CustomCursor />}
+                                    />
+                                    {showLegend && (
+                                        <Legend
+                                            verticalAlign="top"
+                                            height={38}
+                                            wrapperStyle={{
+                                                fontSize: 12,
+                                                fontWeight: 500,
+                                                paddingTop: 4,
+                                            }}
+                                        />
+                                    )}
+                                    {renderLines()}
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </div>
+                    }
+                </div>
 
                 {/* Hourly legend */}
                 {isHourly && displayData.length > 0 && (
@@ -1762,6 +1749,7 @@ const ReportPage = () => {
                                 </Radio.Button>
                             </Radio.Group>
                         </div>
+
                         {reportType === "today" && (
                             <div>
                                 <Text
@@ -1804,6 +1792,7 @@ const ReportPage = () => {
                                 </Select>
                             </div>
                         )}
+
                         {reportType === "monthly" && (
                             <Space
                                 direction="vertical"
@@ -1855,6 +1844,7 @@ const ReportPage = () => {
                                 </Flex>
                             </Space>
                         )}
+
                         {reportType === "annually" && (
                             <Space
                                 direction="vertical"
@@ -1892,6 +1882,7 @@ const ReportPage = () => {
                         )}
                     </Space>
                 </Card>
+
                 <div
                     style={{
                         position: "fixed",
