@@ -89,7 +89,6 @@ const MONTH_ORDER = [
     "Dec",
 ];
 
-// If more than this many points are visible, cluster them automatically.
 const CLUSTER_THRESHOLD = 80;
 
 const getStatusColor = (n) =>
@@ -517,7 +516,7 @@ const ReportPage = () => {
         }
     }, [reportType, dailyView, liveWindow, selectedMonth, monthView]);
 
-    // ── Main fetch — all views use server-side aggregation RPCs ──────────────
+    // ── Main fetch ────────────────────────────────────────────────────────────
     const fetchSensorData = useCallback(
         async (isRefresh = false) => {
             const isRealtime = isRealtimeUpdate.current;
@@ -538,17 +537,14 @@ const ReportPage = () => {
 
             try {
                 switch (reportType) {
-                    // ── TODAY ────────────────────────────────────────────────
                     case "today": {
                         if (dailyView === "live") {
-                            // Live view: small window, raw rows are fine
                             const start = today.subtract(liveWindow, "minute");
                             const { data: rows, error } = await supabase
                                 .from("sensor_readings")
                                 .select("converted_water_level, created_at")
                                 .gte("created_at", start.toISOString())
                                 .order("created_at", { ascending: true });
-
                             if (error) throw error;
                             const incoming = (rows || []).map((r) => ({
                                 date: dayjs(r.created_at).format("HH:mm"),
@@ -556,7 +552,6 @@ const ReportPage = () => {
                                     r.converted_water_level,
                                 ).toFixed(2),
                             }));
-
                             if (isRealtime) {
                                 setData((prev) => {
                                     const merged = [...prev];
@@ -576,7 +571,6 @@ const ReportPage = () => {
                             chartData = incoming;
                             keys = ["Water Level"];
                         } else {
-                            // Hourly view: server-side aggregation — single RPC, 24 rows max
                             const { data: rows, error } = await supabase.rpc(
                                 "get_hourly_aggregates",
                                 {
@@ -600,10 +594,7 @@ const ReportPage = () => {
                         }
                         break;
                     }
-
-                    // ── WEEKLY ───────────────────────────────────────────────
                     case "weekly": {
-                        // Server-side day-of-week aggregation — 7 rows max
                         const { data: rows, error } = await supabase.rpc(
                             "get_dow_averages_in_range",
                             {
@@ -621,10 +612,7 @@ const ReportPage = () => {
                         keys = ["Water Level"];
                         break;
                     }
-
-                    // ── MONTHLY ──────────────────────────────────────────────
                     case "monthly": {
-                        // Server-side daily or weekly aggregation — 31 rows max
                         const rpcName =
                             monthView === "week" ?
                                 "get_weekly_averages_in_range"
@@ -650,8 +638,6 @@ const ReportPage = () => {
                         keys = ["Water Level"];
                         break;
                     }
-
-                    // ── ANNUALLY ─────────────────────────────────────────────
                     case "annually": {
                         if (!selectedYears.length) {
                             showWarning("Please select at least one year");
@@ -715,7 +701,6 @@ const ReportPage = () => {
                         break;
                     }
                 }
-
                 setData(chartData);
                 setLineKeys(keys);
             } catch (e) {
@@ -842,7 +827,7 @@ const ReportPage = () => {
         }, 600);
     }, []);
 
-    // ── Y-axis domain ─────────────────────────────────────────────────────────
+    // ── Y-axis domain — full range even with no data so bands show ────────────
     const getYAxisDomain = useMemo(() => {
         if (!displayData.length) return [0, maxRange];
         const vals = displayData.flatMap((d) =>
@@ -924,16 +909,40 @@ const ReportPage = () => {
     const isAnnual = reportType === "annually";
     const showLegend = isAnnual && displayData.length > 0;
     const canInteract = data.length > 0 && !!dataStats;
+    const isLoading = loading || (isFetchingData && !isRealtimeUpdate.current);
+    const isEmpty = !isLoading && displayData.length === 0;
 
-    // ── Chart height — derives from CSS nav variables ─────────────────────────
-    // Desktop: subtract sticky top nav (64px) + page padding (32px top+bottom) + controls/title/stats (~260px)
-    // Mobile:  subtract bottom nav padding (56px, via .protected-container) + card header + title (~220px)
-    // Using CSS custom properties so it stays in sync if nav heights change.
+    // ── Chart height ──────────────────────────────────────────────────────────
+    const chartMinHeight = 320;
+    const chartMaxHeight = 600;
     const chartHeight =
         isMobile ?
-            "calc(100svh - var(--nav-height-mobile) - 220px)"
-        :   "calc(100vh - var(--nav-height-desktop) - 32px - 260px)";
-    const chartMinHeight = isMobile ? 220 : 280;
+            `clamp(${chartMinHeight}px, calc(100svh - var(--nav-height-mobile) - 220px), ${chartMaxHeight}px)`
+        :   `clamp(${chartMinHeight}px, calc(100vh - var(--nav-height-desktop) - 32px - 320px), ${chartMaxHeight}px)`;
+
+    // ── X-axis interval — show all labels for small known datasets ────────────
+    // interval={0} = force every tick; we calculate a skip for dense views
+    const xAxisInterval = useMemo(() => {
+        const count = displayData.length;
+        if (count === 0) return 0;
+        if (isHourly)
+            // 24 points: every other on mobile (fits fine), all on desktop
+            return isMobile ? 1 : 0;
+        if (reportType === "monthly" && monthView === "day")
+            // up to 31 points: every 3rd on mobile, every other on desktop
+            return isMobile ? 2 : 1;
+        return "preserveStartEnd";
+    }, [displayData.length, isHourly, reportType, monthView, isMobile]);
+
+    // ── X-axis font size — shrink slightly for dense label sets ──────────────
+    const xAxisFontSize = useMemo(() => {
+        if (
+            (isHourly || (reportType === "monthly" && monthView === "day")) &&
+            isMobile
+        )
+            return 8;
+        return isMobile ? 9 : 11;
+    }, [isHourly, reportType, monthView, isMobile]);
 
     // ── Chart rendering helpers ───────────────────────────────────────────────
     const renderDefs = () => (
@@ -989,6 +998,7 @@ const ReportPage = () => {
         </defs>
     );
 
+    // ── Threshold bands — always rendered regardless of data presence ─────────
     const renderThresholdBands = useCallback(() => {
         if (!thresholds.length) return null;
         return [...thresholds]
@@ -1001,16 +1011,31 @@ const ReportPage = () => {
                             y1={t.converted_min_level}
                             y2={t.converted_max_level}
                             fill={color}
-                            fillOpacity={0.05}
+                            fillOpacity={0.07}
                             stroke="none"
                         />
-                        {i > 0 && (
+                        {i > 1 && (
                             <ReferenceLine
                                 y={t.converted_min_level}
                                 stroke={color}
                                 strokeDasharray="5 4"
                                 strokeWidth={1}
-                                strokeOpacity={0.4}
+                                strokeOpacity={0.5}
+                                label={(props) => {
+                                    const { viewBox } = props;
+                                    return (
+                                        <text
+                                            x={viewBox.x + viewBox.width + 6}
+                                            y={viewBox.y + 1}
+                                            fill={color}
+                                            fontSize={9}
+                                            fontWeight={900}
+                                            textAnchor="start"
+                                            dominantBaseline="middle">
+                                            {t.name}
+                                        </text>
+                                    );
+                                }}
                             />
                         )}
                     </React.Fragment>
@@ -1018,7 +1043,9 @@ const ReportPage = () => {
             });
     }, [thresholds]);
 
+    // ── Data lines — skipped when empty so bands render cleanly ──────────────
     const renderLines = useCallback(() => {
+        if (isEmpty || !displayData.length) return null;
         const currentYear = dayjs().year().toString();
         let annualIdx = 0;
         const keys =
@@ -1134,6 +1161,7 @@ const ReportPage = () => {
         isHourly,
         isAnnual,
         isClustered,
+        isEmpty,
     ]);
 
     const yearOptions = useMemo(
@@ -1486,121 +1514,157 @@ const ReportPage = () => {
                     </Text>
                 </div>
 
-                {/* ── Unified chart area — loading / empty / chart share the same container ── */}
+                {/* ── Unified chart area ─────────────────────────────────────────
+                    Chart is ALWAYS mounted so threshold bands are always visible.
+                    Loading and empty states are overlaid on top via absolute positioning.
+                ──────────────────────────────────────────────────────────────── */}
                 <div
                     style={{
                         width: "100%",
                         height: chartHeight,
                         minHeight: chartMinHeight,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        maxHeight: chartMaxHeight,
                         position: "relative",
                     }}>
-                    {loading || (isFetchingData && !isRealtimeUpdate.current) ?
-                        <Spin size="large" />
-                    : displayData.length === 0 ?
-                        <Empty
-                            description={
-                                <>
-                                    <Text type="secondary">No data found</Text>
-                                    <br />
-                                    <Text
-                                        type="secondary"
-                                        style={{ fontSize: 12 }}>
-                                        Try a different time period
-                                    </Text>
-                                </>
-                            }
-                        />
-                        // position:absolute + inset:0 lets ResponsiveContainer fill the
-                        // sized parent without fighting the flex-center on the outer div
-                    :   <div style={{ position: "absolute", inset: 0 }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart
-                                    data={displayData}
-                                    margin={{
-                                        top: isMobile ? 4 : 16,
-                                        right: isMobile ? 18 : 44,
-                                        left: isMobile ? -30 : 0,
-                                        bottom: 0,
-                                    }}>
-                                    {renderDefs()}
-                                    <CartesianGrid
-                                        strokeDasharray="3 3"
-                                        stroke="rgba(0,0,0,0.06)"
-                                        vertical={false}
-                                    />
-                                    {renderThresholdBands()}
-                                    <XAxis
-                                        dataKey="date"
-                                        angle={-38}
-                                        textAnchor="end"
-                                        height={isMobile ? 48 : 58}
-                                        interval="preserveStartEnd"
-                                        tick={
-                                            isLive ? false : (
-                                                {
-                                                    fontSize: isMobile ? 9 : 11,
-                                                    fill: "#9ca3af",
-                                                }
-                                            )
-                                        }
-                                        axisLine={{
-                                            stroke: "rgba(0,0,0,0.07)",
-                                        }}
-                                        tickLine={
-                                            isLive ? false : (
-                                                { stroke: "rgba(0,0,0,0.07)" }
-                                            )
-                                        }
-                                    />
-                                    <YAxis
-                                        domain={getYAxisDomain}
-                                        ticks={yAxisTicks}
-                                        label={{
-                                            value: "Water Level (m)",
-                                            angle: -90,
-                                            position: "insideLeft",
-                                            offset: isMobile ? -50 : 10,
-                                            style: {
-                                                fontSize: isMobile ? 10 : 12,
-                                                fontWeight: 600,
-                                                fill: THEME.BLUE_AUTHORITY,
-                                                textAnchor: "middle",
-                                            },
-                                        }}
-                                        tick={{
-                                            fontSize: isMobile ? 9 : 11,
-                                            fill: "#9ca3af",
-                                        }}
-                                        axisLine={{
-                                            stroke: "rgba(0,0,0,0.07)",
-                                        }}
-                                        tickLine={{
-                                            stroke: "rgba(0,0,0,0.07)",
+                    {/* Chart — always rendered; data lines return null when empty */}
+                    <div style={{ position: "absolute", inset: 0 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart
+                                data={displayData}
+                                margin={{
+                                    top: isMobile ? 4 : 16,
+                                    right: isMobile ? 18 : 44,
+                                    left: isMobile ? -30 : 0,
+                                    bottom: 0,
+                                }}>
+                                {renderDefs()}
+                                <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    stroke="rgba(0,0,0,0.06)"
+                                    vertical={false}
+                                />
+                                {/* Threshold bands — always rendered */}
+                                {renderThresholdBands()}
+                                <XAxis
+                                    dataKey="date"
+                                    angle={-38}
+                                    textAnchor="end"
+                                    height={isMobile ? 52 : 58}
+                                    interval={
+                                        isLive ? "preserveStartEnd" : (
+                                            xAxisInterval
+                                        )
+                                    }
+                                    tick={
+                                        isLive ? false : (
+                                            {
+                                                fontSize: xAxisFontSize,
+                                                fill: "#9ca3af",
+                                            }
+                                        )
+                                    }
+                                    axisLine={{ stroke: "rgba(0,0,0,0.07)" }}
+                                    tickLine={
+                                        isLive ? false : (
+                                            { stroke: "rgba(0,0,0,0.07)" }
+                                        )
+                                    }
+                                />
+                                <YAxis
+                                    domain={getYAxisDomain}
+                                    ticks={yAxisTicks}
+                                    label={{
+                                        value: "Water Level (m)",
+                                        angle: -90,
+                                        position: "insideLeft",
+                                        offset: isMobile ? -50 : 10,
+                                        style: {
+                                            fontSize: isMobile ? 10 : 12,
+                                            fontWeight: 600,
+                                            fill: THEME.BLUE_AUTHORITY,
+                                            textAnchor: "middle",
+                                        },
+                                    }}
+                                    tick={{
+                                        fontSize: isMobile ? 9 : 11,
+                                        fill: "#9ca3af",
+                                    }}
+                                    axisLine={{ stroke: "rgba(0,0,0,0.07)" }}
+                                    tickLine={{ stroke: "rgba(0,0,0,0.07)" }}
+                                />
+                                <Tooltip
+                                    content={<CustomTooltip />}
+                                    cursor={<CustomCursor />}
+                                />
+                                {showLegend && (
+                                    <Legend
+                                        verticalAlign="top"
+                                        height={38}
+                                        wrapperStyle={{
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                            paddingTop: 4,
                                         }}
                                     />
-                                    <Tooltip
-                                        content={<CustomTooltip />}
-                                        cursor={<CustomCursor />}
-                                    />
-                                    {showLegend && (
-                                        <Legend
-                                            verticalAlign="top"
-                                            height={38}
-                                            wrapperStyle={{
-                                                fontSize: 12,
-                                                fontWeight: 500,
-                                                paddingTop: 4,
-                                            }}
-                                        />
-                                    )}
-                                    {renderLines()}
-                                </ComposedChart>
-                            </ResponsiveContainer>
+                                )}
+                                {/* Lines — null when no data so bands stay clean */}
+                                {renderLines()}
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {/* Loading overlay — blurs chart behind it */}
+                    {isLoading && (
+                        <div
+                            style={{
+                                position: "absolute",
+                                inset: 0,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background: "rgba(255,255,255,0.75)",
+                                backdropFilter: "blur(2px)",
+                                borderRadius: 8,
+                                zIndex: 10,
+                            }}>
+                            <Spin size="large" />
                         </div>
-                    }
+                    )}
+
+                    {/* Empty overlay — floats over visible threshold bands */}
+                    {isEmpty && (
+                        <div
+                            style={{
+                                position: "absolute",
+                                inset: 0,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                pointerEvents: "none",
+                            }}>
+                            <div
+                                style={{
+                                    background: "rgba(255,255,255,0.82)",
+                                    backdropFilter: "blur(4px)",
+                                    borderRadius: 12,
+                                    padding: "16px 24px",
+                                    textAlign: "center",
+                                    border: "1px solid rgba(0,0,0,0.06)",
+                                }}>
+                                <Text
+                                    type="secondary"
+                                    style={{
+                                        display: "block",
+                                        fontWeight: 500,
+                                    }}>
+                                    No readings found
+                                </Text>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                    Try a different time period
+                                </Text>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Hourly legend */}
