@@ -258,11 +258,12 @@ const StatsBar = React.memo(({ dataStats }) => (
             flexWrap: "wrap",
             gap: 12,
             justifyContent: "center",
-            marginTop: 12,
-            padding: "10px 16px",
+            marginTop: 8,
+            padding: "8px 16px",
             background: "rgba(0,0,0,0.025)",
             borderRadius: 10,
             border: "1px solid rgba(0,0,0,0.06)",
+            flexShrink: 0,
         }}>
         {[
             { label: "Latest", value: dataStats.recent, color: ACCENT_COLOR },
@@ -401,13 +402,11 @@ const ReportPage = () => {
     const realtimeTimer = useRef(null);
     const fetchAbortRef = useRef(null);
 
-    // ── Badge rotation ────────────────────────────────────────────────────────
     useEffect(() => {
         const t = setInterval(() => setBadgeIndex((p) => (p + 1) % 3), 3000);
         return () => clearInterval(t);
     }, []);
 
-    // ── Forecast scroll listener ──────────────────────────────────────────────
     useEffect(() => {
         if (!showForecast) {
             setForecastScrolled(false);
@@ -427,7 +426,6 @@ const ReportPage = () => {
         };
     }, [showForecast]);
 
-    // ── Clustering ────────────────────────────────────────────────────────────
     const displayData = useMemo(() => {
         if (data.length <= CLUSTER_THRESHOLD) return data;
         const buckets = Math.min(
@@ -439,7 +437,6 @@ const ReportPage = () => {
 
     const isClustered = displayData.length < data.length;
 
-    // ── Fetch helpers ─────────────────────────────────────────────────────────
     const fetchCurrentLevel = useCallback(async () => {
         try {
             const { data: row, error } = await supabase
@@ -476,7 +473,6 @@ const ReportPage = () => {
         }
     }, []);
 
-    // ── Titles ────────────────────────────────────────────────────────────────
     const chartTitle = useMemo(() => {
         switch (reportType) {
             case "today":
@@ -516,13 +512,11 @@ const ReportPage = () => {
         }
     }, [reportType, dailyView, liveWindow, selectedMonth, monthView]);
 
-    // ── Main fetch ────────────────────────────────────────────────────────────
     const fetchSensorData = useCallback(
         async (isRefresh = false) => {
             const isRealtime = isRealtimeUpdate.current;
             if (isRefresh && !isRealtime) setRefreshing(true);
             else if (!isRefresh) setLoading(true);
-
             if (!isRealtime) {
                 setData([]);
                 setLineKeys([]);
@@ -555,14 +549,13 @@ const ReportPage = () => {
                             if (isRealtime) {
                                 setData((prev) => {
                                     const merged = [...prev];
-                                    for (const pt of incoming) {
+                                    for (const pt of incoming)
                                         if (
                                             !merged.find(
                                                 (p) => p.date === pt.date,
                                             )
                                         )
                                             merged.push(pt);
-                                    }
                                     return merged.slice(-liveWindow);
                                 });
                                 setLineKeys(["Water Level"]);
@@ -727,7 +720,6 @@ const ReportPage = () => {
         ],
     );
 
-    // ── Bootstrap ─────────────────────────────────────────────────────────────
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         fetchThresholds();
@@ -737,7 +729,6 @@ const ReportPage = () => {
         if (thresholds.length > 0) fetchSensorData();
     }, [fetchSensorData, thresholds]);
 
-    // ── Realtime subscription ─────────────────────────────────────────────────
     useEffect(() => {
         const channel = supabase
             .channel("sensor_readings_changes")
@@ -762,7 +753,6 @@ const ReportPage = () => {
         };
     }, [fetchSensorData, reportType, fetchCurrentLevel]);
 
-    // ── Handlers ──────────────────────────────────────────────────────────────
     const handleReportTypeChange = useCallback((e) => {
         setReportType(e.target.value);
         if (e.target.value !== "today") setDailyView("live");
@@ -827,7 +817,6 @@ const ReportPage = () => {
         }, 600);
     }, []);
 
-    // ── Y-axis domain — full range even with no data so bands show ────────────
     const getYAxisDomain = useMemo(() => {
         if (!displayData.length) return [0, maxRange];
         const vals = displayData.flatMap((d) =>
@@ -856,7 +845,6 @@ const ReportPage = () => {
         return ticks.sort((a, b) => a - b);
     }, [thresholds, maxRange]);
 
-    // ── Stats ─────────────────────────────────────────────────────────────────
     const dataStats = useMemo(() => {
         if (!data.length) return null;
         const vals = data.flatMap((d) =>
@@ -903,7 +891,6 @@ const ReportPage = () => {
         return { max, min, avg, trend, prediction, recent };
     }, [data, maxRange, reportType]);
 
-    // ── Chart state flags ─────────────────────────────────────────────────────
     const isLive = reportType === "today" && dailyView === "live";
     const isHourly = reportType === "today" && dailyView === "hourly";
     const isAnnual = reportType === "annually";
@@ -912,29 +899,15 @@ const ReportPage = () => {
     const isLoading = loading || (isFetchingData && !isRealtimeUpdate.current);
     const isEmpty = !isLoading && displayData.length === 0;
 
-    // ── Chart height ──────────────────────────────────────────────────────────
-    const chartMinHeight = 320;
-    const chartMaxHeight = 600;
-    const chartHeight =
-        isMobile ?
-            `clamp(${chartMinHeight}px, calc(100svh - var(--nav-height-mobile) - 220px), ${chartMaxHeight}px)`
-        :   `clamp(${chartMinHeight}px, calc(100vh - var(--nav-height-desktop) - 32px - 320px), ${chartMaxHeight}px)`;
-
-    // ── X-axis interval — show all labels for small known datasets ────────────
-    // interval={0} = force every tick; we calculate a skip for dense views
     const xAxisInterval = useMemo(() => {
         const count = displayData.length;
         if (count === 0) return 0;
-        if (isHourly)
-            // 24 points: every other on mobile (fits fine), all on desktop
-            return isMobile ? 1 : 0;
+        if (isHourly) return isMobile ? 1 : 0;
         if (reportType === "monthly" && monthView === "day")
-            // up to 31 points: every 3rd on mobile, every other on desktop
             return isMobile ? 2 : 1;
         return "preserveStartEnd";
     }, [displayData.length, isHourly, reportType, monthView, isMobile]);
 
-    // ── X-axis font size — shrink slightly for dense label sets ──────────────
     const xAxisFontSize = useMemo(() => {
         if (
             (isHourly || (reportType === "monthly" && monthView === "day")) &&
@@ -944,7 +917,6 @@ const ReportPage = () => {
         return isMobile ? 9 : 11;
     }, [isHourly, reportType, monthView, isMobile]);
 
-    // ── Chart rendering helpers ───────────────────────────────────────────────
     const renderDefs = () => (
         <defs>
             <linearGradient id="grad-main" x1="0" y1="0" x2="0" y2="1">
@@ -998,7 +970,6 @@ const ReportPage = () => {
         </defs>
     );
 
-    // ── Threshold bands — always rendered regardless of data presence ─────────
     const renderThresholdBands = useCallback(() => {
         if (!thresholds.length) return null;
         return [...thresholds]
@@ -1043,7 +1014,6 @@ const ReportPage = () => {
             });
     }, [thresholds]);
 
-    // ── Data lines — skipped when empty so bands render cleanly ──────────────
     const renderLines = useCallback(() => {
         if (isEmpty || !displayData.length) return null;
         const currentYear = dayjs().year().toString();
@@ -1073,9 +1043,7 @@ const ReportPage = () => {
                     );
                 annualIdx++;
             }
-
             const sw = isLive ? 1.5 : 2.5;
-
             const dotRenderer = (props) => {
                 if (props.cy == null || isNaN(props.cy) || props.value == null)
                     return null;
@@ -1102,7 +1070,6 @@ const ReportPage = () => {
                     />
                 );
             };
-
             return (
                 <React.Fragment key={key}>
                     <Area
@@ -1177,7 +1144,6 @@ const ReportPage = () => {
         [],
     );
 
-    // ── Initial spinner ───────────────────────────────────────────────────────
     if (!initialLoadDone) {
         return (
             <div
@@ -1195,7 +1161,6 @@ const ReportPage = () => {
         );
     }
 
-    // ── Render ────────────────────────────────────────────────────────────────
     return (
         <Space
             direction="vertical"
@@ -1266,10 +1231,25 @@ const ReportPage = () => {
                 </Flex>
             </Card>
 
-            {/* ── Chart Card ───────────────────────────────────────────────── */}
+            {/* Chart Card */}
             <Card
-                style={{ ...cardStyleAdaptive }}
-                styles={{ body: { padding: isMobile ? 8 : 18 } }}
+                style={{
+                    ...cardStyleAdaptive,
+                    height: "66.25vh",
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                }}
+                styles={{
+                    body: {
+                        padding: isMobile ? 8 : 18,
+                        flex: 1,
+                        minHeight: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        overflow: "hidden",
+                    },
+                }}
                 title={
                     isMobile && (
                         <Row justify="space-between" align="middle">
@@ -1337,13 +1317,14 @@ const ReportPage = () => {
                         style={{
                             display: "flex",
                             justifyContent: "center",
-                            marginBottom: 14,
+                            marginBottom: 10,
+                            flexShrink: 0,
                         }}>
                         <Radio.Group
                             value={reportType}
                             onChange={handleReportTypeChange}
                             buttonStyle="solid"
-                            size="large"
+                            size="middle"
                             style={{
                                 display: "flex",
                                 gap: 6,
@@ -1382,7 +1363,8 @@ const ReportPage = () => {
                         style={{
                             display: "flex",
                             justifyContent: "center",
-                            marginBottom: 14,
+                            marginBottom: 10,
+                            flexShrink: 0,
                         }}>
                         <Space size={8}>
                             <Text strong>View:</Text>
@@ -1402,7 +1384,6 @@ const ReportPage = () => {
                                         );
                                     }
                                 }}
-                                size="large"
                                 style={{ width: 180 }}>
                                 {LIVE_WINDOWS.map(({ label, minutes }) => (
                                     <Option
@@ -1424,8 +1405,9 @@ const ReportPage = () => {
                         style={{
                             width: "100%",
                             justifyContent: "center",
-                            marginBottom: 14,
+                            marginBottom: 10,
                             flexWrap: "wrap",
+                            flexShrink: 0,
                         }}>
                         <Space size="small">
                             <Text strong>Month:</Text>
@@ -1434,7 +1416,6 @@ const ReportPage = () => {
                                 value={selectedMonth}
                                 onChange={handleSelectedMonthChange}
                                 allowClear={false}
-                                size="large"
                             />
                         </Space>
                         <Space size="small">
@@ -1442,7 +1423,6 @@ const ReportPage = () => {
                             <Select
                                 value={monthView}
                                 onChange={handleMonthViewChange}
-                                size="large"
                                 style={{ width: 120 }}>
                                 <Option value="day">Daily</Option>
                                 <Option value="week">Weekly</Option>
@@ -1450,8 +1430,7 @@ const ReportPage = () => {
                         </Space>
                         <Button
                             onClick={resetMonthly}
-                            icon={<ReloadOutlined />}
-                            size="large">
+                            icon={<ReloadOutlined />}>
                             Reset
                         </Button>
                     </Space>
@@ -1464,8 +1443,9 @@ const ReportPage = () => {
                         style={{
                             width: "100%",
                             justifyContent: "center",
-                            marginBottom: 14,
+                            marginBottom: 10,
                             flexWrap: "wrap",
+                            flexShrink: 0,
                         }}>
                         <Space size="small">
                             <Text strong>Compare:</Text>
@@ -1474,25 +1454,26 @@ const ReportPage = () => {
                                 value={selectedYears}
                                 onChange={handleSelectedYearsChange}
                                 placeholder="Select years"
-                                size="large"
                                 style={{ minWidth: 220 }}
                                 maxTagCount={3}>
                                 {yearOptions}
                             </Select>
                         </Space>
-                        <Button
-                            onClick={resetAnnual}
-                            icon={<ReloadOutlined />}
-                            size="large">
+                        <Button onClick={resetAnnual} icon={<ReloadOutlined />}>
                             Reset
                         </Button>
                     </Space>
                 )}
 
                 {/* Chart title */}
-                <div style={{ textAlign: "center", marginBottom: 8 }}>
+                <div
+                    style={{
+                        textAlign: "center",
+                        marginBottom: 4,
+                        flexShrink: 0,
+                    }}>
                     <Title
-                        level={isMobile ? 5 : 3}
+                        level={isMobile ? 5 : 4}
                         style={{
                             margin: 0,
                             background: `linear-gradient(135deg, ${THEME.BLUE_AUTHORITY} 0%, ${THEME.BLUE_PRIMARY} 100%)`,
@@ -1514,25 +1495,14 @@ const ReportPage = () => {
                     </Text>
                 </div>
 
-                {/* ── Unified chart area ─────────────────────────────────────────
-                    Chart is ALWAYS mounted so threshold bands are always visible.
-                    Loading and empty states are overlaid on top via absolute positioning.
-                ──────────────────────────────────────────────────────────────── */}
-                <div
-                    style={{
-                        width: "100%",
-                        height: chartHeight,
-                        minHeight: chartMinHeight,
-                        maxHeight: chartMaxHeight,
-                        position: "relative",
-                    }}>
-                    {/* Chart — always rendered; data lines return null when empty */}
+                {/* ── Chart area — flex:1 fills all remaining space ──────────── */}
+                <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
                     <div style={{ position: "absolute", inset: 0 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <ComposedChart
                                 data={displayData}
                                 margin={{
-                                    top: isMobile ? 4 : 16,
+                                    top: isMobile ? 4 : 8,
                                     right: isMobile ? 18 : 44,
                                     left: isMobile ? -30 : 0,
                                     bottom: 0,
@@ -1543,7 +1513,6 @@ const ReportPage = () => {
                                     stroke="rgba(0,0,0,0.06)"
                                     vertical={false}
                                 />
-                                {/* Threshold bands — always rendered */}
                                 {renderThresholdBands()}
                                 <XAxis
                                     dataKey="date"
@@ -1599,7 +1568,7 @@ const ReportPage = () => {
                                 {showLegend && (
                                     <Legend
                                         verticalAlign="top"
-                                        height={38}
+                                        height={32}
                                         wrapperStyle={{
                                             fontSize: 12,
                                             fontWeight: 500,
@@ -1607,13 +1576,11 @@ const ReportPage = () => {
                                         }}
                                     />
                                 )}
-                                {/* Lines — null when no data so bands stay clean */}
                                 {renderLines()}
                             </ComposedChart>
                         </ResponsiveContainer>
                     </div>
 
-                    {/* Loading overlay — blurs chart behind it */}
                     {isLoading && (
                         <div
                             style={{
@@ -1631,7 +1598,6 @@ const ReportPage = () => {
                         </div>
                     )}
 
-                    {/* Empty overlay — floats over visible threshold bands */}
                     {isEmpty && (
                         <div
                             style={{
@@ -1674,7 +1640,8 @@ const ReportPage = () => {
                             display: "flex",
                             justifyContent: "center",
                             gap: 20,
-                            marginTop: 8,
+                            marginTop: 6,
+                            flexShrink: 0,
                         }}>
                         {Object.entries(HOURLY_COLORS).map(([k, c]) => (
                             <Space key={k} size={6}>
@@ -1703,48 +1670,48 @@ const ReportPage = () => {
                 {thresholds.length > 0 && dataStats && (
                     <StatsBar dataStats={dataStats} />
                 )}
-
-                {/* Forecast panel */}
-                {showForecast && data.length > 0 && dataStats && (
-                    <div ref={forecastRef}>
-                        <ForecastPanel
-                            data={data}
-                            dataStats={dataStats}
-                            thresholds={thresholds}
-                            reportType={reportType}
-                            isMobile={isMobile}
-                        />
-                    </div>
-                )}
-
-                {/* Floating close forecast */}
-                {showForecast && forecastScrolled && (
-                    <div
-                        style={{
-                            position: "fixed",
-                            ...(isMobile ? { bottom: 28 } : { top: 80 }),
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            zIndex: 1000,
-                            filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.18))",
-                        }}>
-                        <Button
-                            type="primary"
-                            danger
-                            icon={<CloseOutlined />}
-                            onClick={handleCloseForecast}
-                            size="large"
-                            style={{
-                                borderRadius: 24,
-                                paddingInline: 24,
-                                height: 44,
-                                fontWeight: 600,
-                            }}>
-                            Close Forecast
-                        </Button>
-                    </div>
-                )}
             </Card>
+
+            {/* ── Forecast Panel — outside card so it's never clipped ──────── */}
+            {showForecast && data.length > 0 && dataStats && (
+                <div ref={forecastRef}>
+                    <ForecastPanel
+                        data={data}
+                        dataStats={dataStats}
+                        thresholds={thresholds}
+                        reportType={reportType}
+                        isMobile={isMobile}
+                    />
+                </div>
+            )}
+
+            {/* Floating close forecast */}
+            {showForecast && forecastScrolled && (
+                <div
+                    style={{
+                        position: "fixed",
+                        ...(isMobile ? { bottom: 28 } : { top: 80 }),
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        zIndex: 1000,
+                        filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.18))",
+                    }}>
+                    <Button
+                        type="primary"
+                        danger
+                        icon={<CloseOutlined />}
+                        onClick={handleCloseForecast}
+                        size="large"
+                        style={{
+                            borderRadius: 24,
+                            paddingInline: 24,
+                            height: 44,
+                            fontWeight: 600,
+                        }}>
+                        Close Forecast
+                    </Button>
+                </div>
+            )}
 
             {/* ── Mobile Filter Drawer ──────────────────────────────────────── */}
             <Drawer
@@ -1974,7 +1941,7 @@ const ReportPage = () => {
                 </div>
             </Drawer>
 
-            {/* ── PDF Modal ─────────────────────────────────────────────────── */}
+            {/* PDF Modal */}
             <ReportGeneratorModal
                 open={pdfModalOpen}
                 onClose={handleClosePdfModal}

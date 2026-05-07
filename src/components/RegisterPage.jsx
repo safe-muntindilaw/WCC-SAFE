@@ -251,6 +251,11 @@ const RegisterPage = ({ onSuccess }) => {
                     ...cardStyleAdaptive,
                     maxWidth: 450,
                     width: "100%",
+                    ...(isMobile && { minHeight: "calc(100dvh - 24px)" }),
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    borderWidth: 1
                 }}>
                 <div
                     style={{
