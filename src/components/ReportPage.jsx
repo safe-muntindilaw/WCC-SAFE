@@ -902,9 +902,9 @@ const ReportPage = () => {
     const xAxisInterval = useMemo(() => {
         const count = displayData.length;
         if (count === 0) return 0;
-        if (isHourly) return isMobile ? 1 : 0;
+        if (isHourly) return 0;
         if (reportType === "monthly" && monthView === "day")
-            return isMobile ? 2 : 1;
+            return 0;
         return "preserveStartEnd";
     }, [displayData.length, isHourly, reportType, monthView, isMobile]);
 
@@ -1498,7 +1498,10 @@ const ReportPage = () => {
                 {/* ── Chart area — flex:1 fills all remaining space ──────────── */}
                 <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
                     <div style={{ position: "absolute", inset: 0 }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer
+                            width="100%"
+                            height="100%"
+                            minHeight="200px">
                             <ComposedChart
                                 data={displayData}
                                 margin={{
@@ -1516,7 +1519,7 @@ const ReportPage = () => {
                                 {renderThresholdBands()}
                                 <XAxis
                                     dataKey="date"
-                                    angle={-38}
+                                    angle={-55}
                                     textAnchor="end"
                                     height={isMobile ? 52 : 58}
                                     interval={
