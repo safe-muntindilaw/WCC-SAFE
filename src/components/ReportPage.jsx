@@ -1235,7 +1235,7 @@ const ReportPage = () => {
             <Card
                 style={{
                     ...cardStyleAdaptive,
-                    height: "66.25vh",
+                    height: "66.25dvh",
                     display: "flex",
                     flexDirection: "column",
                     overflow: "hidden",
@@ -1921,7 +1921,7 @@ const ReportPage = () => {
                     style={{
                         position: "fixed",
                         left: "50%",
-                        top: "75vh",
+                        top: "75dvh",
                         transform: "translate(-50%, -50%)",
                         zIndex: 10000,
                     }}>
